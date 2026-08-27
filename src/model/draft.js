@@ -33,6 +33,7 @@ export function normaliseParty(p = {}) {
     taxNumber: text(p.taxNumber),
     website: text(p.website),
     logoData: p.logoData || null,
+    logoJpeg: p.logoJpeg || null,   // the flattened copy the PDF embeds; see settings/defaults.js
     // Kept so a resolver can report that it could not find the client at all, which is different
     // from finding one with an empty name.
     found: p.found !== false,

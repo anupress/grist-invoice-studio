@@ -30,6 +30,20 @@ const WIDTH = 600;
 
 const F = "font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
+/**
+ * The logo, if there is one this body can safely carry.
+ *
+ * The shape is re-checked here rather than trusted, because this string is pasted into mail clients
+ * and webhook payloads — only a well-formed image data URI may reach an src attribute. Some clients
+ * (Gmail among them) strip data URI images entirely; the name printed beside it means the header
+ * still says who it is from when the image is gone.
+ */
+function logoTag(sender) {
+  const src = String(sender.logoData || '');
+  if (!/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(src)) return '';
+  return `<img src="${src}" alt="" height="40" style="display:block;max-height:40px;margin-bottom:6px;border:0" />`;
+}
+
 const label = (text) => `<td style="${F};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding:0 0 4px">${esc(text)}</td>`;
 
 /** One party as a stacked block. */
@@ -89,7 +103,7 @@ export function documentToEmailHtml(draft, settings = {}) {
   // ---- masthead -------------------------------------------------------------------------------
   const head = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:2px solid ${accent};padding-bottom:14px">
 <tr>
-<td align="left" valign="top" style="${F};font-size:19px;font-weight:700;color:${INK}">${esc(sender.name || 'Your business')}</td>
+<td align="left" valign="top" style="${F};font-size:19px;font-weight:700;color:${INK}">${logoTag(sender)}${esc(sender.name || 'Your business')}</td>
 <td align="right" valign="top">
 <div style="${F};font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent}">${esc(kind.word)}</div>
 <div style="${F};font-size:16px;color:${INK};padding-top:2px">${esc(draft.number || '—')}</div>

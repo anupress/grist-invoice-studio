@@ -78,7 +78,9 @@
   margin: -40px -44px 0; padding: 26px 44px 22px;
   display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
 }
-.inv-band__logo { max-height: 44px; max-width: 200px; object-fit: contain; }
+/* On the coloured band a transparent PNG may vanish and a flattened JPEG is a white box; a
+ * deliberate white plate behind either reads as a design choice instead of an accident. */
+.inv-band__logo { max-height: 44px; max-width: 200px; object-fit: contain; background: #fff; padding: 4px 8px; border-radius: 4px; }
 .inv-band__name { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
 .inv-band__meta {
   font-family: var(--font); font-size: 11px; font-weight: 700;
@@ -101,7 +103,7 @@
   font-family: var(--font-mono); font-size: 13px; color: var(--doc-muted);
   margin-top: 3px; display: flex; align-items: center; gap: 6px;
 }
-.inv-strip__logo { max-height: 48px; max-width: 190px; object-fit: contain; }
+.inv-strip__logo { max-height: 48px; max-width: 190px; object-fit: contain; background: #fff; padding: 4px 8px; border-radius: 4px; }
 .inv-strip__initials {
   width: 48px; height: 48px; flex: none; border-radius: 4px;
   background: var(--doc-accent); color: #fff;

@@ -215,5 +215,57 @@ ok('and normal sits between them', sizeOf(bytes) > sizeOf(compact) && sizeOf(byt
 // A roll is set smaller again, because it is 72mm wide.
 ok('a till roll is smaller still', sizeOf(invoiceToPdf(draft, { paperSize: 'receipt80' })) < sizeOf(bytes));
 
+// ---- the logo ----------------------------------------------------------------------------------------
+// A JPEG built by hand: SOI, an SOF0 segment declaring 40×120 in 3 components, then padding. The
+// writer never decodes the picture — it reads the SOF for the dictionary and splices the bytes in
+// verbatim — so a structurally-valid header is all a test needs.
+function fakeJpeg({ width = 120, height = 40, components = 3 } = {}) {
+  const sof = [0xFF, 0xC0, 0x00, 0x08 + components * 3, 8, height >> 8, height & 255, width >> 8, width & 255, components];
+  for (let c = 0; c < components; c++) sof.push(c + 1, 0x11, 0);
+  return Uint8Array.from([0xFF, 0xD8, ...sof, 0xFF, 0xD9]);
+}
+
+{
+  const w = new PdfWriter({ size: 'a4' });
+  const im = w.addImage(fakeJpeg());
+  eq('the SOF is read for the dictionary', { w: im.width, h: im.height, gray: im.gray }, { w: 120, h: 40, gray: false });
+  w.drawImage(im, 40, 40, 105, 35);
+  const out = latin1(w.bytes());
+  ok('the page declares the XObject', out.includes('/XObject << /Im1'));
+  ok('the image object carries its dimensions', out.includes('/Width 120 /Height 40'));
+  ok('as untouched JPEG bytes', out.includes('/Filter /DCTDecode'));
+  ok('in colour', out.includes('/ColorSpace /DeviceRGB'));
+  ok('placed by a cm matrix', /q 105 0 0 35 40 [\d.]+ cm \/Im1 Do Q/.test(out));
+  ok('and the file still ends properly', out.startsWith('%PDF') && out.trimEnd().endsWith('%%EOF'));
+  // The xref grew by one object and must still be exact — a wrong /Size fails the whole file.
+  // Catalogue + page tree + one page + its content + three fonts + the image + info = 9 objects.
+  ok('the xref counts the image', /\/Size 10 /.test(out) && out.includes('xref\n0 10\n'));
+}
+
+eq('greyscale is declared as greyscale', new PdfWriter({}).addImage(fakeJpeg({ components: 1 })).gray, true);
+eq('CMYK is refused rather than embedded inverted', new PdfWriter({}).addImage(fakeJpeg({ components: 4 })), null);
+eq('a PNG is refused', new PdfWriter({}).addImage(Uint8Array.from([0x89, 0x50, 0x4E, 0x47])), null);
+eq('and so is nothing', new PdfWriter({}).addImage(null), null);
+
+// End to end: a draft whose sender has a logo produces a PDF with the image in it, and the same
+// draft without one produces the same PDF it always did.
+{
+  const b64 = Buffer.from(fakeJpeg()).toString('base64');
+  const withLogo = normaliseDraft({
+    kind: 'invoice', number: 'INV-1', lines: [{ description: 'Work', quantity: 1, unitPrice: 100, amount: 100 }],
+    sender: { name: 'Thornbury Works', logoJpeg: `data:image/jpeg;base64,${b64}` },
+  });
+  const out = latin1(invoiceToPdf(withLogo, {}));
+  ok('the logo is embedded', out.includes('/DCTDecode'));
+  ok('and drawn on the page', /cm \/Im1 Do Q/.test(out));
+  ok('with the name beside it, not under it', out.includes('Thornbury Works'));
+
+  const plain = normaliseDraft({ ...withLogo, sender: { name: 'Thornbury Works' } });
+  ok('no logo, no image machinery', !latin1(invoiceToPdf(plain, {})).includes('/XObject'));
+  // A PNG in logoData with no JPEG copy stays off the PDF rather than corrupting it.
+  const png = normaliseDraft({ ...withLogo, sender: { name: 'T', logoData: 'data:image/png;base64,AAAA', logoJpeg: null } });
+  ok('a PNG-only logo is skipped, not spliced', !latin1(invoiceToPdf(png, {})).includes('/XObject'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

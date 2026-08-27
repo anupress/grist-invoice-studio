@@ -76,7 +76,34 @@ export class PdfWriter {
     this.title = title;
     this.author = author;
     this.pages = [];
+    this.images = [];
     this.addPage();
+  }
+
+  /**
+   * Register a JPEG so pages can draw it.
+   *
+   * JPEG only, and that is a fact about PDF rather than a shortcut here: DCTDecode is the one
+   * image filter where the file's own bytes go into the stream untouched. Anything else means
+   * shipping a compressor. The dictionary must state the pixel dimensions and colour space, so
+   * both are read from the SOF marker — a JPEG that cannot be parsed is refused rather than
+   * embedded blind, because a wrong /Width corrupts the whole object stream.
+   *
+   * Returns { key, width, height }, or null for anything that is not an embeddable JPEG.
+   */
+  addImage(jpegBytes) {
+    const info = jpegInfo(jpegBytes);
+    if (!info) return null;
+    const image = { key: 'Im' + (this.images.length + 1), bytes: jpegBytes, ...info };
+    this.images.push(image);
+    return image;
+  }
+
+  /** Draw a registered image, top-left anchored like everything else here. */
+  drawImage(image, x, top, w, h) {
+    if (!image) return this;
+    this.ops.push(`q ${fmt(w)} 0 0 ${fmt(h)} ${fmt(x)} ${fmt(this.y(top + h))} cm /${image.key} Do Q`);
+    return this;
   }
 
   addPage() {
@@ -168,7 +195,8 @@ export class PdfWriter {
 
     const pageCount = this.pages.length;
     const fontFirst = 3 + pageCount * 2;         // pages and their contents come first
-    const infoNum = fontFirst + FONTS.length;
+    const imageFirst = fontFirst + FONTS.length;
+    const infoNum = imageFirst + this.images.length;
     const total = infoNum;
 
     // 1: catalogue
@@ -184,12 +212,15 @@ export class PdfWriter {
 
     // 3..: each page, then its content stream
     const fontRes = FONTS.map((f, i) => `/${f.key} ${fontFirst + i} 0 R`).join(' ');
+    const imageRes = this.images.length
+      ? ` /XObject << ${this.images.map((im, i) => `/${im.key} ${imageFirst + i} 0 R`).join(' ')} >>`
+      : '';
     this.pages.forEach((ops, i) => {
       const pageNum = 3 + i * 2;
       const contentNum = pageNum + 1;
       startObject(pageNum);
       put(`<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 ${fmt(this.width)} ${fmt(this.height)} ] `);
-      put(`/Resources << /Font << ${fontRes} >> >> /Contents ${contentNum} 0 R >>\n`);
+      put(`/Resources << /Font << ${fontRes} >>${imageRes} >> /Contents ${contentNum} 0 R >>\n`);
       endObject();
 
       const stream = this.flush(ops);
@@ -205,6 +236,17 @@ export class PdfWriter {
     FONTS.forEach((f, i) => {
       startObject(fontFirst + i);
       put(`<< /Type /Font /Subtype /Type1 /BaseFont /${f.base} /Encoding /WinAnsiEncoding >>\n`);
+      endObject();
+    });
+
+    // The images, each a stream of the JPEG's own bytes. /Length is the byte count of exactly what
+    // sits between stream and endstream — the same exactness rule the content streams live by.
+    this.images.forEach((im, i) => {
+      startObject(imageFirst + i);
+      put(`<< /Type /XObject /Subtype /Image /Width ${im.width} /Height ${im.height} `);
+      put(`/ColorSpace /${im.gray ? 'DeviceGray' : 'DeviceRGB'} /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.bytes.length} >>\nstream\n`);
+      putBytes(im.bytes);
+      put('\nendstream\n');
       endObject();
     });
 
@@ -228,6 +270,32 @@ export class PdfWriter {
 }
 
 const str = (s) => String(s || '').replace(/[\\()]/g, '\\$&');
+
+/**
+ * Width, height and colour space, read from a JPEG's start-of-frame marker.
+ *
+ * A JPEG is SOI then a chain of length-prefixed segments; the SOF segment (C0–CF, minus the C4/C8/CC
+ * markers that mean other things) carries height, width and the component count — 1 is greyscale,
+ * 3 is YCbCr, which PDF treats as DeviceRGB under DCTDecode. Four components is CMYK, which needs a
+ * /Decode array to not come out inverted, so it is refused rather than embedded wrongly.
+ */
+function jpegInfo(b) {
+  if (!b || b.length < 4 || b[0] !== 0xFF || b[1] !== 0xD8) return null;
+  let i = 2;
+  while (i + 9 < b.length) {
+    if (b[i] !== 0xFF) return null;
+    const marker = b[i + 1];
+    if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+      const height = (b[i + 5] << 8) | b[i + 6];
+      const width = (b[i + 7] << 8) | b[i + 8];
+      const components = b[i + 9];
+      if (!width || !height || (components !== 1 && components !== 3)) return null;
+      return { width, height, gray: components === 1 };
+    }
+    i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+  }
+  return null;
+}
 
 /** PDF's own date format: D:YYYYMMDDHHmmSS. */
 function pdfDate(d) {

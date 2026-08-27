@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.3.0
+
+### Branding
+
+- A logo can now be uploaded in Settings, under Your business. It is scaled down on the way in and
+  stored inside the document as a data URI, so it needs no hosting and travels with the document.
+  It appears at the top of every layout, in the email body, and in the downloaded PDF.
+- The PDF writer learned to embed JPEG images. Uploaded logos keep a flattened JPEG copy for this;
+  a PNG stays PNG on screen so transparency survives. Greyscale JPEGs are declared as greyscale,
+  CMYK is refused rather than embedded inverted.
+- Only well-formed PNG or JPEG data URIs are ever stored or rendered. An external URL, an SVG, or
+  anything else found in the stored settings is dropped, because the logo is replayed into every
+  document, email and PDF these settings produce.
+- On the banded and letterhead layouts the logo sits on a white plate, so it reads the same
+  whether it was transparent or flattened.
+
+### Settings, not per-invoice
+
+- The tax regime chooser in the top bar is now demo-only. On a connected document it silently
+  overwrote the saved tax settings with sample ones; tax is set up once, in Settings.
+- A connected document with no business details shows where they come from: the From block, the
+  logo and the tax setup are all Settings, entered once, not typed on each invoice.
+- Enable editing now goes through the same access check as everything else, and reloads the
+  saved settings once access is granted.
+
 ## 1.2.1
 
 ### Access

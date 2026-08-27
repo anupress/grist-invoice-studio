@@ -119,6 +119,17 @@ export function sanitise(settings) {
   if (!['a4', 'letter', 'legal', 'a5', 'receipt80', 'receipt58'].includes(doc.paperSize)) doc.paperSize = 'a4';
   if (!['compact', 'normal', 'roomy'].includes(doc.density)) doc.density = 'normal';
 
+  // The logo ends up in an <img src>, in an email body, and spliced into a PDF, so nothing but a
+  // well-formed image data URI is kept — a javascript: URL or an external address stored here would
+  // be replayed into every document rendered from these settings. The size cap keeps the settings
+  // JSON, which is written to a Grist cell on every save, from quietly carrying a photograph.
+  const dataImage = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
+  for (const key of ['logoData', 'logoJpeg']) {
+    const v = s.business[key];
+    s.business[key] = typeof v === 'string' && v.length <= 400000 && dataImage.test(v) ? v : null;
+  }
+  if (s.business.logoJpeg && !s.business.logoJpeg.startsWith('data:image/jpeg')) s.business.logoJpeg = null;
+
   s.delivery.endpoint = String(s.delivery.endpoint || '').trim();
   return s;
 }

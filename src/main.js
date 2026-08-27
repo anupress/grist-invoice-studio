@@ -376,10 +376,15 @@ async function runUpgrade() {
 }
 
 async function enableEditing() {
-  const ok = await bridge.escalateToFull();
-  if (!ok) { toast('Grist did not grant full access.', 'err'); return; }
+  // Through the probe, not bridge.escalateToFull() directly: ready() resolves whether or not the
+  // user granted anything, and canWrite() reads app.access — asking without updating that leaves
+  // the button "working" while every save still fails.
+  const res = await ensureFullAccess();
+  app.access = res.ok ? 'full' : 'denied';
+  if (!res.ok) { toast('Grist did not grant full access.', 'err'); render(); return; }
   await app.provider.refreshTables();
   rescan();
+  app.stored = await loadSettings();
   toast('Editing enabled.', 'ok');
   render();
 }
@@ -469,7 +474,10 @@ function renderBar() {
     invoices.length ? picker : null,
     chooser('Document kind', DOCUMENT_KINDS, app.kind, (v) => { app.kind = v; if (app.draft) app.draft.kind = v; }),
     chooser('Layout', LAYOUTS, app.layout || app.stored.document.layout, (v) => { app.layout = v; if (app.draft) app.draft.layout = v; }),
-    chooser('Tax regime', REGIONS, app.region, setRegion),
+    // Demo only. It exists so a visitor can flip between regimes and watch the totals change; on a
+    // connected document it would OVERWRITE the business's saved tax settings with sample ones.
+    // A real business sets tax up once, in Settings, not on every document.
+    app.live ? null : chooser('Tax regime', REGIONS, app.region, setRegion),
     el('div', { class: 'studio-bar__spacer' }),
     app.live && !canWrite() ? btn('Enable editing', enableEditing, 'primary') : null,
     app.mode === 'compose'
@@ -639,6 +647,18 @@ function renderMapping() {
     bits.push(el('p', { class: 'studio-notice__tax' }, [
       el('span', { text: 'Tax: ' }), el('strong', { text: money.taxPresetLabel }),
       el('span', { text: ` — ${(money.taxRates || []).length} rate rows, from settings rather than a column. Rates as at ${RATES_UPDATED}; check them against what you are registered for.` }),
+    ]));
+  }
+
+  // A connected document whose business block is still blank renders "Your business" at the top of
+  // every invoice. Saying where that comes from beats letting somebody hunt for a From column that
+  // does not exist — the sender, the logo and the tax setup are all settings, entered once.
+  if (app.live && !app.stored.business.name) {
+    const open = el('button', { class: 'studio-btn studio-btn--primary studio-btn--sm', type: 'button', text: 'Open settings' });
+    open.addEventListener('click', () => { app.mode = 'settings'; render(); });
+    bits.push(el('p', { class: 'studio-notice__warn' }, [
+      el('span', { text: 'Your business details are empty. The From block, your logo and how tax is worked out are all set once, in Settings — not typed on each invoice. ' }),
+      open,
     ]));
   }
 

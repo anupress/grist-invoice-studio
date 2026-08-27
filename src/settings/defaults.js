@@ -11,7 +11,12 @@
 /** The sender. In Grist's own template this lives in a Python formula; here it is just data. */
 export const DEFAULT_BUSINESS = {
   name: '', street1: '', street2: '', city: '', state: '', postcode: '', country: '',
-  email: '', phone: '', website: '', taxNumber: '', logoData: null,
+  email: '', phone: '', website: '', taxNumber: '',
+  // The logo, twice. logoData is what the page and the email show — PNG when it stays small, so
+  // transparency survives. logoJpeg is the flattened copy the PDF embeds, because DCTDecode is the
+  // one image filter a PDF accepts without a compression library. Both are data URIs stored in the
+  // settings JSON, so the logo travels with the document and needs no host.
+  logoData: null, logoJpeg: null,
 };
 
 export const DEFAULT_MONEY = {

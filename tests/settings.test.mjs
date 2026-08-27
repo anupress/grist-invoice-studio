@@ -142,5 +142,31 @@ const deliveryKeys = Object.keys(d.DEFAULT_DELIVERY).join(' ').toLowerCase();
 ok('no password field', !/pass/.test(deliveryKeys));
 ok('no api key field', !/api|secret|token/.test(deliveryKeys));
 
+// ---------------------------------------------------------------------------------------------
+// The logo. It ends up in an <img src>, an email body and a PDF stream, so sanitise is the last
+// line between "whatever was in the stored JSON" and all three.
+// ---------------------------------------------------------------------------------------------
+const png = 'data:image/png;base64,iVBORw0KGgo=';
+const jpg = 'data:image/jpeg;base64,/9j/4AAQ';
+eq('a PNG data URI is kept', store.sanitise({ business: { logoData: png } }).business.logoData, png);
+eq('a JPEG data URI is kept', store.sanitise({ business: { logoData: jpg } }).business.logoData, jpg);
+eq('an external URL is not', store.sanitise({ business: { logoData: 'https://example.com/x.png' } }).business.logoData, null);
+eq('javascript: is certainly not', store.sanitise({ business: { logoData: 'javascript:alert(1)' } }).business.logoData, null);
+eq('an SVG data URI is refused — it can carry script', store.sanitise({ business: { logoData: 'data:image/svg+xml;base64,PHN2Zz4=' } }).business.logoData, null);
+eq('markup hiding in the base64 slot is refused', store.sanitise({ business: { logoData: 'data:image/png;base64,"><script>' } }).business.logoData, null);
+eq('an oversized logo is dropped, not truncated', store.sanitise({ business: { logoData: 'data:image/png;base64,' + 'A'.repeat(400001) } }).business.logoData, null);
+eq('the PDF copy must actually be a JPEG', store.sanitise({ business: { logoJpeg: png } }).business.logoJpeg, null);
+eq('and a real one is kept', store.sanitise({ business: { logoJpeg: jpg } }).business.logoJpeg, jpg);
+eq('no logo is a valid state', store.sanitise({}).business.logoData, null);
+
+// The email body embeds it with the same suspicion.
+const { documentToEmailHtml: emailDocument } = await import(pathToFileURL(_resolve(ROOT, 'src/send/email-document.js')).href);
+const { normaliseDraft } = await import(pathToFileURL(_resolve(ROOT, 'src/model/draft.js')).href);
+const eDraft = (sender) => normaliseDraft({ kind: 'invoice', number: 'INV-9', sender, lines: [{ description: 'Work', quantity: 1, unitPrice: 10, amount: 10 }] });
+ok('the email shows the logo', emailDocument(eDraft({ name: 'T', logoData: jpg }), {}).includes(`<img src="${jpg}"`));
+ok('and still names the business, for clients whose mail strips images', emailDocument(eDraft({ name: 'Thornbury Works', logoData: jpg }), {}).includes('Thornbury Works'));
+ok('no logo, no img tag in the header', !emailDocument(eDraft({ name: 'T' }), {}).includes('<img'));
+ok('a URL that slipped past storage is still not embedded', !emailDocument(eDraft({ name: 'T', logoData: 'https://example.com/x.png' }), {}).includes('<img'));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

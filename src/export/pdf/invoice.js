@@ -67,6 +67,24 @@ const addressLines = (p) => [
 ].map((x) => String(x || '').trim()).filter(Boolean);
 
 /**
+ * The JPEG bytes inside a data URI, or null.
+ *
+ * Strict on shape because the writer splices these bytes straight into an object stream. A PNG
+ * comes back null rather than being forced through: the settings keep a JPEG copy of every
+ * uploaded logo precisely so this never has to transcode.
+ */
+function jpegBytes(dataUri) {
+  const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUri || ''));
+  if (!m) return null;
+  try {
+    const bin = atob(m[1]);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch { return null; }
+}
+
+/**
  * Build the PDF.
  *
  * Returns a Uint8Array. Nothing here touches the DOM, so it also runs under Node — which is what
@@ -112,8 +130,18 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
     pdf.line(M, y, right, y, { color: INK, width: 0.6 });
     y += lead;
   } else {
-    pdf.text(M, y, sender.name || 'Your business', { size: S.big, bold: true, color: INK });
-    if (sender.website) pdf.text(M, y + 20, sender.website, { size: S.small, color: MUTED });
+    // The logo sits left of the name, the way the screen's masthead has it. Height leads and width
+    // follows the image's own aspect, capped so a wide wordmark cannot run into the title block.
+    let nameX = M;
+    const logo = pdf.addImage(jpegBytes(sender.logoJpeg || sender.logoData));
+    if (logo) {
+      const h = Math.min(30, 140 * (logo.height / logo.width));
+      const w = h * (logo.width / logo.height);
+      pdf.drawImage(logo, M, y - 2, w, h);
+      nameX = M + w + 12;
+    }
+    pdf.text(nameX, y, sender.name || 'Your business', { size: S.big, bold: true, color: INK });
+    if (sender.website) pdf.text(nameX, y + 20, sender.website, { size: S.small, color: MUTED });
 
     pdf.text(right, y, kind.word.toUpperCase(), { size: S.label, bold: true, color: accent, align: 'right' });
     pdf.text(right, y + 11, draft.number || '—', { size: S.number, color: INK, align: 'right' });

@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.1-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.3.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -61,10 +61,22 @@ That template has limits worth knowing about before you rely on it:
 removed. Existing invoice numbers are copied into the new stored column, and running it again does
 nothing.
 
+## Your business, once
+
+Everything a business decides once lives in Settings, saved into the Grist document itself: who the
+invoice is from — name, address, email, tax number — the logo, the accent colour, the layout, the
+paper size, how numbers run, the payment wording, and how tax works. None of it is typed on an
+invoice.
+
+The logo is uploaded in Settings and stored inside the document as a scaled-down data URI, so
+nothing is hosted anywhere. It appears on every layout, in the email body, and in the downloaded
+PDF. Only PNG and JPEG survive storage; anything else is dropped rather than rendered.
+
 ## Tax
 
 Tax works one of three ways: a single rate you type in, a table of rates matched to the customer, or
-none at all.
+none at all. It is a setting, configured once — the demo's tax-regime chooser in the top bar exists
+only to flip the sample document between regimes and does not appear on a connected document.
 
 In table mode, rows match on country, state, postcode and city, resolved by priority, with compound
 rates, per-line tax classes and a per-row flag for whether shipping is taxed. Presets cover the EU

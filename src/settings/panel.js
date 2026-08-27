@@ -83,7 +83,41 @@ export function renderSettingsPanel(ctx) {
 
   // ---- your business ---------------------------------------------------------------------------
   const b = s.business;
+
+  // The logo. Scaled down on the way in, because what is chosen here is written into a Grist cell
+  // on every save and a 4MB photograph does not belong in one. Two copies are kept: a PNG while it
+  // stays small, so transparency survives on screen and in print, and a flattened JPEG for the PDF,
+  // which is the one image format a PDF can carry without a compression library.
+  const logoPreview = el('img', { class: 'set-logo__img', alt: 'Your logo' });
+  const logoRemove = button('Remove', () => {
+    b.logoData = null; b.logoJpeg = null;
+    paintLogo(); touched();
+    say('Logo removed. Press Save settings to keep it that way.');
+  }, { variant: 'ghost' });
+  const logoFile = el('input', { type: 'file', accept: 'image/*', class: 'set-logo__file', 'aria-label': 'Upload a logo' });
+  logoFile.addEventListener('change', async () => {
+    const f = logoFile.files && logoFile.files[0];
+    logoFile.value = '';
+    if (!f) return;
+    try {
+      const out = await readLogo(f);
+      b.logoData = out.logoData;
+      b.logoJpeg = out.logoJpeg;
+      paintLogo(); touched();
+      say('Logo added. Press Save settings to keep it.', 'ok');
+    } catch {
+      say('That file could not be read as an image.', 'warn');
+    }
+  });
+  function paintLogo() {
+    if (b.logoData) { logoPreview.src = b.logoData; logoPreview.style.display = ''; logoRemove.style.display = ''; }
+    else { logoPreview.removeAttribute('src'); logoPreview.style.display = 'none'; logoRemove.style.display = 'none'; }
+  }
+  paintLogo();
+
   const businessSection = section('Your business', [
+    field('Logo', el('div', { class: 'set-logo' }, [logoPreview, logoFile, logoRemove]),
+      'Shown at the top of every document, in the email, and in the PDF. Stored inside this document — no hosting needed.'),
     field('Name', textInput(b.name, (v) => { b.name = v; touched(); }, { placeholder: 'Thornbury Works' })),
     field('Email', textInput(b.email, (v) => { b.email = v; touched(); }, { type: 'email' })),
     field('Phone', textInput(b.phone, (v) => { b.phone = v; touched(); })),
@@ -324,4 +358,42 @@ function checkbox(checked, onChange, label) {
   const input = el('input', { type: 'checkbox', checked: checked ? true : null, 'aria-label': label });
   input.addEventListener('change', () => onChange(input.checked));
   return el('label', { class: 'set-check' }, [input]);
+}
+
+/**
+ * An uploaded file, turned into the two data URIs the settings store.
+ *
+ * Scaled to at most 560×200 — display size, not print resolution, and the cap in sanitise() is a
+ * hard limit this has to land under. PNG is kept while it stays small so a transparent logo stays
+ * transparent; past ~120KB it flattens to JPEG, and the JPEG copy is made either way because the
+ * PDF can embed nothing else. The flattening is onto white, which is the paper it will sit on.
+ */
+function readLogo(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try {
+        const scale = Math.min(1, 560 / img.naturalWidth, 200 / img.naturalHeight);
+        const w = Math.max(1, Math.round(img.naturalWidth * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+        const draw = (flatten) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const cx = canvas.getContext('2d');
+          if (flatten) { cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, w, h); }
+          cx.drawImage(img, 0, 0, w, h);
+          return canvas;
+        };
+
+        const png = draw(false).toDataURL('image/png');
+        const jpeg = draw(true).toDataURL('image/jpeg', 0.87);
+        resolve({ logoData: png.length <= 120000 ? png : jpeg, logoJpeg: jpeg });
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('not an image')); };
+    img.src = url;
+  });
 }
