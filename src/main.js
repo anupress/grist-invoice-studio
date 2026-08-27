@@ -9,6 +9,7 @@
 // what they would get by pointing this at that template — including its defects, reported.
 
 import { el, clear, toast } from './core/util.js';
+import { ANUPRESS_LOGO } from './core/assets/brand-logo.js';
 import * as bridge from './core/grist/bridge.js';
 import { DummyProvider, GristProvider } from './core/data/provider.js';
 import { SAMPLE_DATA, SAMPLE_SENDER, SAMPLE_MONEY } from './data/sample.js';
@@ -466,10 +467,18 @@ function renderBar() {
     return b;
   };
 
+  // A dot plus a word, never the colour alone; and the pill names the situation, not the feature.
+  const mode = app.live ? (canWrite() ? 'live' : 'ro') : 'demo';
+  const modeText = { live: 'Connected', ro: 'Read only', demo: 'Demo' }[mode];
+
   return el('div', { class: 'studio-bar' }, [
     el('div', { class: 'studio-bar__brand' }, [
+      el('img', { class: 'studio-bar__logo', src: ANUPRESS_LOGO, alt: '' }),
       el('span', { class: 'studio-bar__name', text: 'Invoice Studio' }),
-      el('span', { class: 'studio-bar__mode', text: app.live ? (canWrite() ? 'Connected' : 'Read only') : 'Demo' }),
+      el('span', { class: `studio-bar__mode is-${mode}` }, [
+        el('span', { class: 'studio-bar__dot', 'aria-hidden': 'true' }),
+        el('span', { text: modeText }),
+      ]),
     ]),
     invoices.length ? picker : null,
     chooser('Document kind', DOCUMENT_KINDS, app.kind, (v) => { app.kind = v; if (app.draft) app.draft.kind = v; }),

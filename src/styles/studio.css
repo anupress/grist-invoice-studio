@@ -15,22 +15,38 @@ html, body {
 
 .studio { display: flex; flex-direction: column; min-height: 100%; }
 
-/* ---- bar ---------------------------------------------------------------------------------- */
+/* ---- bar -----------------------------------------------------------------------------------
+ * Dark chrome, the same in both themes — the application's own surface, distinct from the paper
+ * it is holding. This is the same treatment Advanced Charts gives its edit bar, so the two
+ * widgets read as one family when they share a document. */
 .studio-bar {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 10px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 16px;
+  background: var(--chrome); color: var(--chrome-ink);
+  border-bottom: 1px solid var(--chrome-rule);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
   position: sticky; top: 0; z-index: 10;
 }
-.studio-bar__brand { display: flex; align-items: baseline; gap: 8px; }
-.studio-bar__name { font-weight: 650; letter-spacing: -.01em; }
-.studio-bar__mode {
-  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
-  letter-spacing: .09em; text-transform: uppercase;
-  padding: 2px 7px; border-radius: 3px;
-  background: var(--accent-soft); color: var(--accent);
+.studio-bar__brand { display: flex; align-items: center; gap: 9px; margin-right: 2px; }
+/* The mark is brand blue, which disappears into dark chrome; a white plate keeps the official
+ * colours official and legible at once. */
+.studio-bar__logo {
+  height: 22px; width: 22px; flex: none;
+  background: #fff; border-radius: 6px; padding: 2px;
 }
+.studio-bar__name { font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+
+/* The mode pill: a dot plus a word, because colour alone is not information. */
+.studio-bar__mode {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 650; letter-spacing: .04em;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--chrome-soft); color: var(--chrome-ink);
+}
+.studio-bar__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--chrome-mute); flex: none; }
+.studio-bar__mode.is-live .studio-bar__dot { background: #59c98f; }
+.studio-bar__mode.is-ro .studio-bar__dot { background: #e6b566; }
+.studio-bar__mode.is-demo .studio-bar__dot { background: #7fb2f0; }
 .studio-bar__spacer { flex: 1 1 auto; }
 
 .studio-select {
@@ -38,9 +54,32 @@ html, body {
   padding: 6px 10px; min-width: 220px; max-width: 100%;
   color: var(--ink); background: var(--surface);
   border: 1px solid var(--rule-2); border-radius: var(--radius);
+  transition: border-color var(--speed), background var(--speed), box-shadow var(--speed);
 }
+.studio-select:hover { border-color: var(--accent); }
 .studio-select--sm { min-width: 0; font-size: 13px; padding: 5px 8px; }
 .studio-btn--sm { font-size: 12.5px; padding: 4px 10px; margin-top: 8px; }
+
+/* Controls that sit ON the chrome: translucent over dark, with a light chevron of their own,
+ * because the native one disappears against it. */
+.studio-bar .studio-select {
+  color: var(--chrome-ink); background: var(--chrome-soft);
+  border-color: var(--chrome-rule);
+  appearance: none; -webkit-appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239db1c4' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center;
+}
+.studio-bar .studio-select:hover { background-color: var(--chrome-soft-2); border-color: var(--chrome-soft-2); }
+.studio-bar .studio-select option { color: var(--ink); background: var(--surface); }
+.studio-bar .studio-btn {
+  color: var(--chrome-ink); background: var(--chrome-soft);
+  border-color: var(--chrome-rule);
+}
+.studio-bar .studio-btn:hover { background: var(--chrome-soft-2); border-color: var(--chrome-soft-2); color: var(--chrome-ink); }
+.studio-bar .studio-btn--primary { background: var(--chrome-ink); border-color: transparent; color: var(--chrome); font-weight: 650; }
+.studio-bar .studio-btn--primary:hover { background: #fff; color: var(--chrome); filter: none; }
+.studio-bar :focus-visible { outline-color: var(--chrome-ink); }
 
 /* Toast. setTimeout rather than rAF to reveal it, because rAF is starved while the tab is not
  * compositing — an embedded Grist widget in a background tab — and a "Saved" confirmation that
@@ -62,15 +101,24 @@ html, body {
 @media (prefers-reduced-motion: reduce) { .ap-toast { transition: none; } }
 .studio-btn {
   font: inherit; font-size: 14px; font-weight: 550;
-  padding: 6px 14px; cursor: pointer;
+  padding: 6px 14px; min-height: 31px; cursor: pointer;
   color: var(--ink); background: var(--surface);
   border: 1px solid var(--rule-2); border-radius: var(--radius);
+  transition: border-color var(--speed), background var(--speed), color var(--speed),
+              box-shadow var(--speed), transform var(--speed);
 }
 .studio-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Pressed feedback by transform, which moves the button without moving anything around it. */
+.studio-btn:active { transform: translateY(1px); }
+.studio-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 .studio-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .studio-btn--primary:hover { color: var(--accent-ink); filter: brightness(1.08); }
 .studio-select:focus-visible, .studio-btn:focus-visible, .studio-upgrade summary:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-btn, .studio-select { transition: none; }
+  .studio-btn:active { transform: none; }
 }
 
 /* ---- body --------------------------------------------------------------------------------- */
@@ -81,9 +129,10 @@ html, body {
   width: 100%; max-width: 820px;
   background: var(--surface);
   border: 1px solid var(--rule); border-left: 3px solid var(--accent);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 12px 16px;
   font-size: 13.5px;
+  box-shadow: 0 1px 2px rgba(20, 32, 43, .04);
 }
 .studio-notice--warn { border-left-color: var(--warn); }
 .studio-notice p { margin: 6px 0 0; }
@@ -117,7 +166,7 @@ html, body {
   width: 100%; max-width: 820px;
   background: var(--doc-paper);
   border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   overflow: hidden;
 }

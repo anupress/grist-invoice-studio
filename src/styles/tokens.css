@@ -42,7 +42,21 @@
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
 
   --radius: 6px;
+  --radius-lg: 10px;
   --shadow: 0 1px 2px rgba(20, 32, 43, .06), 0 10px 30px -20px rgba(20, 32, 43, .35);
+
+  /* The top bar is chrome in the literal sense: a fixed dark surface the application hangs from,
+   * the same in both themes — which is what makes the brand read as a brand rather than as one
+   * more grey row. Everything on it uses these, never the page palette. */
+  --chrome: #101c29;
+  --chrome-ink: #f0f5fa;
+  --chrome-mute: #9db1c4;
+  --chrome-soft: rgba(255, 255, 255, .08);
+  --chrome-soft-2: rgba(255, 255, 255, .15);
+  --chrome-rule: rgba(255, 255, 255, .14);
+
+  /* One speed for every micro-interaction, so the whole surface moves to the same rhythm. */
+  --speed: .15s;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -64,6 +78,7 @@
     --warn-soft: #2a2114;
     --risk: #e58b83;
     --risk-soft: #2c1a18;
+    --chrome: #15202e;
     --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 34px -22px rgba(0, 0, 0, .9);
   }
 }
@@ -86,5 +101,6 @@
   --warn-soft: #2a2114;
   --risk: #e58b83;
   --risk-soft: #2c1a18;
+  --chrome: #15202e;
   --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 34px -22px rgba(0, 0, 0, .9);
 }

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.4.0
+
+### The chrome
+
+- The top bar is now the same dark chrome Advanced Charts uses for its edit bar, with the ANUPRESS
+  mark on a white plate, so the two widgets read as one family when they share a document. Its
+  controls are translucent over the chrome with their own light chevron, and the mode pill shows a
+  coloured dot plus a word: Connected, Read only, or Demo.
+- One motion rhythm across the application: buttons, selects and inputs share a 150ms transition,
+  pressed buttons give feedback by transform so nothing around them moves, and all of it is off
+  under reduced-motion.
+- Focused inputs show an accent ring; hovered ones darken their border. Panels share one elevation
+  and one 10px radius, so the composer, the settings and the notices read as one surface system.
+
 ## 1.3.0
 
 ### Branding
