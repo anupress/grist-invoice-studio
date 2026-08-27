@@ -104,7 +104,10 @@ export function normaliseDraft(d = {}) {
     taxName: text(d.taxName),
     sentAt: text(d.sentAt),
     sentTo: text(d.sentTo),
-    currency: text(d.currency) || 'USD',
+    // Empty is a real state, not a gap to fill: it means "the business currency, whatever that
+    // is set to". Forcing 'USD' here was how every draft became permanently dollar-fixed the
+    // moment it existed, and why changing the currency setting visibly did nothing.
+    currency: text(d.currency),
     format: d.format || { currency: text(d.currency) || 'USD' },
     sender: normaliseParty(d.sender),
     client: normaliseParty(d.client),
@@ -136,8 +139,11 @@ export function emptyDraft(kindId = 'invoice', settings = {}) {
     layout: settings.layout || 'classic',
     issued: today,
     status: 'Draft',
-    currency: settings.money?.currency || 'USD',
-    format: settings.money?.format || { currency: settings.money?.currency || 'USD' },
+    // No stamped currency: a new document follows the business setting until somebody types a
+    // currency on it deliberately. Stamping the current setting turns a default into an override
+    // that outlives every later change of mind.
+    currency: '',
+    format: { ...(settings.money?.format || {}), currency: settings.money?.currency || 'USD' },
     sender: settings.sender || {},
     lines: [{}],
   });

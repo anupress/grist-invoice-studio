@@ -113,7 +113,7 @@ const slug = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').re
  * reference columns below can hold plain numbers, and why the tables have to be created in this
  * order — a reference to a table that does not exist yet is rejected.
  */
-export function starterTablesFor(templateId, { currency = 'GBP', numberPrefix = 'INV-', grossOf = null } = {}) {
+export function starterTablesFor(templateId, { numberPrefix = 'INV-', grossOf = null } = {}) {
   const template = findTemplate(templateId);
   const lines = SAMPLE_LINES[templateId]
     || ((template?.lines || []).filter((l) => Number(l.unitPrice) > 0).length
@@ -136,18 +136,22 @@ export function starterTablesFor(templateId, { currency = 'GBP', numberPrefix = 
 
   // Four invoices, deliberately in four different states, so aging, chasing and the paid case are
   // all visible without anybody having to build them by hand.
+  // The Currency column exists but is left empty on every row. An empty cell means "the business
+  // currency, whatever it is set to", so changing that setting later changes these documents too.
+  // Stamping today's setting into the rows would freeze them in it forever — which is right for an
+  // invoice deliberately billed in another currency, and wrong as a side effect of setup.
   const invoices = [
     { InvoiceNumber: num(1), Client: 1, Issued: day(-52), Due: day(-22), Status: 'Overdue',
-      Currency: currency, Terms: template?.terms || 'Net 30', Reference: 'PO-4471',
+      Terms: template?.terms || 'Net 30', Reference: 'PO-4471',
       Note: 'Second reminder sent. Client says payment is with their finance team.' },
     { InvoiceNumber: num(2), Client: 2, Issued: day(-34), Due: day(-4), Status: 'Paid',
-      Currency: currency, Terms: template?.terms || 'Net 30', PaidDate: day(-6),
+      Terms: template?.terms || 'Net 30', PaidDate: day(-6),
       AmountPaid: 0, Note: '' },
     { InvoiceNumber: num(3), Client: 3, Issued: day(-11), Due: day(19), Status: 'Sent',
-      Currency: currency, Terms: template?.terms || 'Net 30', SentAt: day(-11),
+      Terms: template?.terms || 'Net 30', SentAt: day(-11),
       SentTo: CLIENTS[2].Email, Note: '' },
     { InvoiceNumber: num(4), Client: 1, Issued: day(-1), Due: day(29), Status: 'Draft',
-      Currency: currency, Terms: template?.terms || 'Net 30', Note: '' },
+      Terms: template?.terms || 'Net 30', Note: '' },
   ];
 
   // Each invoice gets a couple of lines off the catalogue, varied so the totals differ.

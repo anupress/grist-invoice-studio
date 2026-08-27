@@ -260,5 +260,25 @@ ok('and converted once its target exists',
 ok('conversions come after every table is created',
   create.findIndex((a) => a[0] === 'ModifyColumn') > create.map((a) => a[0]).lastIndexOf('AddTable'));
 
+// ---------------------------------------------------------------------------------------------
+// Currency: the one field where empty is an instruction, not an omission.
+// ---------------------------------------------------------------------------------------------
+{
+  const schemaC = { invoice: { table: 'T', roles: { currency: 'Currency', number: 'N' } } };
+  const cols = { invoiceColumns: [{ id: 'Currency', type: 'Text' }, { id: 'N', type: 'Text' }] };
+  // Clearing the field on an existing row must actually clear the stored override, or the row
+  // stays dollar-fixed forever and changing the business currency visibly does nothing.
+  const cleared = w.buildWritePlan({ rowId: 7, number: 'X', currency: '', totals: {}, lines: [] }, schemaC, cols);
+  eq('a cleared currency on an existing row clears the cell', cleared.invoice.fields.Currency, null);
+  // A new row with no currency writes none at all: there is nothing to clear, and an empty cell
+  // already means the business currency.
+  const fresh = w.buildWritePlan({ rowId: null, number: 'X', currency: '', totals: {}, lines: [] }, schemaC, cols);
+  eq('a new row without a currency writes none', 'Currency' in fresh.invoice.fields, false);
+  ok('and that is not reported as a failure', !fresh.skipped.some((k) => k.role === 'currency'));
+  // A typed one still lands.
+  const set = w.buildWritePlan({ rowId: 7, number: 'X', currency: 'USD', totals: {}, lines: [] }, schemaC, cols);
+  eq('a chosen currency is written', set.invoice.fields.Currency, 'USD');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

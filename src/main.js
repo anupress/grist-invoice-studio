@@ -794,7 +794,6 @@ async function runSetup(templateId) {
   const kind = template?.kind || 'invoice';
 
   const tables = starterTablesFor(templateId, {
-    currency: next.money.currency,
     numberPrefix: numberFormatFor(next, kind).prefix.replace(/\{[^}]+\}/g, '').replace(/-+$/, '') + '-',
     grossOf: ({ lines, address }) => computeTotals({ lines, addresses: { billing: address } }, money).total,
   });
@@ -962,6 +961,15 @@ function renderHintStrip() {
 
   if (app.live && !app.stored.business.name) {
     return hintStrip('Your business details are empty — the From block, logo and tax are set once, in Settings.', 'Open settings', () => { app.mode = 'settings'; render(); });
+  }
+  // The mystery this answers: "why is my invoice still in dollars?" A currency stored on the row
+  // outranks the setting, on purpose — an issued invoice does not change currency because the
+  // business later did — but silently is how it reads as a bug.
+  const row = currentRow();
+  const curCol = s.invoice.roles.currency;
+  const rowCurrency = curCol && row ? String(row[curCol] || '').trim().toUpperCase() : '';
+  if (rowCurrency && rowCurrency !== app.stored.money.currency) {
+    return hintStrip(`This document is fixed in ${rowCurrency}; your business currency is ${app.stored.money.currency}. Clear its Currency field to make it follow your settings.`, 'Edit', () => startCompose(row));
   }
   const todo = upgradeChecklist(s);
   const count = todo.invoice.length + todo.client.length + todo.line.length;

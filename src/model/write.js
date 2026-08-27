@@ -100,7 +100,11 @@ function invoiceValues(draft) {
     note: draft.note,
     reference: draft.reference,
     terms: draft.terms,
-    currency: draft.currency,
+    // Currency is the one field where empty is an instruction, not an omission: it means "follow
+    // the business currency", and on an existing row that only comes true if the stored override
+    // is actually cleared. So a cleared field writes null on an update — null clears the cell —
+    // while a new row simply doesn't write one.
+    currency: draft.currency || (draft.rowId != null ? null : undefined),
     sentAt: draft.sentAt,
     sentTo: draft.sentTo,
     amountPaid: t.amountPaid,

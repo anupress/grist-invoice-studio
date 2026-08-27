@@ -82,7 +82,7 @@ ok('and terms', draft.terms.length > 5);
 // Setting up a document that has nothing in it
 // ---------------------------------------------------------------------------------------------
 const starter = await import(pathToFileURL(_resolve(ROOT, 'src/templates/starter.js')).href);
-const built = starter.starterTablesFor('construction', { currency: 'GBP', numberPrefix: 'INV-' });
+const built = starter.starterTablesFor('construction', { numberPrefix: 'INV-' });
 
 eq('four tables', built.map((t) => t.id), ['Clients', 'Products', 'Invoices', 'InvoiceItems']);
 // Order is not cosmetic: a Ref column cannot point at a table Grist has not created yet.
@@ -142,7 +142,10 @@ ok('and carry a price', byId.Products.records.every((p) => Number(p.Price) > 0))
 ok('and a SKU', byId.Products.records.every((p) => String(p.SKU).length > 0));
 
 eq('the numbering prefix is honoured', byId.Invoices.records[0].InvoiceNumber.startsWith('INV-'), true);
-eq('the currency is carried through', byId.Invoices.records[0].Currency, 'GBP');
+// Deliberately NOT stamped: an empty Currency cell means 'the business currency', so changing
+// that setting later changes these documents too. Stamping setup's currency froze them forever.
+eq('no currency is stamped on the rows', byId.Invoices.records[0].Currency, undefined);
+ok('but the column exists for a document that genuinely needs one', byId.Invoices.columns.some((c) => c.id === 'Currency'));
 // An unknown trade must still produce a usable document rather than an empty one.
 ok('an unknown trade still builds something', starter.starterTablesFor('nonsense', {}).find((t) => t.id === 'InvoiceItems').records.length > 0);
 

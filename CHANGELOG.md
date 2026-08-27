@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.1
+
+### Currency, properly
+
+- Setup stamped the currency of the moment into every sample invoice row, and a stored currency
+  outranks the setting — so changing the business currency later visibly did nothing, forever.
+  Rows are no longer stamped: an empty Currency cell means "the business currency, whatever it is
+  set to", and only a currency typed on a document deliberately fixes that document.
+- New documents follow the same rule. The composer's Currency field is empty by default, shows the
+  business currency as its placeholder, and says what empty means.
+- Clearing the field on an existing document now actually clears the stored override on save. The
+  write plan treated every empty value as "nothing to write"; for currency, empty is an
+  instruction.
+- A document fixed in another currency says so: one line above it names both currencies and offers
+  Edit, instead of silently showing the old symbol.
+
 ## 1.6.0
 
 ### Composing

@@ -119,7 +119,8 @@ export function renderComposer(ctx) {
       // stops overriding it.
       draft.format = { ...draft.format, currency: draft.currency || settings.money?.currency || 'USD' };
       edited();
-    }, { placeholder: 'GBP', class: 'cmp-input--code' })),
+    }, { placeholder: settings.money?.currency || 'USD', class: 'cmp-input--code' }),
+      'Empty follows your business currency. Type one only when this document is billed in another.'),
     // The escape hatch. Most documents want the rate table; occasionally the answer is simply a
     // figure — an accountant has given one, or an old invoice is being reproduced — and fighting
     // the arithmetic to make a rate produce it is worse than accepting the figure.
