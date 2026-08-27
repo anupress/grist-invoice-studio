@@ -41,8 +41,12 @@ export function buildMailto(message, opts = {}) {
   if (message.cc) params.push('cc=' + encode(message.cc));
   if (message.bcc) params.push('bcc=' + encode(message.bcc));
 
-  const note = opts.attachmentNote || '';
-  let body = note ? `${message.body}\n\n${note}` : message.body;
+  // Order matters: the covering message, then the document it is about, then the note naming the
+  // file. A reader who stops after the first paragraph has still been told what they owe.
+  const parts = [message.body];
+  if (opts.documentText) parts.push('\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\n' + opts.documentText);
+  if (opts.attachmentNote) parts.push(opts.attachmentNote);
+  let body = parts.filter(Boolean).join('\n\n');
 
   const head = 'mailto:' + encode(to).replace(/%40/g, '@') + (params.length ? '?' + params.join('&') : '');
   const joiner = params.length ? '&' : '?';

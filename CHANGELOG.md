@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.0
+
+### The mail-client route
+
+- The invoice now travels in the body as text, so the email carries the document rather than
+  referring to one the recipient has not been given. A mailto: body is text/plain by definition,
+  which is why the HTML version cannot be used there; the text form is written to stay short
+  enough for the mailto ceiling — an ordinary invoice lands around 1,300 characters against a
+  practical limit of about 2,000, and the existing guard still catches the rest.
+- The chosen file is saved as the mail client opens, rather than waiting behind a separate button.
+  A mailto: cannot attach anything, so the next thing anybody does is go looking for the file; it
+  is now already in the downloads bar, under the name the body quotes.
+- Field rules are shared with the screen and the PDF, so a delivery note shows no prices in the
+  text version for the same reason it shows none anywhere else.
+
 ## 1.8.0
 
 ### What goes with the message

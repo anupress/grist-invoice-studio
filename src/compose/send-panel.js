@@ -15,6 +15,7 @@ import { suggestTemplate, stampAfterSend } from '../send/rules.js';
 import { buildMailto, openMailClient } from '../send/mailto.js';
 import { copyMessage, messageToHtml } from '../send/clipboard.js';
 import { documentToEmailHtml } from '../send/email-document.js';
+import { documentToPlainText } from '../send/document-text.js';
 import { buildOutboxRow, setupInstructions } from '../send/outbox.js';
 import { buildPayload, postToEndpoint, checkEndpoint, destinationHost } from '../send/endpoint.js';
 import { fileNameFor } from '../export/html-file.js';
@@ -112,12 +113,29 @@ export function renderSendPanel(ctx) {
   const mailBtn = button('Open in mail client', () => {
     const m = message();
     if (!m.to) { say('There is no address to send it to.', 'warn'); return; }
-    const built = buildMailto(m, { attachmentNote: fileNoteNow() });
-    openMailClient(m, { attachmentNote: fileNoteNow() });
+
+    // A mailto: body is text/plain by definition, so the HTML version cannot travel here. The
+    // invoice goes in as text instead, which is the difference between a covering note referring
+    // to a document and an email that actually carries one.
+    const opts = {
+      attachmentNote: fileNoteNow(),
+      documentText: state.includeDocument ? documentToPlainText(draft, settings) : '',
+    };
+    const built = buildMailto(m, opts);
+
+    // The file is saved on the way out rather than left to a separate button. A mailto: cannot
+    // attach anything, so the next thing anybody does is go looking for the file; saving it as the
+    // client opens puts it in the downloads bar under the name the body just quoted.
+    let saved = null;
+    if (state.attachFormat === 'pdf') saved = downloadPdf(draft, settings);
+    else if (state.attachFormat === 'html') saved = downloadHtml(draft, settings);
+
+    openMailClient(m, opts);
+    const savedNote = saved ? saved.fileName + ' is in your downloads — attach it before you send.' : '';
     say(built.truncated
-      ? 'Opened your mail client — the body was too long for a mailto link and has been shortened, so check it before sending.'
-      : attachedFile()
-        ? 'Opened your mail client. Attach the downloaded file before you send.'
+      ? 'Opened your mail client. The body was too long for a mailto link and has been shortened, so check it before sending. ' + savedNote
+      : savedNote
+        ? 'Opened your mail client. ' + savedNote
         : 'Opened your mail client.', built.truncated ? 'warn' : 'ok');
     record(m, 'mail client');
   }, { variant: 'primary' });

@@ -272,5 +272,47 @@ eq('an unsaved document still gets a name', file.fileNameFor(normaliseDraft({ ki
   ok('no overrides means the built-in text', /from/.test(stock.subject) && !stock.subject.startsWith('Bill '));
 }
 
+// ---------------------------------------------------------------------------------------------
+// The document as text — the only form the one route that carries nothing else can take.
+// ---------------------------------------------------------------------------------------------
+const { documentToPlainText } = await import(pathToFileURL(_resolve(ROOT, 'src/send/document-text.js')).href);
+{
+  const d = draft();
+  const txt = documentToPlainText(d, { paymentDetails: 'Acc 12345678, sort 01-02-03' });
+
+  ok('it names the document', /INVOICE/.test(txt));
+  ok('and carries the number', txt.includes(d.number));
+  ok('every line is there', (d.lines || []).every((l) => !l.description || txt.includes(l.description)));
+  ok('with a total', /Total/.test(txt));
+  ok('and where to send the money', txt.includes('Acc 12345678'));
+  ok('no markup leaks into a text/plain body', !/<[a-z]/i.test(txt));
+  // The mailto ceiling is the whole reason this exists rather than reusing the HTML.
+  ok('an ordinary invoice stays well under the mailto ceiling', txt.length < 1200);
+  eq('no document is an empty string, not a crash', documentToPlainText(null), '');
+
+  // A delivery note shows no prices — decided once, in doc/fields.js, and honoured here too.
+  const note = documentToPlainText(normaliseDraft({ ...d, kind: 'delivery_note' }), {});
+  ok('a delivery note lists what was sent', /Site survey|survey/i.test(note) || note.length > 10);
+  ok('but no money', !/Total\s+[£$€]/.test(note));
+}
+
+// The mail-client body: covering message, then the document, then the file note.
+{
+  const m = msg.buildMessage('invoice_sent', draft(), {}, { now: NOW });
+  const withDoc = mailto.buildMailto(m, { documentText: 'DOC-BODY-HERE', attachmentNote: 'The invoice is attached as x.pdf.' });
+  const body = decodeURIComponent((withDoc.url.split('body=')[1] || '').replace(/\+/g, ' '));
+  ok('the covering message comes first', body.indexOf(m.body.slice(0, 20)) === 0);
+  ok('then the document', body.indexOf('DOC-BODY-HERE') > 0);
+  ok('then the file note', body.indexOf('attached as x.pdf') > body.indexOf('DOC-BODY-HERE'));
+
+  // Without the document it is exactly what it always was.
+  const plain = mailto.buildMailto(m, { attachmentNote: 'The invoice is attached as x.pdf.' });
+  ok('no document text means no separator rule', !/—{5}/.test(decodeURIComponent((plain.url.split('body=')[1] || ''))));
+  // And the length guard still applies once a long document is added.
+  const huge = mailto.buildMailto(m, { documentText: 'x'.repeat(5000) });
+  eq('an over-long body is still truncated rather than sent whole', huge.truncated, true);
+  ok('and the URL stays under the ceiling', huge.url.length <= 1900);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
