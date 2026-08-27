@@ -164,6 +164,11 @@ eq('a chosen table id is kept', store.sanitise({ tables: { invoice: 'Ledger' } }
 eq('junk stored there becomes empty', store.sanitise({ tables: { invoice: 42 } }).tables.invoice, '');
 eq('absent means work it out', store.sanitise({}).tables.invoice, '');
 
+// Saved message wordings: strings in, junk out.
+eq('a saved wording is kept', store.sanitise({ messages: { invoice_sent: { subject: 'Hi {number}' } } }).messages.invoice_sent.subject, 'Hi {number}');
+eq('junk entries are dropped', store.sanitise({ messages: { invoice_sent: 42, x: { subject: 9 } } }).messages, {});
+eq('an over-long body is capped, not refused', store.sanitise({ messages: { a: { body: 'x'.repeat(9000) } } }).messages.a.body.length, 8000);
+
 // The email body embeds it with the same suspicion.
 const { documentToEmailHtml: emailDocument } = await import(pathToFileURL(_resolve(ROOT, 'src/send/email-document.js')).href);
 const { normaliseDraft } = await import(pathToFileURL(_resolve(ROOT, 'src/model/draft.js')).href);

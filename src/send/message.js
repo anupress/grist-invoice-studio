@@ -233,8 +233,13 @@ export function buildMessage(templateId, draft, settings = {}, overrides = {}) {
   const template = findTemplate(templateId);
   const values = placeholdersFor(draft, settings, overrides.now || new Date());
 
-  const subject = tidy(fill(overrides.subject != null ? overrides.subject : template.subject, values));
-  const body = tidy(fill(overrides.body != null ? overrides.body : template.body, values));
+  // Three layers, most specific first: what was typed for THIS send, then the business's own
+  // wording saved in Settings, then the built-in text. Layering here, in the one function every
+  // route calls, is what makes a saved wording reach the mail client, the clipboard, the outbox
+  // and the endpoint alike.
+  const saved = (settings.messages || {})[template.id] || {};
+  const subject = tidy(fill(overrides.subject != null ? overrides.subject : saved.subject != null ? saved.subject : template.subject, values));
+  const body = tidy(fill(overrides.body != null ? overrides.body : saved.body != null ? saved.body : template.body, values));
 
   const to = text(overrides.to != null ? overrides.to : values.client_email);
 

@@ -248,5 +248,29 @@ eq('awkward characters are replaced, not removed',
   'invoice_INV-2026-01_A-B-Ltd.html');
 eq('an unsaved document still gets a name', file.fileNameFor(normaliseDraft({ kind: 'quote' })), 'quote_draft.html');
 
+// ---------------------------------------------------------------------------------------------
+// Saved wordings. Three layers: typed for this send, saved in Settings, built-in — in that order.
+// ---------------------------------------------------------------------------------------------
+{
+  const saved = { messages: { invoice_sent: { subject: 'Bill {number} from {sender_name}', body: 'Here is {number} for {total}.' } } };
+  const s = { ...saved, paymentDetails: '' };
+  const withSaved = msg.buildMessage('invoice_sent', draft(), s, { now: NOW });
+  ok('a saved subject is used', withSaved.subject.startsWith('Bill '));
+  ok('and its placeholders still fill', /INV-|51372|\d/.test(withSaved.subject) && !withSaved.subject.includes('{number}'));
+  ok('a saved body is used', withSaved.body.startsWith('Here is '));
+
+  // What is typed in the Send panel for one send still beats the saved wording.
+  const typed = msg.buildMessage('invoice_sent', draft(), s, { now: NOW, subject: 'One-off subject' });
+  eq('a per-send subject wins over the saved one', typed.subject, 'One-off subject');
+  ok('while the saved body still applies underneath', typed.body.startsWith('Here is '));
+
+  // A template with no saved entry is untouched.
+  const other = msg.buildMessage('reminder_overdue', draft(), s, { now: NOW });
+  ok('other events keep their built-in wording', /overdue/i.test(other.subject));
+  // And no saved messages at all is exactly the old behaviour.
+  const stock = msg.buildMessage('invoice_sent', draft(), { paymentDetails: '' }, { now: NOW });
+  ok('no overrides means the built-in text', /from/.test(stock.subject) && !stock.subject.startsWith('Bill '));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

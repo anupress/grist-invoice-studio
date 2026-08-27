@@ -93,3 +93,12 @@
 .set-tab:hover { color: var(--ink); }
 .set-tab.is-active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
 .set-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* The message editors: an edited event says so, and the reset sits beside it. */
+.set-msg__row { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.set-msg__badge {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 3px;
+  background: var(--accent-soft); color: var(--accent);
+}

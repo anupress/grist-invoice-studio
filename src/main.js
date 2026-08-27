@@ -128,6 +128,9 @@ function settingsNow() {
     ...st.delivery,
     sender: st.business,
     money: moneySettings(st.money),
+    // The saved message wordings ride along whole — buildMessage layers them under whatever is
+    // typed for one send.
+    messages: st.messages,
     numberFormat: numberFormatFor(st, app.kind),
     kind: app.kind,
     // The bar's layout chooser is a per-session try-it-out; the stored one is the business's choice.

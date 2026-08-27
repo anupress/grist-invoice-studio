@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.0
+
+### Your own wording
+
+- Settings gains a Messages tab, one editor per event the way WooCommerce lists its emails:
+  invoice sent, quote sent, the three reminders, payment received. The built-in text sits in the
+  fields so editing starts from something that works; Reset takes an event back to stock.
+  Placeholders — {number}, {total}, {days_overdue} and the rest — are listed in the tab and filled
+  in per document, and an unknown one stays visible rather than being blanked, so a typo shows
+  itself.
+- Saved wordings existed in the stored settings from the start and were never consumed. They now
+  layer under whatever is typed for one send, in the one function every route calls — so a saved
+  wording reaches the mail client, the clipboard, the outbox and the endpoint alike.
+- The Make recipe now covers the Direct route, including the mapping that turns the payload's
+  base64 PDF back into a real attachment. The PDF was always in the payload; the recipe never said
+  how to use it.
+
 ## 1.6.1
 
 ### Currency, properly

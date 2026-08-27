@@ -136,6 +136,17 @@ export function sanitise(settings) {
   for (const key of ['invoice', 'line', 'client', 'product']) {
     s.tables[key] = typeof s.tables[key] === 'string' ? s.tables[key].slice(0, 64) : '';
   }
+
+  // Saved message wordings: strings, capped, and an entry that overrides nothing is dropped.
+  const messages = {};
+  for (const [id, m] of Object.entries(s.messages || {})) {
+    if (!m || typeof m !== 'object') continue;
+    const entry = {};
+    if (typeof m.subject === 'string') entry.subject = m.subject.slice(0, 300);
+    if (typeof m.body === 'string') entry.body = m.body.slice(0, 8000);
+    if (Object.keys(entry).length) messages[String(id).slice(0, 64)] = entry;
+  }
+  s.messages = messages;
   return s;
 }
 

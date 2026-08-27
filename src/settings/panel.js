@@ -19,6 +19,7 @@ import { DOCUMENT_KINDS } from '../doc/kinds.js';
 import { LAYOUTS } from '../doc/layouts.js';
 import { numberFormatFor } from './defaults.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from '../compose/ui.js';
+import { MESSAGE_TEMPLATES } from '../send/message.js';
 
 const opt = (value, label) => ({ value, label });
 
@@ -32,6 +33,7 @@ const TABS = [
   { id: 'money', label: 'Money & tax' },
   { id: 'numbering', label: 'Numbering' },
   { id: 'document', label: 'Document' },
+  { id: 'messages', label: 'Messages' },
   { id: 'sending', label: 'Sending' },
 ];
 let activeTab = 'business';
@@ -281,6 +283,42 @@ export function renderSettingsPanel(ctx) {
     field('Closing line', textInput(doc.closingText, (v) => { doc.closingText = v; touched(); }, { placeholder: 'Thank you for your custom.' })),
   ], { grid: true });
 
+  // ---- messages --------------------------------------------------------------------------------
+  // One editor per event, the way WooCommerce lists its emails. The built-in text sits in the
+  // fields, so editing starts from something that works rather than from a blank box; Reset takes
+  // an event back to stock by deleting its override, not by copying the stock text into one.
+  const msgs = s.messages;
+  const messageEditors = MESSAGE_TEMPLATES.map((t) => {
+    const saved = msgs[t.id] || {};
+    const edited = () => el('span', { class: 'set-msg__badge', text: 'edited' });
+
+    const subjectIn = textInput(saved.subject != null ? saved.subject : t.subject, (v) => {
+      (msgs[t.id] || (msgs[t.id] = {})).subject = v;
+    }, { ariaLabel: `${t.label} subject` });
+    const bodyIn = textArea(saved.body != null ? saved.body : t.body, (v) => {
+      (msgs[t.id] || (msgs[t.id] = {})).body = v;
+    }, { rows: 7, ariaLabel: `${t.label} body` });
+
+    const reset = button('Reset to default', () => {
+      delete msgs[t.id];
+      say(`${t.label} is back to the built-in wording. Press Save settings to keep that.`);
+      if (ctx.onRebuild) ctx.onRebuild();
+    }, { variant: 'ghost' });
+
+    return section(t.label, [
+      field('Subject', subjectIn),
+      field('Body', bodyIn),
+      el('div', { class: 'set-msg__row' }, [msgs[t.id] ? edited() : null, reset]),
+    ]);
+  });
+
+  const messagesSection = el('div', {}, [
+    section('Wording', [
+      el('p', { class: 'set-lead', text: 'The covering message for each event, chosen automatically from the document\u2019s status when you open Send. Anything in {braces} is filled in per document \u2014 available: {number} {kind} {kind_lower} {status} {issued} {due} {reference} {client_name} {client_first_name} {client_email} {sender_name} {sender_email} {total} {balance} {subtotal} {tax} {amount_paid} {days_overdue} {payment_terms_line} {payment_details} {note}. An unknown placeholder is left visible rather than blanked, so a typo shows itself.' }),
+    ]),
+    ...messageEditors,
+  ]);
+
   // ---- delivery ------------------------------------------------------------------------------------
   const del = s.delivery;
   const deliverySection = section('Sending', [
@@ -315,6 +353,7 @@ export function renderSettingsPanel(ctx) {
     money: [moneySection, taxSection, m.taxMode === 'preset' ? ratesSection : null],
     numbering: [numberingSection],
     document: [documentSection],
+    messages: [messagesSection],
     sending: [deliverySection],
   };
 
