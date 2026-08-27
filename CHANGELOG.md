@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.1
+
+### Access
+
+- The widget now asks Grist for full access, and checks whether it was given. It never did either.
+  The shared core connects at `read table` and nothing escalated from there, so every write path was
+  refused against a live document: saving an invoice, upgrading a document, the outbox, and creating
+  tables.
+- Below full access Grist refuses to list the document's tables, and the core reports that refusal
+  as an empty list. A document full of invoices therefore read as empty, and the widget offered to
+  build the tables it already had. It now tells you access is missing, says which Grist control
+  grants it, and offers to check again.
+- The table list is re-read after access is granted, before any table is created, so a document
+  cannot end up with a second `Clients` beside the one it already had.
+- `grist.ready()` resolves whether or not the user allows what it asked for, so the recorded access
+  level states the request rather than the answer. Write guards now establish the answer by trying
+  something that needs it, once per session.
+
 ## 1.2.0
 
 ### Setting up an empty document

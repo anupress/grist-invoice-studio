@@ -7,8 +7,28 @@
 // The plan itself is built and tested in model/write.js. Nothing here decides what to write.
 
 import * as bridge from '../core/grist/bridge.js';
+import { ensureFullAccess } from './access.js';
 
 const g = () => (typeof window !== 'undefined' ? window.grist : undefined);
+
+/**
+ * The guard every write goes through.
+ *
+ * It asks Grist rather than consulting a recorded level, because grist.ready() resolves whether or
+ * not the user allows what it asked for: the level the core records is the request, not the answer.
+ * The answer is only knowable by trying something that needs it, and the result is remembered, so
+ * this costs one round trip per session rather than one per save.
+ *
+ * The wording names the control to use. "Needs full access" on its own tells somebody they are
+ * stuck without telling them where to go.
+ */
+const GRANT_ACCESS = 'Open the creator panel on the right of the Grist page, find this widget’s Access setting, and choose Full document access.';
+
+async function requireFullAccess(what) {
+  const res = await ensureFullAccess();
+  if (res.ok) return null;
+  return { ok: false, needsAccess: true, error: what + ' needs full access to this document. ' + GRANT_ACCESS };
+}
 
 /**
  * Send a bundle of user actions and hand back what Grist returned.
@@ -159,9 +179,8 @@ export async function savePlan(plan, provider, { live }) {
     return res;
   }
 
-  if (bridge.accessLevel() !== 'full') {
-    return { ok: false, error: 'Saving needs full access to this document. Choose Enable editing first.', needsAccess: true };
-  }
+  const denied = await requireFullAccess('Saving');
+  if (denied) return denied;
 
   const res = await liveSave(plan);
   if (res.ok) {
@@ -205,9 +224,8 @@ export async function queueToOutbox(row, provider, { live }) {
     return { ok: true, rowId: id, created };
   }
 
-  if (bridge.accessLevel() !== 'full') {
-    return { ok: false, error: 'Queueing a message writes into your document, which needs full access.', needsAccess: true };
-  }
+  const denied = await requireFullAccess('Queueing a message, which writes into your document,');
+  if (denied) return denied;
 
   const existing = provider.tables().some((t) => t.id === OUTBOX_TABLE);
   if (!existing) {
@@ -294,6 +312,17 @@ async function dressColumns(table) {
  * exist yet. A table already present is skipped rather than overwritten.
  */
 export async function createStarterTables(tables, provider, { live }) {
+  // Access first, and the table list re-read after it, in that order. The list this widget is
+  // holding may have been drawn up while Grist was refusing to answer, and a refusal comes back as
+  // an empty list — so trusting it here is how a document would end up with a second Clients table
+  // sitting beside the one it already had.
+  if (live) {
+    const denied = await requireFullAccess('Creating tables');
+    if (denied) return denied;
+    bridge.invalidateMetaCache();
+    await provider.refreshTables();
+  }
+
   const existing = new Set((provider.tables() || []).map((t) => t.id));
   const todo = tables.filter((t) => !existing.has(t.id));
   if (!todo.length) return { ok: true, created: [], skipped: tables.map((t) => t.id) };
@@ -311,10 +340,6 @@ export async function createStarterTables(tables, provider, { live }) {
     if (!provider.data.defaultTable) provider.data.defaultTable = todo[todo.length - 1].id;
     provider.setData(provider.data);
     return { ok: true, created: todo.map((t) => t.id), skipped: [] };
-  }
-
-  if (bridge.accessLevel() !== 'full') {
-    return { ok: false, error: 'Creating tables needs full access to this document.', needsAccess: true };
   }
 
   const created = [];
@@ -368,9 +393,8 @@ export async function applyUpgrade(plan, provider, { live }) {
     return { ok: true, added: plan.columns.length, backfilled: backfill.length };
   }
 
-  if (bridge.accessLevel() !== 'full') {
-    return { ok: false, error: 'Adding columns needs full access to this document.', needsAccess: true };
-  }
+  const denied = await requireFullAccess('Adding columns');
+  if (denied) return denied;
   const res = await apply(actions);
   if (!res.ok) return { ok: false, error: res.error };
 

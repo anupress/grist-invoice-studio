@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.2.1-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -20,7 +20,12 @@ It runs entirely in the viewer's browser. There is no server and no third-party 
 
 1. Add a widget and choose **Custom**.
 2. Paste `https://anupress.github.io/grist-invoice-studio/` into Enter Custom URL.
-3. Grant full access when Grist asks. It is needed to read your tables and write invoices back.
+3. Set **Access** to **Full document access** in the creator panel on the right.
+
+Step 3 is not optional. Invoice Studio reads four tables at once — invoices, their line items, your
+clients and your product catalogue — and writes rows back to them. Below full access Grist refuses
+to list the document's tables at all, and an unreadable document is indistinguishable from an empty
+one, so the widget says so rather than reporting that you have no invoices.
 
 Test on a copy of your document first. The write path has not yet run against a live Grist document.
 
@@ -117,7 +122,7 @@ powershell -ExecutionPolicy Bypass -File scripts/serve.ps1
 ```
 
 ```bash
-npm test        # 13 suites, no framework
+npm test        # 14 suites, no framework
 npm run build   # esbuild + obfuscator into dist/, which CI deploys to Pages
 ```
 

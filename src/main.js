@@ -24,6 +24,7 @@ import { numberFormatFor } from './settings/defaults.js';
 import { renderSettingsPanel } from './settings/panel.js';
 import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate } from './templates/index.js';
 import { starterTablesFor } from './templates/starter.js';
+import { ensureFullAccess } from './grist/access.js';
 import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
 import { renderDocument } from './doc/render.js';
@@ -95,13 +96,18 @@ const app = {
   layout: null,
   region: 'gb',
   setupTrade: 'freelancer',
+  // 'demo' until connected, then 'full' or 'denied'. What Grist actually allows, not what was asked.
+  access: 'demo',
   mode: 'view',      // view | compose | send | settings
   draft: null,
   busy: false,
 };
 
 const root = () => document.getElementById('studio-root');
-const canWrite = () => (app.live ? bridge.accessLevel() === 'full' : true);
+// app.access, not bridge.accessLevel(): the core records the level that was ASKED for, and
+// grist.ready() resolves whether or not the user allows it. app.access is what Grist actually
+// permitted, established by trying it.
+const canWrite = () => (app.live ? app.access === 'full' : true);
 
 /**
  * The stored settings, flattened into what everything downstream actually asks for.
@@ -164,6 +170,17 @@ function rescan() {
 
 async function boot() {
   const connected = await bridge.connect();
+
+  // Before anything is read. The core connects at "read table", and at that level Grist refuses to
+  // list the document's tables — which the core reports as an empty list, so a document full of
+  // invoices arrives looking like a document with none. Every table this widget needs is a table
+  // other than the one it is placed on, so there is nothing it can usefully do at that level and no
+  // reason to defer asking.
+  if (connected) {
+    const access = await ensureFullAccess();
+    app.access = access.ok ? 'full' : 'denied';
+    if (!access.ok) console.warn('[Invoice Studio] full access was not granted', access.message || '');
+  }
 
   // Load whatever this document already knows about the business before anything is drawn, so the
   // first document a person sees carries their own name rather than a placeholder they then have
@@ -469,6 +486,46 @@ function renderBar() {
 }
 
 /**
+ * Grist has not allowed this widget to read the document.
+ *
+ * Separated from the empty-document offer because the two look identical from inside the widget and
+ * lead to opposite actions. Grist refuses to list tables below full access, and the shared core
+ * reports that refusal as an empty list, so this is what a document full of invoices looks like
+ * until permission is granted.
+ *
+ * The instructions name the control rather than describing the outcome, because the panel it lives
+ * in is not where anybody would think to look for it.
+ */
+function renderAccessNeeded() {
+  const retry = el('button', { class: 'studio-btn studio-btn--primary', type: 'button', text: 'Check again' });
+  retry.addEventListener('click', async () => {
+    retry.disabled = true;
+    retry.textContent = 'Checking…';
+    const res = await ensureFullAccess();
+    app.access = res.ok ? 'full' : 'denied';
+    if (res.ok) {
+      await app.provider.refreshTables();
+      rescan();
+      const wanted = [app.schema.invoice?.table, app.schema.line?.table, app.schema.client?.table, app.products?.table].filter(Boolean);
+      if (wanted.length) await app.provider.prime(wanted);
+      app.stored = await loadSettings();
+      toast('Access granted.', 'ok');
+    } else {
+      toast('Grist still has not granted access.', 'warn');
+    }
+    render();
+  });
+
+  return el('div', { class: 'studio-notice studio-notice--warn' }, [
+    el('strong', { text: 'Grist has not granted this widget access to the document.' }),
+    el('p', { text: 'Until it does, the document reads as empty whether or not it has invoices in it. Invoice Studio needs to read your invoices, their line items and your client list, and to write invoices back, so it asks for full access.' }),
+    el('p', { text: 'To grant it, open the creator panel on the right of the Grist page, find this widget’s Access setting, and choose Full document access. Grist may also show a prompt on the widget itself.' }),
+    el('div', { class: 'studio-setup__row' }, [retry]),
+    el('p', { class: 'studio-upgrade__note', text: 'Nothing is written to your document without you asking for it. Access is what lets the widget read the tables at all.' }),
+  ]);
+}
+
+/**
  * A document with no invoices in it.
  *
  * Offering to build the tables rather than only reporting their absence. "No invoices found" and
@@ -480,6 +537,11 @@ function renderBar() {
  * the settings, so one decision does both.
  */
 function renderSetup() {
+  // An unreadable document is not an empty one, and telling somebody their invoices do not exist
+  // when the truth is that this widget has not been allowed to look at them is the worse of the two
+  // mistakes: it invites them to build a second set of tables alongside the ones they already have.
+  if (app.live && app.access !== 'full') return renderAccessNeeded();
+
   const chooser = el('select', { class: 'studio-select', 'aria-label': 'What kind of work do you invoice for?' }, [
     el('option', { value: 'freelancer', text: 'Pick your trade…' }),
     ...templatesBySector().flatMap((g) => g.items.map((t) =>
