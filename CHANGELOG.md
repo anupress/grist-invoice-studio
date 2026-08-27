@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.0
+
+### What goes with the message
+
+- The attachment is now a choice: a PDF, an HTML file that opens in any browser, or nothing at all.
+  It was hardcoded to the PDF. Whether the invoice is also laid out in the body of the email stays
+  a separate question, because the two solve different problems: the attachment is what a client
+  files, the body is what a client who will not open attachments actually reads.
+- Both have a saved default in Settings → Sending and can be changed for one send in the Send
+  panel.
+- The notes that name the attached file follow the choice, so the mail-client route no longer
+  promises a file when nothing is being attached.
+
 ## 1.7.0
 
 ### Your own wording

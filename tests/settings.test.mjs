@@ -164,6 +164,14 @@ eq('a chosen table id is kept', store.sanitise({ tables: { invoice: 'Ledger' } }
 eq('junk stored there becomes empty', store.sanitise({ tables: { invoice: 42 } }).tables.invoice, '');
 eq('absent means work it out', store.sanitise({}).tables.invoice, '');
 
+// What goes with the message: two independent answers, both defaulting to the safe one.
+eq('a PDF by default', store.sanitise({}).delivery.attachFormat, 'pdf');
+eq('and the invoice in the body', store.sanitise({}).delivery.includeInBody, true);
+eq('an HTML file is a real choice', store.sanitise({ delivery: { attachFormat: 'html' } }).delivery.attachFormat, 'html');
+eq('so is nothing', store.sanitise({ delivery: { attachFormat: 'none' } }).delivery.attachFormat, 'none');
+eq('nonsense falls back to the PDF', store.sanitise({ delivery: { attachFormat: 'zip' } }).delivery.attachFormat, 'pdf');
+eq('the body can be turned off', store.sanitise({ delivery: { includeInBody: false } }).delivery.includeInBody, false);
+
 // Saved message wordings: strings in, junk out.
 eq('a saved wording is kept', store.sanitise({ messages: { invoice_sent: { subject: 'Hi {number}' } } }).messages.invoice_sent.subject, 'Hi {number}');
 eq('junk entries are dropped', store.sanitise({ messages: { invoice_sent: 42, x: { subject: 9 } } }).messages, {});

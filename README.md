@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.7.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -111,6 +111,8 @@ document, so it cannot email a client. The four routes reflect that:
 The Outbox is a table in your own document. Queueing writes a held row; releasing it sets a boolean,
 which is the transition a Grist webhook fires on. [`recipes/`](recipes/) contains the far end: a
 Cloudflare Worker, a Node relay that speaks SMTP, and setup notes for n8n, Make, Zapier and Grist.
+
+What travels with the message is your choice: a PDF, an HTML file, or nothing — and separately, whether the invoice is laid out in the body of the email. Set the default in Settings → Sending, change it for one send in the Send panel.
 
 The covering message for each event — sent, reminders, final notice, payment received — can be reworded in Settings → Messages, WooCommerce-style, with {placeholders} filled in per document.
 

@@ -323,6 +323,16 @@ export function renderSettingsPanel(ctx) {
   const del = s.delivery;
   const deliverySection = section('Sending', [
     el('p', { class: 'set-lead', text: 'Nothing here ever holds a password or an API key. Settings are stored in your Grist document, where everyone who can edit it can read them — so credentials belong in whatever you run at the far end, not here.' }),
+    field('Attach by default', selectInput([
+      opt('pdf', 'PDF — the usual'),
+      opt('html', 'HTML file — opens in any browser'),
+      opt('none', 'Nothing — the email only'),
+    ], del.attachFormat, (v) => { del.attachFormat = v; }),
+      'What travels with the message. Changeable for one send in the Send panel.'),
+    field('Show the invoice in the email', selectInput([
+      opt('yes', 'Yes — laid out in the body'), opt('no', 'No — a covering note only'),
+    ], del.includeInBody === false ? 'no' : 'yes', (v) => { del.includeInBody = v === 'yes'; }),
+      'A client who will not open an attachment can still read it.'),
     field('Reply-to address', textInput(del.replyTo, (v) => { del.replyTo = v; }, { type: 'email' })),
     field('Always Cc', textInput(del.cc, (v) => { del.cc = v; }, { type: 'email' })),
     field('Always Bcc', textInput(del.bcc, (v) => { del.bcc = v; }, { type: 'email' }),

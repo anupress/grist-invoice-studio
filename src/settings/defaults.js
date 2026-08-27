@@ -118,6 +118,19 @@ export const DEFAULT_DELIVERY = {
   cc: '',
   bcc: '',
   emailAccent: '#14509b',
+  /**
+   * What travels with the covering message, and what the email itself shows.
+   *
+   * Two independent answers, because they solve different problems. An attached PDF is the thing a
+   * client files and a bookkeeper wants; the invoice laid out in the body is what a client who
+   * will not open attachments actually reads, and what survives a spam filter that strips files.
+   * Most businesses want both, which is why both default to on.
+   *
+   *   attachFormat  'pdf' | 'html' | 'none'
+   *   includeInBody  the invoice, as tables, inside the email
+   */
+  attachFormat: 'pdf',
+  includeInBody: true,
 };
 
 /** Table overrides, for when detection guesses wrong. Empty means work it out. */

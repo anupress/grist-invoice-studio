@@ -37,9 +37,12 @@ export function renderSendPanel(ctx) {
     body: null,
     to: null,
     endpoint: settings.endpoint || '',
-    // Whether the whole document goes in the body as well as being attached. Worth having: a client
-    // who will not open an attachment can still read the invoice, and a mailto: cannot attach at all.
-    includeDocument: true,
+    // Both seeded from Settings → Sending, and changeable for this one send. They answer different
+    // questions: what the client can FILE (the attachment) and what the client can READ without
+    // opening anything (the body). A mailto: cannot carry a file at all, which is the case the
+    // body option exists for.
+    attachFormat: settings.attachFormat || 'pdf',
+    includeDocument: settings.includeInBody !== false,
     lastQueuedRow: null,
   };
 
@@ -78,22 +81,44 @@ export function renderSendPanel(ctx) {
 
   const includeToggle = selectInput(
     [{ value: 'yes', label: 'Yes — show the invoice in the email' }, { value: 'no', label: 'No — a covering note only' }],
-    'yes', (v) => { state.includeDocument = v === 'yes'; }, { ariaLabel: 'Include the document in the body' });
+    state.includeDocument ? 'yes' : 'no',
+    (v) => { state.includeDocument = v === 'yes'; }, { ariaLabel: 'Include the document in the body' });
+
+  // The attachment is a separate question from the body, and both have a real answer. Changing it
+  // repaints the notes that name the file, so what the buttons promise stays true.
+  const attachToggle = selectInput(
+    [
+      { value: 'pdf', label: 'PDF — the usual' },
+      { value: 'html', label: 'HTML file — opens in any browser' },
+      { value: 'none', label: 'Nothing — the email only' },
+    ],
+    state.attachFormat,
+    (v) => { state.attachFormat = v; }, { ariaLabel: 'What to attach' });
 
   // ---- routes ----------------------------------------------------------------------------------
-  // A mailto: cannot carry a file, so the body says one is coming and the person attaches the PDF
-  // they downloaded. Naming it exactly means they know which file to pick out of their downloads.
-  const pdfName = fileNameFor(draft).replace(/\.html$/, '.pdf');
-  const fileNote = `The ${draft.kind === 'quote' ? 'quote' : 'invoice'} is attached as ${pdfName}.`;
+  // A mailto: cannot carry a file, so the body says one is coming and the person attaches the file
+  // they downloaded. Naming it exactly means they know which to pick out of their downloads — and
+  // when nothing is being attached, promising an attachment would simply be untrue.
+  const attachedFile = () => {
+    if (state.attachFormat === 'none') return null;
+    const name = fileNameFor(draft);
+    return state.attachFormat === 'html' ? name : name.replace(/\.html$/, '.pdf');
+  };
+  const fileNoteNow = () => {
+    const name = attachedFile();
+    return name ? `The ${draft.kind === 'quote' ? 'quote' : 'invoice'} is attached as ${name}.` : '';
+  };
 
   const mailBtn = button('Open in mail client', () => {
     const m = message();
     if (!m.to) { say('There is no address to send it to.', 'warn'); return; }
-    const built = buildMailto(m, { attachmentNote: fileNote });
-    openMailClient(m, { attachmentNote: fileNote });
+    const built = buildMailto(m, { attachmentNote: fileNoteNow() });
+    openMailClient(m, { attachmentNote: fileNoteNow() });
     say(built.truncated
       ? 'Opened your mail client — the body was too long for a mailto link and has been shortened, so check it before sending.'
-      : 'Opened your mail client. Attach the downloaded file before you send.', built.truncated ? 'warn' : 'ok');
+      : attachedFile()
+        ? 'Opened your mail client. Attach the downloaded file before you send.'
+        : 'Opened your mail client.', built.truncated ? 'warn' : 'ok');
     record(m, 'mail client');
   }, { variant: 'primary' });
 
@@ -154,7 +179,9 @@ export function renderSendPanel(ctx) {
     say(`Posting to ${destinationHost(state.endpoint)}…`);
     const payload = buildPayload(m, {
       html: messageToHtml(m, settings, { document: state.includeDocument ? documentToEmailHtml(draft, settings) : '' }),
-      attachment: attachmentFor(draft, settings, 'pdf'),
+      // Nothing attached means no attachment key at all, rather than an empty one the far end
+      // has to know to ignore.
+      attachment: state.attachFormat === 'none' ? null : attachmentFor(draft, settings, state.attachFormat),
     });
     const res = await postToEndpoint(state.endpoint, payload);
     postBtn.disabled = false;
@@ -202,8 +229,10 @@ export function renderSendPanel(ctx) {
       field('To', toInput),
       field('Subject', subjectInput),
       field('Body', bodyInput),
-      field('Include the document', includeToggle,
-        'Puts the whole invoice in the body of the email, laid out with tables so it survives Gmail and Outlook. A client who will not open an attachment can still read it — and a mailto: link cannot attach anything at all.'),
+      field('Attach', attachToggle,
+        'What the client can file. The PDF is what a bookkeeper expects; an HTML file opens in any browser without a reader. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'),
+      field('Show the invoice in the email', includeToggle,
+        'Laid out with tables so it survives Gmail and Outlook. A client who will not open an attachment can still read it, which is also what saves a message whose attachment a filter has stripped.'),
     ]),
 
     section('Send it yourself', [

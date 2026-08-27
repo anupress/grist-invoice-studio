@@ -131,6 +131,8 @@ export function sanitise(settings) {
   if (s.business.logoJpeg && !s.business.logoJpeg.startsWith('data:image/jpeg')) s.business.logoJpeg = null;
 
   s.delivery.endpoint = String(s.delivery.endpoint || '').trim();
+  if (!['pdf', 'html', 'none'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';
+  s.delivery.includeInBody = s.delivery.includeInBody !== false;
 
   // Table overrides are ids, and an id is a short string. Anything else stored there is noise.
   for (const key of ['invoice', 'line', 'client', 'product']) {
