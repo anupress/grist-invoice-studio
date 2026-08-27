@@ -1,0 +1,61 @@
+{
+  "source": "grist-advanced-charts",
+  "syncedAt": "2026-08-27T10:44:36.690Z",
+  "files": {
+    "src/util.js": {
+      "target": "src/core/util.js",
+      "sha256": "9ecf6b64807ce1ca",
+      "bytes": 11336
+    },
+    "src/security/sanitize.js": {
+      "target": "src/core/security/sanitize.js",
+      "sha256": "5f859a2c40804ba3",
+      "bytes": 8431
+    },
+    "src/grist/dates.js": {
+      "target": "src/core/grist/dates.js",
+      "sha256": "39ffee7f43ce8977",
+      "bytes": 4683
+    },
+    "src/grist/bridge.js": {
+      "target": "src/core/grist/bridge.js",
+      "sha256": "13ca2c2a2d1237d9",
+      "bytes": 34438
+    },
+    "src/data/provider.js": {
+      "target": "src/core/data/provider.js",
+      "sha256": "53471df1a80a0568",
+      "bytes": 23774
+    },
+    "src/data/dummy-data.js": {
+      "target": "src/core/data/dummy-data.js",
+      "sha256": "f837a1305b85dd21",
+      "bytes": 13635
+    },
+    "src/assets/brand-logo.js": {
+      "target": "src/core/assets/brand-logo.js",
+      "sha256": "d6a43b3ca9f10c1b",
+      "bytes": 19489
+    },
+    "src/assets/icon-library.js": {
+      "target": "src/core/assets/icon-library.js",
+      "sha256": "706cdea10cfdcf17",
+      "bytes": 70621
+    },
+    "src/assets/icons.js": {
+      "target": "src/core/assets/icons.js",
+      "sha256": "03c3b76db3e029d2",
+      "bytes": 13381
+    },
+    "src/theme/palettes.js": {
+      "target": "src/core/theme/palettes.js",
+      "sha256": "08302e45a956b0f7",
+      "bytes": 6963
+    },
+    "src/theme/apply.js": {
+      "target": "src/core/theme/apply.js",
+      "sha256": "0a7850a580230478",
+      "bytes": 10749
+    }
+  }
+}

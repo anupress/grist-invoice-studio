@@ -1,0 +1,40 @@
+# Build / tooling
+node_modules/
+dist/
+*.log
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local Claude / agent state
+.claude/
+
+# ---- Secret-bearing files (defensive — this project ships no keys today) ----
+# Anything that looks like an env file, key, cert, token or local credential.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+secrets.*
+credentials.*
+*-secret.json
+*-credentials.json
+.netrc
+.npmrc
+
+# Local AI/agent payloads — never commit raw prompts, transcripts, sample
+# responses or local file paths from your toolchain.
+ai-payloads/
+.prompts/
+*.prompt.json
+transcripts/
+scratch/
+tmp/

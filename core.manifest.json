@@ -1,0 +1,26 @@
+{
+  "_comment": [
+    "The files Invoice Studio shares with Advanced Charts, copied verbatim into src/core/ by",
+    "scripts/sync-core.mjs. Paths are relative to the SOURCE repo. A file listed here is read-only",
+    "in this repository: fix it upstream, then re-sync, or the next --check will fail the build.",
+    "Adding to this list is cheap. Editing a synced file in place is what costs a week six months",
+    "from now, when the same bug gets fixed twice in two different ways."
+  ],
+  "source": "../WidgetIdea",
+  "sourceName": "grist-advanced-charts",
+  "targetDir": "src/core",
+  "stripPrefix": "src/",
+  "files": [
+    "src/util.js",
+    "src/security/sanitize.js",
+    "src/grist/dates.js",
+    "src/grist/bridge.js",
+    "src/data/provider.js",
+    "src/data/dummy-data.js",
+    "src/assets/brand-logo.js",
+    "src/assets/icon-library.js",
+    "src/assets/icons.js",
+    "src/theme/palettes.js",
+    "src/theme/apply.js"
+  ]
+}

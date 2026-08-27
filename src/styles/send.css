@@ -1,0 +1,59 @@
+/* The send panel. Application chrome, so it follows the viewer's theme. */
+
+.snd {
+  width: 100%; max-width: 820px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.snd-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--sunk); border-bottom: 1px solid var(--rule);
+}
+.snd-bar strong { font-size: 14px; }
+.snd-bar__spacer { flex: 1 1 auto; }
+
+.snd .cmp-section__body { display: flex; flex-direction: column; gap: 10px; }
+
+.snd-lead {
+  margin: 0 0 4px; font-size: 12.5px; line-height: 1.5; color: var(--muted); max-width: 68ch;
+}
+
+.snd-routes { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---- the endpoint, the one route that leaves the browser -------------------------------------- */
+.snd-endpoint__note {
+  margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); max-width: 68ch;
+}
+/* Named in the accent when it is armed, so the sentence saying where an invoice is about to go
+   cannot be mistaken for the surrounding explanatory text. */
+.snd-endpoint__note.is-live { color: var(--accent); font-weight: 550; }
+.snd-endpoint__note.is-warn { color: var(--warn); }
+
+/* ---- setup instructions ------------------------------------------------------------------------ */
+.snd-setup { margin-top: 6px; border-top: 1px solid var(--rule); padding-top: 10px; }
+.snd-setup summary { cursor: pointer; color: var(--accent); font-size: 13px; font-weight: 550; }
+.snd-setup h4 {
+  margin: 14px 0 5px; font-size: 12px; font-weight: 650; color: var(--ink);
+}
+.snd-setup pre {
+  margin: 0; padding: 10px 12px;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.55;
+  color: var(--ink-2); white-space: pre-wrap; overflow-x: auto;
+}
+.snd-setup__step { margin-top: 4px; }
+
+/* ---- what just happened ------------------------------------------------------------------------- */
+.snd-status {
+  padding: 10px 14px; font-size: 13px; line-height: 1.45;
+  border-top: 1px solid var(--rule); color: var(--muted); min-height: 1px;
+}
+.snd-status:empty { display: none; }
+.snd-status.is-ok { background: var(--ok-soft); color: var(--ok); }
+.snd-status.is-warn { background: var(--warn-soft); color: var(--warn); }
+
+@media print { .snd { display: none !important; } }

@@ -1,0 +1,21 @@
+{
+  "name": "grist-invoice-studio",
+  "version": "1.1.0",
+  "description": "Invoice Studio — a Grist custom widget by ANUPRESS. Raise, render and send invoices from the tables a business already keeps, with no server anywhere.",
+  "type": "module",
+  "private": true,
+  "author": "ANUPRESS",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node scripts/sync-core.mjs --check && node tests/run.mjs",
+    "sync": "node scripts/sync-core.mjs",
+    "sync:check": "node scripts/sync-core.mjs --check",
+    "sync:list": "node scripts/sync-core.mjs --list",
+    "clean": "node -e \"import('node:fs').then(fs=>fs.rmSync('dist',{recursive:true,force:true}))\""
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "javascript-obfuscator": "^4.1.0"
+  }
+}

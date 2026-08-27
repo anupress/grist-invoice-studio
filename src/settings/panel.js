@@ -1,0 +1,327 @@
+// The settings panel.
+//
+// Everything a business decides once. Laid out and named the way WooCommerce names the same things,
+// because a person who has set up a shop already knows what "prices entered with tax" means and
+// should not have to learn our word for it.
+//
+// Two things are live rather than described, because both are settings people get wrong silently:
+// the currency sample redraws as you change separators, and the numbering sample shows the actual
+// next number for the actual sequence. A person who can see "INV-2026-0012" cannot mis-set padding.
+//
+// Saving is an explicit button. Settings are written into the user's Grist document, and saving on
+// every keystroke would mean a write per character.
+
+import { el, toast } from '../core/util.js';
+import { formatMoney, ROUNDING_MODES } from '../money/currency.js';
+import { TAX_PRESETS, buildPreset, RATES_UPDATED } from '../money/tax/rates.js';
+import { nextNumber } from '../money/numbering.js';
+import { DOCUMENT_KINDS } from '../doc/kinds.js';
+import { LAYOUTS } from '../doc/layouts.js';
+import { numberFormatFor } from './defaults.js';
+import { templatesBySector, findTemplate, templateChanges, applyTemplate } from '../templates/index.js';
+import { field, textInput, numberInput, textArea, selectInput, button, section } from '../compose/ui.js';
+
+const opt = (value, label) => ({ value, label });
+
+/**
+ * Build the panel.
+ *
+ * `settings` is edited in place and handed back on save; `ctx.existingNumbers` lets the numbering
+ * sample show the real next number rather than a made-up one.
+ */
+export function renderSettingsPanel(ctx) {
+  const { settings, existingNumbers = [], onSave, onClose, onPreview } = ctx;
+  const s = settings;
+
+  const statusLine = el('div', { class: 'set-status' });
+  const say = (text, kind = '') => {
+    statusLine.className = 'set-status' + (kind ? ' is-' + kind : '');
+    statusLine.textContent = text;
+  };
+
+  // Anything that changes how a document LOOKS redraws it, so the effect of a setting is visible
+  // while it is being chosen rather than after the panel is closed.
+  const touched = () => { paintSamples(); if (onPreview) onPreview(); };
+
+  // ---- start from a trade -------------------------------------------------------------------------
+  const templateNote = el('p', { class: 'set-lead' });
+  const templateChooser = selectInput(
+    [opt('', '— leave my settings as they are —'),
+      ...templatesBySector().flatMap((g) => g.items.map((t) => opt(t.id, `${g.sector} · ${t.label}`)))],
+    '', (v) => {
+      const template = findTemplate(v);
+      if (!template) { templateNote.textContent = ''; return; }
+      const changes = templateChanges(template, s);
+      templateNote.textContent = changes.length
+        ? `Would change ${changes.length} setting${changes.length === 1 ? '' : 's'}: ${changes.map((c) => c.path.split('.').pop()).join(', ')}. Your own name and address are never touched.`
+        : 'Nothing to change — your settings already match.';
+      pendingTemplate = template;
+    }, { ariaLabel: 'Start from a trade' });
+
+  let pendingTemplate = null;
+  const applyBtn = button('Apply it', () => {
+    if (!pendingTemplate) { say('Choose a trade first.', 'warn'); return; }
+    const next = applyTemplate(pendingTemplate, s);
+    // Written back into the same object the panel is editing, then the panel is rebuilt — several
+    // sections change at once, and repainting one field at a time would show a form that is half
+    // one trade and half another.
+    Object.assign(s, next);
+    // A toast rather than the inline status line, because applying a template rebuilds the whole
+    // panel — several sections change at once — and anything written into the panel would be
+    // destroyed by the rebuild it triggers.
+    toast(`Applied ${pendingTemplate.label}. Nothing is stored until you press Save settings.`, 'ok');
+    if (ctx.onRebuild) ctx.onRebuild();
+    else touched();
+  });
+
+  const templateSection = section('Start from a trade', [
+    el('p', { class: 'set-lead', text: 'A starting point rather than a design: what the document is called, the wording it needs, how its numbers run, and whether prices include tax. Your own name and address are never changed by one.' }),
+    field('Trade', templateChooser),
+    templateNote,
+    applyBtn,
+  ]);
+
+  // ---- your business ---------------------------------------------------------------------------
+  const b = s.business;
+  const businessSection = section('Your business', [
+    field('Name', textInput(b.name, (v) => { b.name = v; touched(); }, { placeholder: 'Thornbury Works' })),
+    field('Email', textInput(b.email, (v) => { b.email = v; touched(); }, { type: 'email' })),
+    field('Phone', textInput(b.phone, (v) => { b.phone = v; touched(); })),
+    field('Website', textInput(b.website, (v) => { b.website = v; touched(); })),
+    field('Address line 1', textInput(b.street1, (v) => { b.street1 = v; touched(); })),
+    field('Address line 2', textInput(b.street2, (v) => { b.street2 = v; touched(); })),
+    field('City', textInput(b.city, (v) => { b.city = v; touched(); })),
+    field('State / county', textInput(b.state, (v) => { b.state = v; touched(); })),
+    field('Postcode', textInput(b.postcode, (v) => { b.postcode = v; touched(); })),
+    field('Country', textInput(b.country, (v) => { b.country = v.toUpperCase(); touched(); }, { placeholder: 'GB', class: 'cmp-input--code' })),
+    field('Tax number', textInput(b.taxNumber, (v) => { b.taxNumber = v; touched(); }, { placeholder: 'VAT / GST / TRN' })),
+  ], { grid: true });
+
+  // ---- money -----------------------------------------------------------------------------------
+  const m = s.money;
+  const moneySample = el('span', { class: 'set-sample' });
+
+  const moneySection = section('Money', [
+    field('Currency', textInput(m.currency, (v) => { m.currency = v.toUpperCase(); touched(); }, { class: 'cmp-input--code', placeholder: 'GBP' })),
+    field('Symbol position', selectInput([
+      opt('left', 'Left — $1,234.56'), opt('right', 'Right — 1,234.56$'),
+      opt('left_space', 'Left with a space'), opt('right_space', 'Right with a space'),
+    ], m.format.position, (v) => { m.format.position = v; touched(); })),
+    field('Thousand separator', textInput(m.format.thousandSeparator, (v) => { m.format.thousandSeparator = v; touched(); }, { class: 'cmp-input--code' })),
+    field('Decimal separator', textInput(m.format.decimalSeparator, (v) => { m.format.decimalSeparator = v; touched(); }, { class: 'cmp-input--code' })),
+    field('Decimals', textInput(m.format.decimals == null ? '' : String(m.format.decimals),
+      (v) => { m.format.decimals = v === '' ? null : Number(v); touched(); }, { placeholder: 'the currency decides' })),
+    field('Rounding', selectInput([
+      opt('halfUp', 'Half up — the usual'), opt('halfEven', 'Half to even — banker’s'),
+      opt('up', 'Always up'), opt('down', 'Always down'),
+    ].filter((o) => ROUNDING_MODES.includes(o.value)), m.roundingMode, (v) => { m.roundingMode = v; touched(); })),
+    field('Sample', moneySample),
+  ], { grid: true });
+
+  // ---- tax --------------------------------------------------------------------------------------
+  const rateHost = el('div', { class: 'set-rates' });
+
+  // A preset is stored as an id, and the rows are rebuilt from it at runtime — which is right,
+  // because a stored copy of a rate table is a snapshot that quietly goes stale. But it means the
+  // editor would open empty under a dropdown saying "United Kingdom — VAT", and a rate table you
+  // cannot see is one you cannot check. So the rows are materialised for display. They stay
+  // display-only until something is edited, at which point the preset is dropped and they become
+  // the business's own.
+  if (m.taxPreset && !(m.taxRates || []).length) m.taxRates = buildPreset(m.taxPreset, m);
+
+  const presetChooser = selectInput(
+    [opt('', '— a table of my own —'), ...TAX_PRESETS.map((p) => opt(p.id, p.label))],
+    m.taxPreset || '',
+    (v) => {
+      m.taxPreset = v || null;
+      // Loading a preset fills the table so it can be SEEN and edited. Keeping the id as well means
+      // it stays current until the moment somebody changes a row, at which point it is theirs.
+      m.taxRates = v ? buildPreset(v, m) : m.taxRates;
+      paintRates();
+      touched();
+      say(v ? `Loaded ${m.taxRates.length} rate rows. Check them against what you are registered for — these are a starting point, not tax advice.` : 'Edit the rows below.');
+    }, { ariaLabel: 'Tax preset' });
+
+  // Changing the mode changes which fields are even relevant, so it rebuilds rather than trying to
+  // show and hide — a form with a rate table hanging under "no tax" invites somebody to fill it in.
+  const modeField = field('How tax works', selectInput([
+    opt('simple', 'One rate I type in'),
+    opt('preset', 'A table of countries'),
+    opt('none', 'I do not charge tax'),
+  ], m.taxMode, (v) => {
+    m.taxMode = v;
+    m.taxEnabled = v !== 'none';
+    if (ctx.onRebuild) ctx.onRebuild();
+  }), m.taxMode === 'simple'
+    ? 'The usual answer. One rate, applied to everything, whoever the client is.'
+    : m.taxMode === 'preset'
+      ? 'For selling across borders: the rate follows the client’s country.'
+      : 'No tax is charged and none is shown.');
+
+  const simpleFields = m.taxMode !== 'simple' ? [] : [
+    field('Rate', numberInput(m.simpleRate, (v) => { m.simpleRate = v; touched(); }), 'A percentage — 20 for 20%.'),
+    field('Call it', textInput(m.simpleName, (v) => { m.simpleName = v; touched(); }, { placeholder: 'VAT' }),
+      'What it is called on the document: VAT, GST, MwSt, TVA, sales tax.'),
+  ];
+
+  const taxSection = section('Tax', [
+    modeField,
+    ...simpleFields,
+    field('Prices entered', selectInput([
+      opt('excl', 'Without tax — it is added on'), opt('incl', 'With tax already included'),
+    ], m.pricesIncludeTax ? 'incl' : 'excl', (v) => { m.pricesIncludeTax = v === 'incl'; touched(); })),
+    field('Work tax out from', selectInput([
+      opt('billing', 'The client’s billing address'), opt('shipping', 'The delivery address'), opt('base', 'My own address'),
+    ], m.taxBasedOn, (v) => { m.taxBasedOn = v; touched(); })),
+    field('Round tax', selectInput([
+      opt('line', 'On each line'), opt('subtotal', 'Once, at the subtotal'),
+    ], m.roundAtSubtotal ? 'subtotal' : 'line', (v) => { m.roundAtSubtotal = v === 'subtotal'; touched(); })),
+    field('Show tax', selectInput([
+      opt('itemized', 'Itemised — every rate on its own line'), opt('single', 'As one total'),
+    ], m.displayTaxTotals, (v) => { m.displayTaxTotals = v; touched(); }),
+      'A split tax — CGST and SGST, say — has to be shown split.'),
+    field('My country', textInput(m.homeCountry, (v) => { m.homeCountry = v.toUpperCase(); touched(); }, { class: 'cmp-input--code', placeholder: 'GB' })),
+    field('My state', textInput(m.homeState, (v) => { m.homeState = v.toUpperCase(); touched(); }, { class: 'cmp-input--code' }),
+      'Needed for Indian GST, to tell a supply within your state from one outside it.'),
+    field('Assume clients are in', textInput(m.defaultCustomerCountry, (v) => { m.defaultCustomerCountry = v.toUpperCase(); touched(); }, { class: 'cmp-input--code' }),
+      'Used when a client record has no country of its own.'),
+  ].filter(Boolean), { grid: true });
+
+  const ratesSection = section('Tax rates', [
+    field('Start from', presetChooser),
+    el('p', { class: 'set-lead', text: `Country, state, postcode and city narrow a row down; the most specific matching row wins at each priority level, and at most one row applies per priority. That is how CGST and SGST both apply within one state while a single IGST applies outside it. Presets as at ${RATES_UPDATED} — check them against what you are actually registered for.` }),
+    rateHost,
+  ]);
+
+  function paintRates() {
+    const rows = m.taxRates || [];
+    const head = el('div', { class: 'set-rates__head' }, [
+      el('span', { text: 'Country' }), el('span', { text: 'State' }), el('span', { text: 'Postcode' }),
+      el('span', { class: 'is-num', text: 'Rate %' }), el('span', { text: 'Name' }),
+      el('span', { class: 'is-num', text: 'Priority' }), el('span', { text: 'Compound' }),
+      el('span', { text: 'Shipping' }), el('span', { text: 'Class' }), el('span', {}),
+    ]);
+
+    // Editing anything turns a preset into the business's own table — the id is dropped so it is
+    // never silently rebuilt from the preset and their edits lost on the next load.
+    const edited = () => { m.taxPreset = null; presetChooser.value = ''; touched(); };
+
+    const body = rows.map((r, i) => el('div', { class: 'set-rates__row' }, [
+      textInput(r.country, (v) => { r.country = v.toUpperCase(); edited(); }, { class: 'cmp-input--code', ariaLabel: `Row ${i + 1} country` }),
+      textInput(r.state, (v) => { r.state = v.toUpperCase(); edited(); }, { class: 'cmp-input--code', ariaLabel: 'State' }),
+      textInput(r.postcode, (v) => { r.postcode = v; edited(); }, { ariaLabel: 'Postcode' }),
+      numberInput(r.rate, (v) => { r.rate = v; edited(); }, { ariaLabel: 'Rate' }),
+      textInput(r.name, (v) => { r.name = v; edited(); }, { ariaLabel: 'Name' }),
+      numberInput(r.priority, (v) => { r.priority = v || 1; edited(); }, { ariaLabel: 'Priority' }),
+      checkbox(r.compound, (v) => { r.compound = v; edited(); }, 'Compound'),
+      checkbox(r.shipping !== false, (v) => { r.shipping = v; edited(); }, 'Applies to shipping'),
+      textInput(r.class || '', (v) => { r.class = v; edited(); }, { ariaLabel: 'Tax class', placeholder: 'standard' }),
+      button('', () => { rows.splice(i, 1); paintRates(); edited(); }, { icon: '×', title: 'Remove this rate', variant: 'ghost' }),
+    ]));
+
+    rateHost.replaceChildren(
+      rows.length ? el('div', { class: 'set-rates__grid' }, [head, ...body]) : el('p', { class: 'set-empty', text: 'No rates. Load a preset above, or add a row.' }),
+      button('Add a rate', () => {
+        rows.push({ country: m.homeCountry || '*', state: '*', postcode: '', city: '', rate: 0, name: 'Tax', priority: 1, compound: false, shipping: true, class: '' });
+        paintRates(); edited();
+      }, { icon: '+', variant: 'ghost' }),
+    );
+  }
+  paintRates();
+
+  // ---- numbering ---------------------------------------------------------------------------------
+  const n = s.numbering;
+  const numberSample = el('span', { class: 'set-sample' });
+  const kindPrefixes = DOCUMENT_KINDS.map((k) =>
+    field(k.label, textInput(n.prefixes[k.id] || '', (v) => { n.prefixes[k.id] = v; touched(); }, { class: 'cmp-input--code' })));
+
+  const numberingSection = section('Numbering', [
+    field('Digits', numberInput(n.padding, (v) => { n.padding = v; touched(); })),
+    field('Start at', numberInput(n.start, (v) => { n.start = v; touched(); })),
+    field('Restart', selectInput([opt('yearly', 'Every year'), opt('monthly', 'Every month'), opt('never', 'Never')],
+      n.resetPeriod, (v) => { n.resetPeriod = v; touched(); })),
+    field('Suffix', textInput(n.suffix, (v) => { n.suffix = v; touched(); }, { class: 'cmp-input--code' })),
+    field('Next invoice number', numberSample),
+    ...kindPrefixes,
+  ], { grid: true });
+
+  // ---- the document -------------------------------------------------------------------------------
+  const doc = s.document;
+  const documentSection = section('The document', [
+    field('Layout', selectInput(LAYOUTS.map((l) => opt(l.id, l.label)), doc.layout, (v) => { doc.layout = v; touched(); })),
+    field('Paper', selectInput([
+      opt('a4', 'A4 — 210 × 297mm'),
+      opt('letter', 'US Letter — 8.5 × 11in'),
+      opt('legal', 'US Legal — 8.5 × 14in'),
+      opt('a5', 'A5 — 148 × 210mm'),
+      opt('receipt80', 'Till roll — 80mm'),
+      opt('receipt58', 'Till roll — 58mm'),
+    ], doc.paperSize, (v) => { doc.paperSize = v; touched(); }),
+      'A till roll is a different shape, not a smaller sheet: one narrow column and no side-by-side addresses.'),
+    field('Density', selectInput([
+      opt('compact', 'Compact — fit more on a page'),
+      opt('normal', 'Normal'),
+      opt('roomy', 'Roomy — easier to read'),
+    ], doc.density, (v) => { doc.density = v; touched(); })),
+    field('Accent colour', textInput(doc.accent, (v) => { doc.accent = v; touched(); }, { placeholder: '#14509b', class: 'cmp-input--code' })),
+    field('Label for a tax number', textInput(doc.taxNumberLabel, (v) => { doc.taxNumberLabel = v; touched(); })),
+    field('Label for their reference', textInput(doc.referenceLabel, (v) => { doc.referenceLabel = v; touched(); })),
+    field('Heading for payment details', textInput(doc.paymentDetailsLabel, (v) => { doc.paymentDetailsLabel = v; touched(); })),
+    field('How to pay', textArea(doc.paymentDetails, (v) => { doc.paymentDetails = v; touched(); }, { rows: 3 }),
+      'Shown on anything that asks for money, and never on a receipt.'),
+    field('Closing line', textInput(doc.closingText, (v) => { doc.closingText = v; touched(); }, { placeholder: 'Thank you for your custom.' })),
+  ], { grid: true });
+
+  // ---- delivery ------------------------------------------------------------------------------------
+  const del = s.delivery;
+  const deliverySection = section('Sending', [
+    el('p', { class: 'set-lead', text: 'Nothing here ever holds a password or an API key. Settings are stored in your Grist document, where everyone who can edit it can read them — so credentials belong in whatever you run at the far end, not here.' }),
+    field('Reply-to address', textInput(del.replyTo, (v) => { del.replyTo = v; }, { type: 'email' })),
+    field('Always Cc', textInput(del.cc, (v) => { del.cc = v; }, { type: 'email' })),
+    field('Always Bcc', textInput(del.bcc, (v) => { del.bcc = v; }, { type: 'email' }),
+      'A copy to your own accounts address is the usual reason.'),
+    field('Your endpoint', textInput(del.endpoint, (v) => { del.endpoint = v.trim(); }, { type: 'url', placeholder: 'https://your-relay.example/send' }),
+      'Only used by the Direct route in the send panel, and only when you press send.'),
+  ], { grid: true });
+
+  // ---- samples --------------------------------------------------------------------------------------
+  function paintSamples() {
+    moneySample.textContent = formatMoney(1234.5, { ...m.format, currency: m.currency });
+    const next = nextNumber(existingNumbers, numberFormatFor(s, 'invoice'), new Date());
+    numberSample.textContent = next.number;
+  }
+  paintSamples();
+
+  const saveBtn = button('Save settings', async () => {
+    saveBtn.disabled = true;
+    const res = await onSave(s);
+    saveBtn.disabled = false;
+    say(res.warning || (res.storedInTable ? 'Saved into your document.' : 'Saved.'), res.warning ? 'warn' : 'ok');
+  }, { variant: 'primary' });
+
+  return el('div', { class: 'set' }, [
+    el('div', { class: 'set-bar' }, [
+      el('strong', { text: 'Settings' }),
+      el('div', { class: 'set-bar__spacer' }),
+      saveBtn,
+      button('Close', onClose),
+    ]),
+    templateSection,
+    businessSection,
+    moneySection,
+    taxSection,
+    // Only shown when there is a table to show. A rate grid sitting under "one rate I type in" is an
+    // invitation to fill in something that will never be read.
+    m.taxMode === 'preset' ? ratesSection : null,
+    numberingSection,
+    documentSection,
+    deliverySection,
+    statusLine,
+  ]);
+}
+
+function checkbox(checked, onChange, label) {
+  const input = el('input', { type: 'checkbox', checked: checked ? true : null, 'aria-label': label });
+  input.addEventListener('change', () => onChange(input.checked));
+  return el('label', { class: 'set-check' }, [input]);
+}

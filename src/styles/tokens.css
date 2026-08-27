@@ -1,0 +1,90 @@
+/* Design tokens.
+ *
+ * The widget renders inside a Grist iframe, so it cannot inherit anything and has to paint its own
+ * ground — a transparent background borrows whatever the host is using and produces one theme's
+ * text on the other theme's paper. Every colour below is defined here and used through a variable,
+ * never as a literal in a component rule.
+ *
+ * The document itself deliberately stays on white in both themes: an invoice is a piece of paper,
+ * it is going to be printed or turned into a PDF, and a dark-mode invoice is not a thing anyone
+ * wants to send a client. Only the application chrome around it follows the viewer's theme.
+ */
+
+:root {
+  --paper: #f7f8fa;
+  --surface: #ffffff;
+  --sunk: #eef1f5;
+  --ink: #14202b;
+  --ink-2: #3d4f60;
+  --muted: #64768a;
+  --rule: #dde4ec;
+  --rule-2: #c3cedb;
+  --accent: #14509b;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6eefa;
+  --ok: #16704a;
+  --ok-soft: #e2f2eb;
+  --warn: #8a5a08;
+  --warn-soft: #f8efdc;
+  --risk: #a33830;
+  --risk-soft: #f8e8e6;
+
+  /* The document's own palette, held apart on purpose — see the note above. */
+  --doc-paper: #ffffff;
+  --doc-ink: #16212c;
+  --doc-muted: #5f7285;
+  --doc-rule: #dfe5ec;
+  --doc-accent: #14509b;
+  --doc-accent-soft: #eaf1fa;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-doc: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(20, 32, 43, .06), 0 10px 30px -20px rgba(20, 32, 43, .35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e151c;
+    --surface: #16202a;
+    --sunk: #111a22;
+    --ink: #e7eef5;
+    --ink-2: #b3c2d0;
+    --muted: #8496a8;
+    --rule: #243240;
+    --rule-2: #314253;
+    --accent: #6ba5f0;
+    --accent-ink: #0b1219;
+    --accent-soft: #17293f;
+    --ok: #62c08d;
+    --ok-soft: #12291e;
+    --warn: #d5a257;
+    --warn-soft: #2a2114;
+    --risk: #e58b83;
+    --risk-soft: #2c1a18;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 34px -22px rgba(0, 0, 0, .9);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0e151c;
+  --surface: #16202a;
+  --sunk: #111a22;
+  --ink: #e7eef5;
+  --ink-2: #b3c2d0;
+  --muted: #8496a8;
+  --rule: #243240;
+  --rule-2: #314253;
+  --accent: #6ba5f0;
+  --accent-ink: #0b1219;
+  --accent-soft: #17293f;
+  --ok: #62c08d;
+  --ok-soft: #12291e;
+  --warn: #d5a257;
+  --warn-soft: #2a2114;
+  --risk: #e58b83;
+  --risk-soft: #2c1a18;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 34px -22px rgba(0, 0, 0, .9);
+}

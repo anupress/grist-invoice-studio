@@ -1,0 +1,4 @@
+# Normalize line endings: LF for source, CRLF for PowerShell.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+vendor/** binary

@@ -1,0 +1,51 @@
+name: Build & Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install build tooling
+        run: npm install --no-audit --no-fund
+      # src/core/ is copied from Advanced Charts and must never be edited here — one bug fixed two
+      # different ways in two repositories is the failure mode a separate repo invites. This catches
+      # the edit at the commit that made it. The sibling repo is not present in CI, so this is the
+      # hash check against core.lock.json rather than the upstream-drift comparison.
+      - name: Verify the shared core has not been edited
+        run: node scripts/sync-core.mjs --check
+      # Before the build, not after: a deploy that ships an invoice whose totals are wrong is worse
+      # than a deploy that does not happen.
+      - name: Test
+        run: node tests/run.mjs
+      - name: Build obfuscated dist/
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

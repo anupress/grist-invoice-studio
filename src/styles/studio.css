@@ -1,0 +1,133 @@
+/* The application chrome: the bar, the mapping report, the page the document sits on. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.studio { display: flex; flex-direction: column; min-height: 100%; }
+
+/* ---- bar ---------------------------------------------------------------------------------- */
+.studio-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  position: sticky; top: 0; z-index: 10;
+}
+.studio-bar__brand { display: flex; align-items: baseline; gap: 8px; }
+.studio-bar__name { font-weight: 650; letter-spacing: -.01em; }
+.studio-bar__mode {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 3px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.studio-bar__spacer { flex: 1 1 auto; }
+
+.studio-select {
+  font: inherit; font-size: 14px;
+  padding: 6px 10px; min-width: 220px; max-width: 100%;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule-2); border-radius: var(--radius);
+}
+.studio-select--sm { min-width: 0; font-size: 13px; padding: 5px 8px; }
+.studio-btn--sm { font-size: 12.5px; padding: 4px 10px; margin-top: 8px; }
+
+/* Toast. setTimeout rather than rAF to reveal it, because rAF is starved while the tab is not
+ * compositing — an embedded Grist widget in a background tab — and a "Saved" confirmation that
+ * never appears is worse than one that appears without an animation. */
+.ap-toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 12px);
+  z-index: 60; max-width: min(520px, calc(100vw - 32px));
+  padding: 9px 16px; border-radius: var(--radius);
+  background: var(--ink); color: var(--paper);
+  font-size: 13px; line-height: 1.4;
+  box-shadow: var(--shadow);
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.ap-toast.is-show { opacity: 1; transform: translate(-50%, 0); }
+.ap-toast--ok { background: var(--ok); color: #fff; }
+.ap-toast--warn { background: var(--warn); color: #fff; }
+.ap-toast--err { background: var(--risk); color: #fff; }
+@media (prefers-reduced-motion: reduce) { .ap-toast { transition: none; } }
+.studio-btn {
+  font: inherit; font-size: 14px; font-weight: 550;
+  padding: 6px 14px; cursor: pointer;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule-2); border-radius: var(--radius);
+}
+.studio-btn:hover { border-color: var(--accent); color: var(--accent); }
+.studio-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.studio-btn--primary:hover { color: var(--accent-ink); filter: brightness(1.08); }
+.studio-select:focus-visible, .studio-btn:focus-visible, .studio-upgrade summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---- body --------------------------------------------------------------------------------- */
+.studio-body { flex: 1 1 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+
+/* ---- what we worked out about the document ------------------------------------------------ */
+.studio-notice {
+  width: 100%; max-width: 820px;
+  background: var(--surface);
+  border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13.5px;
+}
+.studio-notice--warn { border-left-color: var(--warn); }
+.studio-notice p { margin: 6px 0 0; }
+.studio-notice__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); }
+.studio-notice__tables { color: var(--ink-2); }
+.studio-notice__tables code, .studio-upgrade code {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--sunk); border: 1px solid var(--rule);
+  padding: 1px 5px; border-radius: 3px;
+}
+.studio-notice__warn { color: var(--warn); }
+.studio-notice__tax { color: var(--muted); font-size: 13px; }
+.studio-notice__tax strong { color: var(--ink-2); }
+
+.studio-chip {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 3px;
+  background: var(--sunk); color: var(--muted);
+}
+.studio-chip.is-strong { background: var(--ok-soft); color: var(--ok); }
+
+.studio-upgrade { margin-top: 10px; border-top: 1px solid var(--rule); padding-top: 8px; }
+.studio-upgrade summary { cursor: pointer; color: var(--accent); font-weight: 550; }
+.studio-upgrade ul { margin: 8px 0 0; padding-left: 18px; }
+.studio-upgrade li { margin: 4px 0; color: var(--ink-2); }
+.studio-upgrade__note { color: var(--muted); font-size: 12.5px; }
+
+/* ---- the page the document sits on --------------------------------------------------------- */
+.studio-page {
+  width: 100%; max-width: 820px;
+  background: var(--doc-paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ---- print ---------------------------------------------------------------------------------
+ * Printing an invoice should produce the invoice, not the application it was drawn in. */
+@media print {
+  html, body { background: #fff; }
+  .studio-bar, .studio-notice { display: none !important; }
+  .studio-body { padding: 0; }
+  .studio-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; }
+  @page { margin: 14mm; }
+}
