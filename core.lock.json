@@ -1,6 +1,6 @@
 {
   "source": "grist-advanced-charts",
-  "syncedAt": "2026-08-27T10:44:36.690Z",
+  "syncedAt": "2026-08-27T13:32:27.502Z",
   "files": {
     "src/util.js": {
       "target": "src/core/util.js",
@@ -34,8 +34,8 @@
     },
     "src/assets/brand-logo.js": {
       "target": "src/core/assets/brand-logo.js",
-      "sha256": "d6a43b3ca9f10c1b",
-      "bytes": 19489
+      "sha256": "383a691f31debb58",
+      "bytes": 19487
     },
     "src/assets/icon-library.js": {
       "target": "src/core/assets/icon-library.js",

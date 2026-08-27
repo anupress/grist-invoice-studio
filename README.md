@@ -1,18 +1,14 @@
 # Invoice Studio — a custom widget for Grist (by ANUPRESS)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-0F1B2D.svg)](CHANGELOG.md)
 
 Raise, render and send invoices from the tables your business already keeps — inside Grist, with no
 server anywhere. Everything runs in the viewer's browser and your data never leaves your document.
 
-> **Status: 1.0.** Every phase of the plan is built. It reads a document, works out how it holds
-> invoices, draws one, computes tax for nine regions, creates and edits invoices, writes them back,
-> sends them, produces a real PDF, and keeps your settings in your own document.
->
-> **Not yet tested against a live Grist document.** Everything is verified against a bundled demo
-> that mirrors Grist's own Invoicing template, and the PDF is verified in Chrome's PDF engine — but
-> the write path has never run against a real document. Try it on a copy first.
+Pick a client, add lines from your own product table, watch the document build itself as you type,
+and send it — by your own mail client, by a webhook, or as a PDF. Tax follows the customer's country
+across the EU and thirty more, or you can just type the rate you charge.
 
 ## It already knows Grist's own Invoicing template
 
@@ -47,6 +43,15 @@ powershell -ExecutionPolicy Bypass -File scripts/serve.ps1
 ```
 
 Any static server works — there is no build step in development, and no dependencies at runtime.
+
+## Connecting it to a real document
+
+Add a widget, choose **Custom**, paste the URL, and grant full access when Grist asks — that is what
+lets it read your tables and write invoices back.
+
+**Try it on a copy of your document the first time.** Everything here is exercised against the
+bundled demo, but writing to a real Grist document — creating rows, adding columns, the outbox —
+has not been through a live document yet. Copies are cheap; a billing table is not.
 
 ## The shared core
 

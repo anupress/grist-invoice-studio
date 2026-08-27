@@ -37,7 +37,22 @@ const LOCKFILE = path.join(ROOT, 'core.lock.json');
 const args = new Set(process.argv.slice(2));
 const MODE = args.has('--check') ? 'check' : args.has('--list') ? 'list' : 'sync';
 
-const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex').slice(0, 16);
+/**
+ * Line endings, made irrelevant.
+ *
+ * This check asks one question — has anyone EDITED this file — and hashing the raw bytes answers a
+ * different one: do the bytes on disk match. Git alone can change those. `.gitattributes` normalises
+ * text to LF on commit, so a file that arrives from upstream with CRLF is stored as LF and checked
+ * out as LF in CI, while the copy on the machine that wrote the lockfile still has CRLF. The hashes
+ * then differ and the build fails reporting an edit that never happened. (It did: the first push
+ * failed on `brand-logo.js`, which is CRLF in the Advanced Charts working tree.)
+ *
+ * So the hash is taken over content with the carriage returns removed, and copies are written the
+ * same way. The check now means what it says, on any checkout, on any platform.
+ */
+const normalise = (buf) => Buffer.from(buf.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+
+const sha = (buf) => crypto.createHash('sha256').update(normalise(buf)).digest('hex').slice(0, 16);
 const rel = (p) => path.relative(ROOT, p).split(path.sep).join('/');
 
 function die(msg) { console.error('\n' + msg + '\n'); process.exit(1); }
@@ -81,9 +96,11 @@ if (MODE === 'sync') {
     const from = path.join(sourceRoot, entry);
     if (!fs.existsSync(from)) die(`Listed in the manifest but missing upstream: ${entry}`);
 
-    const buf = fs.readFileSync(from);
+    // Written normalised, so the copy on disk matches what git will store and what CI will check
+    // out. Without this the file is rewritten on every sync on a CRLF machine, for no reason.
+    const buf = normalise(fs.readFileSync(from));
     const to = targetFor(entry);
-    const before = fs.existsSync(to) ? fs.readFileSync(to) : null;
+    const before = fs.existsSync(to) ? normalise(fs.readFileSync(to)) : null;
 
     if (before && before.equals(buf)) { unchanged++; }
     else {
