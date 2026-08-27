@@ -131,3 +131,8 @@ html, body {
   .studio-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; }
   @page { margin: 14mm; }
 }
+
+/* The empty-document setup offer. */
+.studio-setup__list { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); }
+.studio-setup__list li { margin: 2px 0; }
+.studio-setup__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }

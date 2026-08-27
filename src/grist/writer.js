@@ -244,6 +244,100 @@ export async function releaseOutbox(rowIds, provider, { live }) {
   return { ok: true, released: rowIds.length };
 }
 
+/**
+ * The columns to hand to the atomic create, and the ones to add afterwards.
+ *
+ * The core's create sends AddTable and BulkAddRecord as one bundle, and if Grist rejects ANY column
+ * type it retries the whole table as plain Text. That fallback is the right trade for a chart's
+ * sample data; here it would quietly turn the reference columns into text and leave a document that
+ * looks built but does not join up.
+ *
+ * So the create only gets types every Grist accepts, and the one column that could plausibly be
+ * refused — the attachments column, which is a Grist-version question rather than a data question —
+ * is added separately afterwards, where failing loses one column instead of the whole shape.
+ */
+function structural(columns) {
+  return columns.filter((c) => c.type !== 'Attachments').map(({ id, label, type }) => ({ id, label, type }));
+}
+
+/**
+ * The parts the atomic create cannot carry: the attachments column, and the choice list.
+ *
+ * Cosmetic in the sense that the document reads correctly without them, so a failure here is
+ * reported to the console and otherwise ignored rather than being allowed to fail a setup that has
+ * already written four tables of working data. Without the choice list, Grist marks every status
+ * as an unrecognised value; without the attachments column, the upgrade offer simply reappears.
+ */
+async function dressColumns(table) {
+  const extra = table.columns.filter((c) => c.type === 'Attachments');
+  const choices = table.columns.filter((c) => c.widgetOptions);
+  if (!extra.length && !choices.length) return;
+
+  const actions = [
+    ...extra.map((c) => ['AddColumn', table.id, c.id, { type: c.type, label: c.label }]),
+    ...choices.map((c) => ['ModifyColumn', table.id, c.id, { widgetOptions: c.widgetOptions }]),
+  ];
+  const res = await apply(actions);
+  if (!res.ok) console.warn(`[Invoice Studio] ${table.id} was created, but its choice list and attachments column were not`, res.error);
+}
+
+/**
+ * Build the tables a fresh document needs, with a few invoices in them.
+ *
+ * Uses the core's `createTableWithRecords`, which sends AddTable and BulkAddRecord as ONE action
+ * bundle. That atomicity is not a nicety: the two-call version it replaced could leave a created but
+ * EMPTY table when the row insert failed on its own, and an empty table is not a missing one, so
+ * every block rendered blank with nothing to explain why. It also retries with all-Text columns if
+ * Grist rejects a type, which is why a picky or older instance still ends up with a usable table.
+ *
+ * Tables are created in the order given, because a Ref column cannot point at a table that does not
+ * exist yet. A table already present is skipped rather than overwritten.
+ */
+export async function createStarterTables(tables, provider, { live }) {
+  const existing = new Set((provider.tables() || []).map((t) => t.id));
+  const todo = tables.filter((t) => !existing.has(t.id));
+  if (!todo.length) return { ok: true, created: [], skipped: tables.map((t) => t.id) };
+
+  if (!live) {
+    for (const t of todo) {
+      provider.data.tables[t.id] = {
+        id: t.id, label: t.label,
+        columns: t.columns.map((c) => ({ id: c.id, label: c.label, type: c.type, isFormula: false })),
+        records: t.records.map((r, i) => ({ id: i + 1, ...r })),
+      };
+    }
+    // A document that had nothing in it has no default table either, and provider.columns() with no
+    // argument reads through it.
+    if (!provider.data.defaultTable) provider.data.defaultTable = todo[todo.length - 1].id;
+    provider.setData(provider.data);
+    return { ok: true, created: todo.map((t) => t.id), skipped: [] };
+  }
+
+  if (bridge.accessLevel() !== 'full') {
+    return { ok: false, error: 'Creating tables needs full access to this document.', needsAccess: true };
+  }
+
+  const created = [];
+  for (const t of todo) {
+    const ok = await bridge.createTableWithRecords(t.id, structural(t.columns), t.records);
+    if (!ok) {
+      return {
+        ok: false, created,
+        error: `Could not create ${t.id}.` + (created.length ? ` ${created.join(' and ')} were created first; remove them before trying again.` : ''),
+      };
+    }
+    created.push(t.id);
+    await dressColumns(t);
+  }
+
+  bridge.invalidateMetaCache();
+  await provider.refreshTables();
+  // Rows, not just columns. refreshTables loads both for tables it has not seen, and these are all
+  // new — but priming again is cheap and makes the dependency explicit rather than incidental.
+  await provider.prime(created);
+  return { ok: true, created, skipped: tables.length - todo.length ? tables.filter((t) => existing.has(t.id)).map((t) => t.id) : [] };
+}
+
 /** Add the columns an upgrade plan asks for. */
 export async function applyUpgrade(plan, provider, { live }) {
   const { upgradeActions, backfillActions } = await import('../model/migrate.js');

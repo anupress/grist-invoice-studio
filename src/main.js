@@ -17,11 +17,14 @@ import { listInvoices, listClients, resolveInvoice } from './model/resolve.js';
 import { emptyDraft, normaliseDraft, recalc, convertDraft } from './model/draft.js';
 import { buildWritePlan, describePlan, existingNumbers } from './model/write.js';
 import { buildUpgradePlan } from './model/migrate.js';
-import { savePlan, applyUpgrade, queueToOutbox, releaseOutbox } from './grist/writer.js';
+import { savePlan, applyUpgrade, queueToOutbox, releaseOutbox, createStarterTables } from './grist/writer.js';
 import { renderSendPanel } from './compose/send-panel.js';
 import { loadSettings, saveSettings, sanitise } from './settings/store.js';
 import { numberFormatFor } from './settings/defaults.js';
 import { renderSettingsPanel } from './settings/panel.js';
+import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate } from './templates/index.js';
+import { starterTablesFor } from './templates/starter.js';
+import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
 import { renderDocument } from './doc/render.js';
 import { DOCUMENT_KINDS } from './doc/kinds.js';
@@ -91,6 +94,7 @@ const app = {
   // never take effect and a template that sets one appears to do nothing.
   layout: null,
   region: 'gb',
+  setupTrade: 'freelancer',
   mode: 'view',      // view | compose | send | settings
   draft: null,
   busy: false,
@@ -175,7 +179,10 @@ async function boot() {
     const wanted = [app.schema.invoice?.table, app.schema.line?.table, app.schema.client?.table, app.products?.table].filter(Boolean);
     if (wanted.length) await gp.prime(wanted);
   } else {
-    app.provider = new DummyProvider(SAMPLE_DATA);
+    // ?empty exercises the setup path, which is otherwise unreachable in the demo because the
+    // bundled document already has tables in it.
+    const emptyDoc = new URLSearchParams(location.search).has('empty');
+    app.provider = new DummyProvider(emptyDoc ? { defaultTable: null, tables: {} } : SAMPLE_DATA);
     app.live = false;
     rescan();
   }
@@ -461,15 +468,90 @@ function renderBar() {
   ]);
 }
 
+/**
+ * A document with no invoices in it.
+ *
+ * Offering to build the tables rather than only reporting their absence. "No invoices found" and
+ * nothing else is a dead end at exactly the moment somebody is deciding whether this is worth
+ * using, and the tables it needs are ones it already knows how to describe.
+ *
+ * A trade is picked first because it decides what the sample invoices are FOR — a builder gets
+ * labour and materials, a bakery gets loaves and coffee — and because the same choice configures
+ * the settings, so one decision does both.
+ */
+function renderSetup() {
+  const chooser = el('select', { class: 'studio-select', 'aria-label': 'What kind of work do you invoice for?' }, [
+    el('option', { value: 'freelancer', text: 'Pick your trade…' }),
+    ...templatesBySector().flatMap((g) => g.items.map((t) =>
+      el('option', { value: t.id, selected: t.id === app.setupTrade ? true : null, text: `${g.sector} · ${t.label}` }))),
+  ]);
+  chooser.addEventListener('change', () => { app.setupTrade = chooser.value; });
+
+  const go = el('button', { class: 'studio-btn studio-btn--primary', type: 'button', text: 'Set up this document' });
+  go.addEventListener('click', async () => {
+    // Four tables and a dozen records is a visible pause on a slow connection, and a button that
+    // looks unpressed invites a second press — which would try to create the tables twice.
+    go.disabled = true;
+    chooser.disabled = true;
+    go.textContent = 'Setting up…';
+    await runSetup(chooser.value);
+    if (go.isConnected) { go.disabled = false; chooser.disabled = false; go.textContent = 'Set up this document'; }
+  });
+
+  return el('div', { class: 'studio-notice studio-notice--warn' }, [
+    el('strong', { text: 'This document has no invoices in it yet.' }),
+    el('p', { text: 'Invoice Studio looks for a table with something like an invoice number, a client and a date. Nothing here matched, so it can build those tables for you, with a few invoices already in them to work from.' }),
+    el('ul', { class: 'studio-setup__list' }, [
+      el('li', { text: 'Clients, Products, Invoices and Invoice items' }),
+      el('li', { text: 'Four invoices: one overdue, one paid, one sent and one still a draft' }),
+      el('li', { text: 'Line items priced for the trade you pick' }),
+    ]),
+    el('div', { class: 'studio-setup__row' }, [chooser, go]),
+    el('p', { class: 'studio-upgrade__note', text: 'Existing tables are never touched. Anything already in this document with one of these names is left exactly as it is.' }),
+  ]);
+}
+
+async function runSetup(templateId) {
+  if (app.busy) return;
+  const template = findTradeTemplate(templateId);
+
+  // The trade configures the settings as well as the sample data, and the settings have to be
+  // worked out first: the tax they set up decides what a paid invoice was actually paid, and the
+  // prefix they set up decides what the sample invoices are numbered.
+  const next = sanitise(template ? applyTemplate(template, app.stored) : app.stored);
+  const money = moneySettings(next.money);
+  // A shop that picked "Retail — a till receipt" should not then be shown an invoice. The bar's
+  // chooser still switches it afterwards; this only decides where it starts.
+  const kind = template?.kind || 'invoice';
+
+  const tables = starterTablesFor(templateId, {
+    currency: next.money.currency,
+    numberPrefix: numberFormatFor(next, kind).prefix.replace(/\{[^}]+\}/g, '').replace(/-+$/, '') + '-',
+    grossOf: ({ lines, address }) => computeTotals({ lines, addresses: { billing: address } }, money).total,
+  });
+
+  app.busy = true;
+  const res = await createStarterTables(tables, app.provider, { live: app.live });
+  app.busy = false;
+
+  if (!res.ok) { toast(res.error || 'Could not create the tables.', 'err'); return; }
+
+  // Saved rather than only held in memory, or the wording and numbering chosen here are gone on
+  // reload while the invoices they produced are not.
+  const saved = await saveSettings(next);
+  app.stored = saved.settings;
+  app.kind = kind;
+  app.layout = null;                 // let the template's layout through rather than the bar's
+  rescan();
+  app.currentRowId = null;
+  toast(`Created ${res.created.join(', ')}.`, 'ok');
+  render();
+}
+
 /** What we worked out about this document, said plainly rather than buried in a console log. */
 function renderMapping() {
   const s = app.schema;
-  if (!s || !s.invoice) {
-    return el('div', { class: 'studio-notice studio-notice--warn' }, [
-      el('strong', { text: 'No invoices found in this document.' }),
-      el('p', { text: 'Invoice Studio looks for a table with something like an invoice number, a client and a date. Nothing here matched, so there is nothing to draw yet.' }),
-    ]);
-  }
+  if (!s || !s.invoice) return renderSetup();
 
   const recognised = s.source !== 'heuristic';
   const bits = [

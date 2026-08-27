@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0
+
+### Setting up an empty document
+
+- A document with no invoice tables in it now offers to build them rather than only reporting that
+  it found nothing. It creates `Clients`, `Products`, `Invoices` and `InvoiceItems` with four sample
+  invoices: one overdue, one paid, one sent, one still a draft. A table that already exists is
+  skipped, never overwritten.
+- The trade picked at that point sets the line items, the catalogue, the wording, the numbering
+  prefix, the layout, the document kind and the tax settings, so a builder gets labour and materials
+  and a shop gets a till receipt.
+- The sample data is invented. No real business, person or address appears in it.
+- The amount paid on the settled sample invoice is the tax-inclusive figure, so it renders as
+  settled rather than short by exactly the VAT.
+- Reference columns, dates and the choice list survive creation. The attachments column is added
+  after the table rather than inside the atomic create, because a type Grist refuses inside that
+  bundle would silently retry the whole table as plain text.
+
 ## 1.1.0
 
 First public release. Versions below 1.1.0 were development builds and were never published.
