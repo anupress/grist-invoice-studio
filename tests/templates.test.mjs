@@ -7,7 +7,7 @@ const stock = await import(pathToFileURL(_resolve(ROOT, 'src/model/stock.js')).h
 const { sanitise } = await import(pathToFileURL(_resolve(ROOT, 'src/settings/store.js')).href);
 const m2 = await import(pathToFileURL(_resolve(ROOT, 'src/model/schema.js')).href);
 const { documentKind } = await import(pathToFileURL(_resolve(ROOT, 'src/doc/kinds.js')).href);
-const { isLayout } = await import(pathToFileURL(_resolve(ROOT, 'src/doc/layouts.js')).href);
+const { isLayout, LAYOUTS } = await import(pathToFileURL(_resolve(ROOT, 'src/doc/layouts.js')).href);
 
 let pass = 0, fail = 0;
 const eq = (n, got, want) => { if (JSON.stringify(got) === JSON.stringify(want)) pass++; else { fail++; console.log(`  FAIL ${n}\n    got  ${JSON.stringify(got)}\n    want ${JSON.stringify(want)}`); } };
@@ -30,6 +30,13 @@ for (const t of T.TEMPLATES) {
     ok(`${t.id}'s prefix is for a real kind`, documentKind(kind).id === kind);
   }
 }
+
+// Eight layouts, each a real choice with a label the choosers can show.
+eq('eight layouts', LAYOUTS.length, 8);
+eq('their ids are unique', new Set(LAYOUTS.map((l) => l.id)).size, 8);
+ok('each accepted by the validator', LAYOUTS.every((l) => isLayout(l.id)));
+ok('each with a label', LAYOUTS.every((l) => typeof l.label === 'string' && l.label.length > 2));
+ok('and nonsense still is not one', !isLayout('gothic'));
 
 ok('grouped by sector for the chooser', T.templatesBySector().length > 3);
 eq('every template appears exactly once when grouped',

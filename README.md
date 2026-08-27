@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.9.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.10.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -122,7 +122,7 @@ unless they are on localhost.
 
 ## Documents
 
-Eight document kinds and four layouts. A delivery note and a packing slip show no prices; a quote
+Eight document kinds and eight layouts — Classic, Banded, Letterhead, Minimal, Slate, Headline, Rail and Centred. Layouts differ in the masthead and share one body, so every layout benefits from every future fix. A delivery note and a packing slip show no prices; a quote
 carries an expiry rather than a due date; a receipt shows no payment details.
 
 Paper: A4, US Letter, US Legal, A5, and 80mm or 58mm till rolls, which switch to a single-column

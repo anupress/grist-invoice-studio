@@ -10,6 +10,10 @@
 //               survives being folded into a window envelope
 //   letterhead  a tinted strip, business on the left and mark on the right, like printed stationery
 //   minimal     hairline rules and no colour at all, for the most conservative recipient
+//   slate       a full-width dark block, brand left and title right — the corporate letterhead
+//   headline    the document's own word writ large across the top, editorial rather than clerical
+//   rail        a thick accent edge down the left of the masthead, everything ranged left
+//   centred     mark, name, word and number stacked on the centre line, like an engraved card
 //
 // Keeping them to one shared body is deliberate: four full templates would be four places to fix
 // every future change to how a total is presented.
@@ -21,6 +25,10 @@ export const LAYOUTS = [
   { id: 'banded', label: 'Banded' },
   { id: 'letterhead', label: 'Letterhead' },
   { id: 'minimal', label: 'Minimal' },
+  { id: 'slate', label: 'Slate' },
+  { id: 'headline', label: 'Headline' },
+  { id: 'rail', label: 'Rail' },
+  { id: 'centred', label: 'Centred' },
 ];
 
 export const isLayout = (id) => LAYOUTS.some((l) => l.id === id);
@@ -37,6 +45,10 @@ export function renderMasthead(layout, ctx) {
   switch (id) {
     case 'banded': return banded(ctx);
     case 'letterhead': return letterhead(ctx);
+    case 'slate': return slate(ctx);
+    case 'headline': return headline(ctx);
+    case 'rail': return rail(ctx);
+    case 'centred': return centred(ctx);
     default: return split(ctx, id);   // classic and minimal share the split masthead
   }
 }
@@ -99,6 +111,52 @@ function letterhead(ctx) {
         : el('div', { class: 'inv-strip__initials', text: initials(ctx.sender.name) }),
     ]),
     ctx.statusPill ? el('div', { class: 'inv-statusrow' }, [ctx.statusPill]) : null,
+  ]);
+}
+
+// A full-width dark block, the way corporate letterhead prints. The title block rides inside it,
+// so the status pill and the derived-number warning come along with it — on the dark ground their
+// soft chip colours read as chips, which is the point of chips.
+function slate(ctx) {
+  return el('header', { class: 'inv-head is-slate' }, [
+    el('div', { class: 'inv-slate' }, [brand(ctx), title(ctx)]),
+  ]);
+}
+
+// The word itself is the design: INVOICE set large and light across the whole measure, the way an
+// editorial spread opens. Everything administrative drops to a quiet row beneath it.
+function headline(ctx) {
+  return el('header', { class: 'inv-head is-headline' }, [
+    el('div', { class: 'inv-hl__word', text: String(ctx.word || '').toUpperCase() }),
+    el('div', { class: 'inv-hl__row' }, [
+      brand(ctx),
+      el('div', { class: 'inv-hl__meta' }, [
+        el('div', { class: 'inv-title__number' }, [el('span', { text: ctx.number }), ctx.numberWarning]),
+        ctx.statusPill,
+      ]),
+    ]),
+  ]);
+}
+
+// A thick accent edge down the left, everything ranged left under it. The one layout where the
+// title deliberately does not sit opposite the brand, for readers who scan a page top-to-bottom.
+function rail(ctx) {
+  return el('header', { class: 'inv-head is-rail' }, [
+    el('div', { class: 'inv-rail' }, [brand(ctx), title(ctx, 'left')]),
+  ]);
+}
+
+// Stacked on the centre line, like an engraved card: mark, name, a short rule, then the document's
+// word and number. The most formal of the eight, and the one that flatters a good logo most.
+function centred(ctx) {
+  return el('header', { class: 'inv-head is-centred' }, [
+    ctx.sender.logoData ? el('img', { class: 'inv-brand__logo', src: ctx.sender.logoData, alt: ctx.sender.name || '' }) : null,
+    el('div', { class: 'inv-brand__name', text: ctx.sender.name || 'Your business' }),
+    ctx.sender.website ? el('div', { class: 'inv-brand__web', text: ctx.sender.website }) : null,
+    el('div', { class: 'inv-cent__rule' }),
+    el('div', { class: 'inv-title__word', text: ctx.word }),
+    el('div', { class: 'inv-title__number' }, [el('span', { text: ctx.number }), ctx.numberWarning]),
+    ctx.statusPill,
   ]);
 }
 

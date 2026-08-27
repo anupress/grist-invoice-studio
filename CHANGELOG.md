@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.10.0
+
+### Four new layouts
+
+- Slate: a full-width dark block, brand left and title right — the corporate letterhead. The logo
+  sits on a white plate, and the status chip reads as a chip on the dark ground.
+- Headline: the document's own word writ large across the top, set light and letterspaced, the way
+  an editorial spread opens. Everything administrative drops to a quiet row beneath it.
+- Rail: a thick accent edge down the left of the masthead, everything ranged left, for readers who
+  scan a page top to bottom.
+- Centred: mark, name, a short accent rule, then the word and number, stacked on the centre line
+  like an engraved card. The most formal of the eight, and the one that flatters a good logo most.
+
+All four follow the accent colour, carry the logo, print full-bleed where they should, and appear
+in the downloaded HTML file with the same design as on screen — the exported stylesheet is now
+guarded by a test so a masthead can never exist on screen only. Four trades pick up the new looks
+as their starting point: agencies open with Headline, software with Slate, garages with Rail and
+legal practices with Centred.
+
 ## 1.9.0
 
 ### The mail-client route

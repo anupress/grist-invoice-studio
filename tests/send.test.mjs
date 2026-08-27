@@ -296,6 +296,17 @@ const { documentToPlainText } = await import(pathToFileURL(_resolve(ROOT, 'src/s
   ok('but no money', !/Total\s+[£$€]/.test(note));
 }
 
+// The exported file carries its own copy of the document styles, and a masthead the screen can
+// draw but the file cannot is an invoice that changes design when it is downloaded. Guarded on
+// the source text because the CSS lives in a template string no test can render.
+{
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(_resolve(ROOT, 'src/export/html-file.js'), 'utf8');
+  for (const cls of ['.inv-slate', '.inv-hl__word', '.inv-rail', '.inv-cent__rule', '.inv-band', '.inv-strip']) {
+    ok('the exported file styles ' + cls, src.includes(cls));
+  }
+}
+
 // The mail-client body: covering message, then the document, then the file note.
 {
   const m = msg.buildMessage('invoice_sent', draft(), {}, { now: NOW });

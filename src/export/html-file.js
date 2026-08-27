@@ -83,11 +83,27 @@ const FILE_CSS = `
     .inv-parties { grid-template-columns: 1fr; gap: 18px; }
     .inv-metas { text-align: left; }
   }
+  .inv-slate { background: #16212c; color: #fff; margin: -40px -44px 0; padding: 26px 44px 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+  .inv-head.is-slate { display: block; }
+  .inv-slate .inv-brand__name { color: #fff; }
+  .inv-slate .inv-brand__web { color: rgba(255,255,255,.65); }
+  .inv-slate .inv-brand__logo { background: #fff; padding: 4px 8px; border-radius: 4px; }
+  .inv-slate .inv-title__word { color: rgba(255,255,255,.72); }
+  .inv-slate .inv-title__number { color: #fff; }
+  .inv-head.is-headline { display: block; padding-bottom: 18px; border-bottom: 1px solid #dfe5ec; }
+  .inv-hl__word { font-family: system-ui, sans-serif; font-size: 46px; font-weight: 300; letter-spacing: .14em; line-height: 1; color: #16212c; border-bottom: 1px solid #16212c; padding-bottom: 14px; margin-bottom: 16px; overflow-wrap: anywhere; }
+  .inv-hl__row { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+  .inv-hl__meta { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .inv-head.is-rail { display: block; }
+  .inv-rail { border-left: 4px solid var(--doc-accent, #14509b); padding: 4px 0 4px 22px; display: flex; flex-direction: column; gap: 14px; }
+  .inv-head.is-centred { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 5px; padding-bottom: 20px; border-bottom: 1px solid #dfe5ec; }
+  .inv-head.is-centred .inv-title__number { justify-content: center; }
+  .inv-cent__rule { width: 56px; border-top: 2px solid var(--doc-accent, #14509b); margin: 10px 0 6px; }
   @media print {
     body { padding: 0; background: #fff; }
     .sheet { max-width: none; border: 0; border-radius: 0; }
     .inv-doc { padding: 0; }
-    .inv-band, .inv-strip { margin: 0; padding-left: 20px; padding-right: 20px; }
+    .inv-band, .inv-strip, .inv-slate { margin: 0; padding-left: 20px; padding-right: 20px; }
     @page { margin: 14mm; }
   }
 `;

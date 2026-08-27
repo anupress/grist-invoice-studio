@@ -20,7 +20,7 @@ export const TEMPLATES = [
 
   T('agency', 'Creative or marketing agency', 'Services', {
     kind: 'invoice',
-    document: { layout: 'letterhead', referenceLabel: 'Your PO number' },
+    document: { layout: 'headline', referenceLabel: 'Your PO number' },
     terms: 'Net 30. Late payment is charged at 8% above base rate.',
     lines: [
       { description: 'Creative direction', quantity: 4, unitPrice: 750, unit: 'day' },
@@ -30,7 +30,7 @@ export const TEMPLATES = [
 
   T('saas', 'Software or subscription', 'Services', {
     kind: 'invoice',
-    document: { layout: 'classic', closingText: 'This subscription renews automatically. Cancel any time from your account.' },
+    document: { layout: 'slate', closingText: 'This subscription renews automatically. Cancel any time from your account.' },
     numbering: { prefixes: { invoice: 'SUB-{YYYY}{MM}-' } },
     terms: 'Charged monthly in advance.',
     lines: [{ description: 'Team plan — monthly, per seat', quantity: 12, unitPrice: 15 }],
@@ -75,7 +75,7 @@ export const TEMPLATES = [
 
   T('auto', 'Vehicle repair', 'Trades', {
     kind: 'invoice',
-    document: { layout: 'classic', referenceLabel: 'Registration' },
+    document: { layout: 'rail', referenceLabel: 'Registration' },
     terms: 'Payment on collection.',
     lines: [
       { description: 'Labour', quantity: 2.5, unitPrice: 65, unit: 'hour' },
@@ -93,7 +93,7 @@ export const TEMPLATES = [
 
   T('legal', 'Legal practice', 'Professional', {
     kind: 'invoice',
-    document: { layout: 'minimal', referenceLabel: 'Matter reference' },
+    document: { layout: 'centred', referenceLabel: 'Matter reference' },
     numbering: { prefixes: { invoice: 'LI-{YYYY}-' } },
     terms: 'Payable within 30 days. Interest may be charged on overdue amounts.',
     lines: [
