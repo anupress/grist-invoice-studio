@@ -1,6 +1,24 @@
 # Changelog
 
-## 1.1.0 — Europe in full, tax you can just type, and paper that fits
+## 1.1.0 — Europe in full, tax you can just type, paper that fits, and the invoice in the email
+
+**The invoice can now go in the body of the email**, not only as an attachment. It could not just be
+dropped in: the on-screen document is laid out with CSS grid and flexbox, and mail clients — Outlook
+above all, which renders with Word — strip both, along with `<style>` blocks and class names.
+Pasting it in produces a column of unstyled text in roughly the wrong order.
+
+So `src/send/email-document.js` is the same document expressed the way email actually works: nested
+tables, inline styles, widths as attributes, 600px wide. It reads the same kinds and fields
+descriptions as the screen and the PDF, so a delivery note carries no prices here for exactly the
+reason it carries none there. A client who will not open an attachment can still read the invoice —
+and a `mailto:` link cannot attach anything at all, which is what makes this matter.
+
+The covering note's three-line summary box is dropped when the document is included, since it would
+be repeating in three lines what the table underneath says in full. It is a toggle, defaulting on.
+
+Fixed on the way: terms ending in a full stop got a second one — "Net 30 from the date of invoice.."
+— on every invoice sent by anyone who ends a sentence.
+
 
 **Tax has three modes now, and the default is the simplest one.**
 
