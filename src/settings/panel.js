@@ -23,6 +23,20 @@ import { field, textInput, numberInput, textArea, selectInput, button, section }
 const opt = (value, label) => ({ value, label });
 
 /**
+ * The panel is tabbed the way WooCommerce tabs its settings: five doors instead of one long
+ * corridor. Which door is open lives at module level, so the rebuilds that a tax-mode change
+ * triggers reopen the same one.
+ */
+const TABS = [
+  { id: 'business', label: 'Business' },
+  { id: 'money', label: 'Money & tax' },
+  { id: 'numbering', label: 'Numbering' },
+  { id: 'document', label: 'Document' },
+  { id: 'sending', label: 'Sending' },
+];
+let activeTab = 'business';
+
+/**
  * Build the panel.
  *
  * `settings` is edited in place and handed back on save; `ctx.existingNumbers` lets the numbering
@@ -294,6 +308,30 @@ export function renderSettingsPanel(ctx) {
     say(res.warning || (res.storedInTable ? 'Saved into your document.' : 'Saved.'), res.warning ? 'warn' : 'ok');
   }, { variant: 'primary' });
 
+  const groups = {
+    business: [businessSection],
+    // The rate grid only when there is a table to show. A grid sitting under "one rate I type in"
+    // is an invitation to fill in something that will never be read.
+    money: [moneySection, taxSection, m.taxMode === 'preset' ? ratesSection : null],
+    numbering: [numberingSection],
+    document: [documentSection],
+    sending: [deliverySection],
+  };
+
+  const tabStrip = el('div', { class: 'set-tabs', role: 'tablist' }, TABS.map((t) => {
+    const b = el('button', {
+      class: 'set-tab' + (t.id === activeTab ? ' is-active' : ''),
+      type: 'button', role: 'tab', 'aria-selected': t.id === activeTab ? 'true' : 'false',
+      text: t.label,
+    });
+    b.addEventListener('click', () => {
+      if (t.id === activeTab) return;
+      activeTab = t.id;
+      if (ctx.onRebuild) ctx.onRebuild();
+    });
+    return b;
+  }));
+
   return el('div', { class: 'set' }, [
     el('div', { class: 'set-bar' }, [
       el('strong', { text: 'Settings' }),
@@ -301,15 +339,8 @@ export function renderSettingsPanel(ctx) {
       saveBtn,
       button('Close', onClose),
     ]),
-    businessSection,
-    moneySection,
-    taxSection,
-    // Only shown when there is a table to show. A rate grid sitting under "one rate I type in" is an
-    // invitation to fill in something that will never be read.
-    m.taxMode === 'preset' ? ratesSection : null,
-    numberingSection,
-    documentSection,
-    deliverySection,
+    tabStrip,
+    ...(groups[activeTab] || groups.business),
     statusLine,
   ]);
 }

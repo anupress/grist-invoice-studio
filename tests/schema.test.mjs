@@ -156,5 +156,61 @@ const tie = m.mapRoles(
   { issued: [/^issued$/i, /created/i] });
 eq('a name match beats a type match', tie.issued, 'Issued');
 
+// ---------------------------------------------------------------------------------------------
+// Chosen tables. Detection is a guess, however good, and a guess never outranks an answer.
+// ---------------------------------------------------------------------------------------------
+const oddTables = [
+  { id: 'Ledger', columns: [
+    { id: 'RefNo', label: 'Invoice number', type: 'Text' },
+    { id: 'Party', label: 'Client', type: 'Text' },
+    { id: 'Raised', label: 'Issued', type: 'Date' },
+  ] },
+  { id: 'Detail', columns: [
+    { id: 'Ledger', label: 'Invoice', type: 'Ref:Ledger' },
+    { id: 'What', label: 'Description', type: 'Text' },
+    { id: 'Each', label: 'Unit price', type: 'Numeric' },
+  ] },
+  // Named so no client pattern matches it: choosing is for exactly the tables detection rejects.
+  { id: 'Rolodex', columns: [
+    { id: 'Name', label: 'Name', type: 'Text' },
+    { id: 'Email', label: 'Email', type: 'Text' },
+  ] },
+  { id: 'PriceList', columns: [
+    { id: 'Name', label: 'Name', type: 'Text' },
+    { id: 'Price', label: 'Unit price', type: 'Numeric' },
+  ] },
+];
+
+const forced = m.detectSchema(oddTables, { force: { invoice: 'Ledger', line: 'Detail', client: 'Rolodex' } });
+eq('the chosen invoice table is used', forced.invoice.table, 'Ledger');
+eq('and its columns are still matched by name', forced.invoice.roles.number, 'RefNo');
+eq('the chosen line table too', forced.line.table, 'Detail');
+eq('with its link column found', forced.line.roles.invoiceLink, 'Ledger');
+eq('and the chosen client table', forced.client.table, 'Rolodex');
+eq('the source says who decided', forced.source, 'chosen');
+// "Rolodex" never passes the name filter the heuristic applies — which is the whole point of
+// choosing: the person knows something the pattern does not.
+eq('the heuristic alone rejects that table', m.detectSchema(oddTables).client, null);
+eq('client email is mapped, so warnings do not complain about it',
+  (forced.warnings || []).some((w) => w.code === 'no-client-email'), false);
+
+// A choice that names nothing real changes nothing.
+eq('an unknown table id is ignored', m.detectSchema(oddTables, { force: { invoice: 'Nonsense' } }).source !== 'chosen', true);
+eq('no force at all is plain detection', m.detectSchema(oddTables).source, 'heuristic');
+// Forcing what detection already picked leaves the detection story intact.
+{
+  const auto = m.detectSchema(oddTables);
+  const same = m.detectSchema(oddTables, { force: { invoice: auto.invoice.table } });
+  eq('forcing the same table is a no-op', same.source, auto.source);
+}
+
+// The catalogue: chosen directly, skipping the used-table and naming filters.
+const cat = m.detectProducts(oddTables, forced, { force: 'PriceList' });
+eq('the chosen catalogue is used', cat.table, 'PriceList');
+eq('with its price column', cat.roles.unitPrice, 'Price');
+// But a table that cannot fill a picker is refused rather than returned hollow.
+eq('a chosen catalogue with no name column yields nothing',
+  m.detectProducts([{ id: 'Numbers', columns: [{ id: 'N', label: 'Amount', type: 'Numeric' }] }], null, { force: 'Numbers' }), null);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

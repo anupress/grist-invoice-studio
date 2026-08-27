@@ -159,6 +159,11 @@ eq('the PDF copy must actually be a JPEG', store.sanitise({ business: { logoJpeg
 eq('and a real one is kept', store.sanitise({ business: { logoJpeg: jpg } }).business.logoJpeg, jpg);
 eq('no logo is a valid state', store.sanitise({}).business.logoData, null);
 
+// Table overrides: ids or nothing.
+eq('a chosen table id is kept', store.sanitise({ tables: { invoice: 'Ledger' } }).tables.invoice, 'Ledger');
+eq('junk stored there becomes empty', store.sanitise({ tables: { invoice: 42 } }).tables.invoice, '');
+eq('absent means work it out', store.sanitise({}).tables.invoice, '');
+
 // The email body embeds it with the same suspicion.
 const { documentToEmailHtml: emailDocument } = await import(pathToFileURL(_resolve(ROOT, 'src/send/email-document.js')).href);
 const { normaliseDraft } = await import(pathToFileURL(_resolve(ROOT, 'src/model/draft.js')).href);

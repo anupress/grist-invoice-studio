@@ -1,6 +1,6 @@
 {
   "name": "grist-invoice-studio",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Invoice Studio — a Grist custom widget by ANUPRESS. Raise, render and send invoices from the tables a business already keeps, with no server anywhere.",
   "type": "module",
   "private": true,

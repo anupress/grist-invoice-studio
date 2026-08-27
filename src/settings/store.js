@@ -131,6 +131,11 @@ export function sanitise(settings) {
   if (s.business.logoJpeg && !s.business.logoJpeg.startsWith('data:image/jpeg')) s.business.logoJpeg = null;
 
   s.delivery.endpoint = String(s.delivery.endpoint || '').trim();
+
+  // Table overrides are ids, and an id is a short string. Anything else stored there is noise.
+  for (const key of ['invoice', 'line', 'client', 'product']) {
+    s.tables[key] = typeof s.tables[key] === 'string' ? s.tables[key].slice(0, 64) : '';
+  }
   return s;
 }
 

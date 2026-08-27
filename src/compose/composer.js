@@ -115,7 +115,9 @@ export function renderComposer(ctx) {
     field('Already paid', numberInput(draft.amountPaid, (v) => { draft.amountPaid = v; edited(); }, { ariaLabel: 'Amount already paid' })),
     field('Currency', textInput(draft.currency, (v) => {
       draft.currency = v.toUpperCase();
-      draft.format = { ...draft.format, currency: draft.currency };
+      // Empty falls back to the business currency, so clearing this field is how a document
+      // stops overriding it.
+      draft.format = { ...draft.format, currency: draft.currency || settings.money?.currency || 'USD' };
       edited();
     }, { placeholder: 'GBP', class: 'cmp-input--code' })),
     // The escape hatch. Most documents want the rate table; occasionally the answer is simply a

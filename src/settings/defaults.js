@@ -120,8 +120,12 @@ export const DEFAULT_DELIVERY = {
   emailAccent: '#14509b',
 };
 
+/** Table overrides, for when detection guesses wrong. Empty means work it out. */
+export const DEFAULT_TABLES = { invoice: '', line: '', client: '', product: '' };
+
 export const DEFAULT_SETTINGS = {
   business: { ...DEFAULT_BUSINESS },
+  tables: { ...DEFAULT_TABLES },
   money: { ...DEFAULT_MONEY },
   numbering: { ...DEFAULT_NUMBERING },
   document: { ...DEFAULT_DOCUMENT },

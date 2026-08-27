@@ -262,16 +262,59 @@ function hasSignature(table, signature) {
  * because a mapping the widget is confident about and one it scraped together should not be
  * presented to the user in the same tone of voice.
  */
-export function detectSchema(tables) {
+export function detectSchema(tables, opts = {}) {
   const list = (tables || []).filter((t) => t && t.id);
   if (!list.length) return { source: 'none', confidence: 0, invoice: null, line: null, client: null, warnings: [] };
 
-  // 1. Recognition — is this Grist's own template?
-  const official = detectOfficial(list);
-  if (official) return official;
+  // 1. Recognition — is this Grist's own template?  2. Heuristics.  3. The person's own choices,
+  // which beat both: detection is a guess, however good, and a guess never outranks an answer.
+  const auto = detectOfficial(list) || detectHeuristic(list);
+  return applyForce(auto, list, opts.force);
+}
 
-  // 2. Heuristics.
-  return detectHeuristic(list);
+/**
+ * Pin parts of the schema to tables the person chose.
+ *
+ * Roles within a chosen table are still matched by name — choosing says WHERE the invoices are,
+ * not which of its columns is the due date. Any pin rewrites the warnings, because warnings about
+ * a table that is no longer in the mapping would be warnings about nothing.
+ */
+function applyForce(schema, list, force) {
+  if (!force) return schema;
+  const byId = new Map(list.map((t) => [t.id, t]));
+  const parts = [['invoice', INVOICE_PATTERNS], ['line', LINE_PATTERNS], ['client', CLIENT_PATTERNS]];
+
+  let touched = false;
+  const out = { ...schema };
+  for (const [part, patterns] of parts) {
+    const id = force[part];
+    if (!id || !byId.has(id) || out[part]?.table === id) continue;
+    out[part] = { table: id, roles: mapRoles(byId.get(id).columns || [], patterns) };
+    touched = true;
+  }
+  if (!touched) return schema;
+
+  out.source = 'chosen';
+  out.sourceLabel = 'Tables chosen by you';
+  out.confidence = 1;
+  out.warnings = warningsFor(out);
+  return out;
+}
+
+/** The standard warnings, computed from a finished schema so every path reports the same way. */
+function warningsFor(schema) {
+  const warnings = [];
+  if (schema.invoice && !schema.line) {
+    warnings.push({ code: 'flat-invoice', text: 'No line-item table found, so each invoice bills a single amount. Keep line items in their own table and they will be itemised.' });
+  }
+  if (schema.client && !schema.client.roles.email) {
+    warnings.push({ code: 'no-client-email', text: 'No email column on the client table, so invoices cannot be sent until one is added.' });
+  }
+  if (schema.invoice) {
+    const missing = REQUIRED_INVOICE_ROLES.filter((r) => !schema.invoice.roles[r]);
+    if (missing.length) warnings.push({ code: 'missing-required', text: `Could not work out which column holds the ${missing.join(', ')}.` });
+  }
+  return warnings;
 }
 
 /**
@@ -418,7 +461,16 @@ function detectHeuristic(list) {
  * Both a name AND a price are required before a table counts: a Clients table has a name too, and
  * offering a list of clients as products would be worse than offering nothing.
  */
-export function detectProducts(tables, schema = null) {
+export function detectProducts(tables, schema = null, opts = {}) {
+  // A chosen catalogue skips the scoring entirely — but it still has to look like one. A table
+  // with no name column cannot fill a picker, so pointing at it yields nothing rather than junk.
+  if (opts.force) {
+    const t = (tables || []).find((x) => x && x.id === opts.force);
+    if (t) {
+      const roles = mapRoles(t.columns, PRODUCT_PATTERNS);
+      return roles.name ? { table: t.id, roles } : null;
+    }
+  }
   const used = new Set([schema?.invoice?.table, schema?.line?.table, schema?.client?.table].filter(Boolean));
   const candidates = (tables || [])
     .filter((t) => t && t.id && !used.has(t.id))

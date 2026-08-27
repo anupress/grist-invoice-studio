@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.6.0
+
+### Composing
+
+- Typing a line description now offers the catalogue as suggestions, and landing exactly on a name
+  — three or more characters, or a click on the suggestion — fills the price, tax class and code in
+  place, with the totals following. Nothing rebuilds while the cursor is in the row.
+- A currency or separator changed in Settings now lands on the document immediately. The format was
+  captured when a draft was made and never refreshed, so changing the setting visibly did nothing.
+  A currency stored on the invoice row itself still wins: an issued invoice does not change
+  currency because the business later did.
+
+### The data drawer
+
+- The mapping report — which tables were found, how, and what is missing — moves off the top of the
+  page and into a Data drawer. The document is the focus; plumbing lives behind a door.
+- The same drawer lets you choose the tables yourself: invoices, line items, clients and catalogue
+  can each be pointed at a table when detection guesses wrong. Choices are saved with the document,
+  columns inside a chosen table are still matched by name, and choosing is offered from the setup
+  screen too.
+- What still deserves attention shows as one line above the document with a button, never the full
+  report.
+
+### Settings and chrome
+
+- Settings are tabbed: Business, Money & tax, Numbering, Document, Sending. One door per subject
+  instead of one long corridor.
+- Before a document is set up, a sample invoice drawn with the current settings stands in for a
+  blank pane — and repaints as the settings change.
+- The brand mark in the bar links to anupress.com.
+
 ## 1.5.0
 
 ### The application frame

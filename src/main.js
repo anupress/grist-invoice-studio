@@ -32,6 +32,7 @@ import { renderDocument } from './doc/render.js';
 import { DOCUMENT_KINDS } from './doc/kinds.js';
 import { LAYOUTS } from './doc/layouts.js';
 import { renderComposer } from './compose/composer.js';
+import { field, section } from './compose/ui.js';
 import { buildPreset, findPreset, simpleRate, RATES_UPDATED } from './money/tax/rates.js';
 import { formatMoney } from './money/currency.js';
 
@@ -167,8 +168,10 @@ function tablesWithColumns(provider) {
 
 function rescan() {
   const tables = tablesWithColumns(app.provider);
-  app.schema = detectSchema(tables);
-  app.products = detectProducts(tables, app.schema);
+  // The person's stored table choices outrank detection — a guess never beats an answer.
+  const force = app.stored.tables || {};
+  app.schema = detectSchema(tables, { force });
+  app.products = detectProducts(tables, app.schema, { force: force.product });
 }
 
 async function boot() {
@@ -432,8 +435,42 @@ function paintPreview() {
   applyPaperSize(app.stored.document.paperSize);
   const draft = app.mode === 'compose'
     ? (app.draft = recalc(app.draft, settings))
-    : (currentRow() ? resolveInvoice(currentRow(), app.schema, app.provider, settings) : null);
+    : (currentRow() ? resolveInvoice(currentRow(), app.schema, app.provider, settings) : sampleDraft(settings));
   previewHost.replaceChildren(renderDocument(draft, settings));
+}
+
+/**
+ * The document shown before there is a document.
+ *
+ * Drawn from the chosen trade and the live settings, so what is on screen during setup IS a
+ * preview of what setting up will produce — and every settings change repaints it. The client is
+ * fictional, as all sample data here must be.
+ */
+function sampleDraft(settings) {
+  const t = findTradeTemplate(app.setupTrade) || findTradeTemplate('freelancer');
+  const lines = (t?.lines || []).filter((l) => Number(l.unitPrice) > 0);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const due = new Date();
+  due.setDate(due.getDate() + 30);
+
+  const draft = normaliseDraft({
+    kind: t?.kind || 'invoice',
+    layout: settings.layout,
+    status: 'Sent',
+    issued: iso(new Date()),
+    due: iso(due),
+    currency: settings.money?.currency,
+    sender: settings.sender || {},
+    terms: t?.terms || 'Net 30',
+    client: {
+      name: 'Harbour Lane Bakery', street1: '12 Harbour Lane', city: 'Bristol',
+      postcode: 'BS1 4QA', country: settings.money?.homeCountry || 'GB',
+      email: 'accounts@harbourlane.example',
+    },
+    lines: lines.length ? lines : [{ description: 'Services rendered', quantity: 1, unitPrice: 500 }],
+  });
+  draft.number = assignNumber('', { format: settings.numberFormat }).number;
+  return recalc(draft, settings);
 }
 
 function render() {
@@ -545,10 +582,12 @@ function statusChip(status) {
  * Save and Close are theirs — so the drawer is a place, not another layer of chrome.
  */
 function renderDrawer() {
-  if (app.mode !== 'settings' && app.mode !== 'send') return null;
+  if (app.mode !== 'settings' && app.mode !== 'send' && app.mode !== 'data') return null;
 
   let panel = null;
-  if (app.mode === 'settings') {
+  if (app.mode === 'data') {
+    panel = renderDataPanel();
+  } else if (app.mode === 'settings') {
     panel = renderSettingsPanel({
       settings: app.stored,
       existingNumbers: app.schema?.invoice ? existingNumbers(app.schema, app.provider) : [],
@@ -581,7 +620,7 @@ function renderDrawer() {
 
   return el('aside', {
     class: 'studio-drawer', role: 'dialog', 'aria-modal': 'false',
-    'aria-label': app.mode === 'settings' ? 'Settings' : 'Send',
+    'aria-label': app.mode === 'settings' ? 'Settings' : app.mode === 'data' ? 'Document data' : 'Send',
   }, [el('div', { class: 'studio-drawer__body' }, [panel])]);
 }
 
@@ -615,8 +654,11 @@ function renderBar() {
 
   return el('div', { class: 'studio-bar' }, [
     el('div', { class: 'studio-bar__brand' }, [
-      el('img', { class: 'studio-bar__logo', src: ANUPRESS_LOGO, alt: '' }),
-      el('span', { class: 'studio-bar__name', text: 'Invoice Studio' }),
+      // The mark is the credit: it links home, the way the other widget's does.
+      el('a', { class: 'studio-bar__home', href: 'https://anupress.com', target: '_blank', rel: 'noopener', title: 'By ANUPRESS — anupress.com' }, [
+        el('img', { class: 'studio-bar__logo', src: ANUPRESS_LOGO, alt: 'ANUPRESS' }),
+        el('span', { class: 'studio-bar__name', text: 'Invoice Studio' }),
+      ]),
       el('span', { class: `studio-bar__mode is-${mode}` }, [
         el('span', { class: 'studio-bar__dot', 'aria-hidden': 'true' }),
         el('span', { text: modeText }),
@@ -636,6 +678,10 @@ function renderBar() {
       : btn('Edit', () => startCompose(currentRow())),
     app.mode === 'view' ? btn('New', () => startCompose(null)) : null,
     app.mode !== 'send' && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
+    btn(app.mode === 'data' ? 'Close data' : 'Data', () => {
+      app.mode = app.mode === 'data' ? 'view' : 'data';
+      render();
+    }),
     btn(app.mode === 'settings' ? 'Close settings' : 'Settings', () => {
       app.mode = app.mode === 'settings' ? 'view' : 'settings';
       render();
@@ -696,11 +742,6 @@ function renderAccessNeeded() {
  * the settings, so one decision does both.
  */
 function renderSetup() {
-  // An unreadable document is not an empty one, and telling somebody their invoices do not exist
-  // when the truth is that this widget has not been allowed to look at them is the worse of the two
-  // mistakes: it invites them to build a second set of tables alongside the ones they already have.
-  if (app.live && app.access !== 'full') return renderAccessNeeded();
-
   const chooser = el('select', { class: 'studio-select', 'aria-label': 'What kind of work do you invoice for?' }, [
     el('option', { value: 'freelancer', text: 'Pick your trade…' }),
     ...templatesBySector().flatMap((g) => g.items.map((t) =>
@@ -728,7 +769,14 @@ function renderSetup() {
       el('li', { text: 'Line items priced for the trade you pick' }),
     ]),
     el('div', { class: 'studio-setup__row' }, [chooser, go]),
-    el('p', { class: 'studio-upgrade__note', text: 'Existing tables are never touched. Anything already in this document with one of these names is left exactly as it is.' }),
+    el('p', { class: 'studio-upgrade__note' }, [
+      el('span', { text: 'Existing tables are never touched. Already keep invoices in tables of your own? ' }),
+      (() => {
+        const b = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: 'Choose the tables' });
+        b.addEventListener('click', () => { app.mode = 'data'; render(); });
+        return b;
+      })(),
+    ]),
   ]);
 }
 
@@ -770,14 +818,69 @@ async function runSetup(templateId) {
 }
 
 /** What we worked out about this document, said plainly rather than buried in a console log. */
-function renderMapping() {
+/**
+ * The data drawer: which tables this widget reads, and what it made of them.
+ *
+ * The report used to sit above the document, where it competed with the document — the reader's
+ * focus is the invoice, and "matched by name" is plumbing. Plumbing belongs behind a door, with
+ * the taps: the same drawer holds the table choices, because the person opening it to see what
+ * was detected is the person who wants to correct it.
+ */
+function renderDataPanel() {
   const s = app.schema;
-  if (!s || !s.invoice) return renderSetup();
+  const tableIds = (app.provider.tables() || []).map((t) => t.id);
+  const forced = app.stored.tables;
 
-  const recognised = s.source !== 'heuristic';
+  const pick = (label, key, hint) => {
+    const sel = el('select', { class: 'cmp-input', 'aria-label': label }, [
+      el('option', { value: '', text: '— work it out automatically —' }),
+      ...tableIds.map((id) => el('option', { value: id, selected: forced[key] === id ? true : null, text: id })),
+    ]);
+    sel.addEventListener('change', async () => {
+      forced[key] = sel.value;
+      const saved = await saveSettings(app.stored);
+      app.stored = saved.settings;
+      rescan();
+      app.currentRowId = null;
+      render();
+      toast(sel.value ? `Reading ${label.toLowerCase()} from ${sel.value}.` : `Working out the ${label.toLowerCase()} table automatically.`, 'ok');
+    });
+    return field(label, sel, hint);
+  };
+
+  const tablesSection = section('Tables', [
+    el('p', { class: 'set-lead', text: 'Normally worked out from the column names. Choose a table here when the guess is wrong or your names are unusual; columns within it are still matched by name.' }),
+    pick('Invoices', 'invoice', 'One row per invoice.'),
+    pick('Line items', 'line', 'Rows that point back at an invoice.'),
+    pick('Clients', 'client', 'Who gets billed.'),
+    pick('Catalogue', 'product', 'What you sell, for the line picker.'),
+  ]);
+
+  const closeBtn = el('button', { class: 'cmp-btn', type: 'button', text: 'Close' });
+  closeBtn.addEventListener('click', () => { app.mode = 'view'; render(); });
+  const shell = (content) => el('div', { class: 'set' }, [
+    el('div', { class: 'set-bar' }, [
+      el('strong', { text: 'Document data' }),
+      el('div', { class: 'set-bar__spacer' }),
+      closeBtn,
+    ]),
+    ...content,
+  ]);
+
+  if (!s || !s.invoice) {
+    return shell([
+      section('How this document was read', [
+        el('p', { class: 'set-lead', text: 'No invoice table was found. Point Invoices at the right table below, or close this and use Set up this document to build the tables.' }),
+      ]),
+      tablesSection,
+    ]);
+  }
+
+  const recognised = s.source === 'official';
+  const chosen = s.source === 'chosen';
   const bits = [
     el('div', { class: 'studio-notice__head' }, [
-      el('span', { class: 'studio-chip' + (recognised ? ' is-strong' : ''), text: recognised ? 'Recognised' : 'Matched by name' }),
+      el('span', { class: 'studio-chip' + (recognised || chosen ? ' is-strong' : ''), text: recognised ? 'Recognised' : chosen ? 'Chosen' : 'Matched by name' }),
       el('span', { text: s.sourceLabel || '' }),
     ]),
     el('p', { class: 'studio-notice__tables' }, [
@@ -832,11 +935,63 @@ function renderMapping() {
     ]));
   }
 
-  return el('div', { class: 'studio-notice' }, bits);
+  return shell([
+    section('How this document was read', bits),
+    tablesSection,
+  ]);
+}
+
+/**
+ * An unreadable document is not an empty one, and telling somebody their invoices do not exist
+ * when the truth is that this widget has not been allowed to look at them is the worse of the two
+ * mistakes: it invites them to build a second set of tables alongside the ones they already have.
+ */
+function renderGate() {
+  if (app.live && app.access !== 'full') return renderAccessNeeded();
+  if (!app.schema?.invoice) return renderSetup();
+  return null;
+}
+
+/**
+ * One line above the document when something deserves attention — never the full report, which
+ * lives in the Data drawer. The document is the focus; this is a note clipped to its corner.
+ */
+function renderHintStrip() {
+  const s = app.schema;
+  if (!s?.invoice) return null;
+
+  if (app.live && !app.stored.business.name) {
+    return hintStrip('Your business details are empty — the From block, logo and tax are set once, in Settings.', 'Open settings', () => { app.mode = 'settings'; render(); });
+  }
+  const todo = upgradeChecklist(s);
+  const count = todo.invoice.length + todo.client.length + todo.line.length;
+  if (count) {
+    return hintStrip(`${count} column${count === 1 ? '' : 's'} would make this document a full billing system.`, 'Review in Data', () => { app.mode = 'data'; render(); });
+  }
+  if ((s.warnings || []).length) {
+    return hintStrip(s.warnings[0].text, 'Details in Data', () => { app.mode = 'data'; render(); });
+  }
+  return null;
+}
+
+function hintStrip(text, label, onGo) {
+  const go = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: label });
+  go.addEventListener('click', onGo);
+  return el('div', { class: 'studio-hintbar' }, [el('span', { text }), go]);
 }
 
 function renderBody() {
-  const parts = [renderMapping()];
+  const parts = [];
+  const gate = renderGate();
+  if (gate) {
+    parts.push(gate);
+    // Even before there is a document, there is a document: the first screen demonstrates rather
+    // than apologises, and the sample below is drawn with the very settings being chosen.
+    parts.push(el('p', { class: 'studio-sample-note', text: 'A sample document, drawn with your current settings. It becomes real the moment the document is set up.' }));
+  } else {
+    const hint = renderHintStrip();
+    if (hint) parts.push(hint);
+  }
 
   if (app.mode === 'compose' && app.draft) {
     const plan = app.schema?.invoice ? buildPlan() : null;
@@ -870,7 +1025,7 @@ function renderBody() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && (app.mode === 'settings' || app.mode === 'send')) {
+  if (e.key === 'Escape' && (app.mode === 'settings' || app.mode === 'send' || app.mode === 'data')) {
     app.mode = 'view';
     render();
   }

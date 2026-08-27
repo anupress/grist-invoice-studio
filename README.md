@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.5.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.6.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -37,7 +37,12 @@ and one still a draft. Pick a trade first and the line items, wording, numbering
 come from it, so a builder gets labour and materials and a shop gets a till receipt.
 
 A table that already exists is skipped, never overwritten. The sample data is invented; no real
-business or address appears in it.
+business or address appears in it. Until the document is set up, a sample invoice drawn with the
+current settings stands in for a blank pane.
+
+If you already keep invoices in tables of your own, the Data drawer lets you point each part —
+invoices, line items, clients, catalogue — at the table you use. Detection is only a guess, and a
+choice always beats it; columns inside a chosen table are still matched by name.
 
 ## Grist's Invoicing template
 

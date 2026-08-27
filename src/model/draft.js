@@ -204,6 +204,11 @@ export function computeDraftTotals(draft, settings = {}) {
  * call on every keystroke, which is what it is for.
  */
 export function recalc(draft, settings) {
+  // The format is re-derived on every pass rather than kept from when the draft was made, so a
+  // currency or separator changed in Settings lands on a draft mid-composition instead of doing
+  // nothing visible. The draft's own currency, when it has one, still wins — that is the
+  // per-document override, and it is the only part of the format a document carries itself.
+  draft.format = { ...(settings.money?.format || {}), currency: draft.currency || settings.money?.currency || 'USD' };
   draft.totals = computeDraftTotals(draft, settings);
   return draft;
 }
