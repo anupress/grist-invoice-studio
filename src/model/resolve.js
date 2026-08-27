@@ -35,12 +35,20 @@ export function listInvoices(schema, provider) {
   if (!schema?.invoice) return [];
   const roles = schema.invoice.roles;
   const rows = provider.records(schema.invoice.table) || [];
-  return rows.map((r) => ({
-    id: r.id,
-    number: str(byRole(r, roles, 'number')) || `#${r.id}`,
-    client: clientNameFor(r, schema, provider),
-    issued: str(byRole(r, roles, 'issued')),
-  }));
+  return rows.map((r) => {
+    // The total is only carried when it is genuinely a number. Grist's own template stores Total
+    // as text and leaves it empty, and a list that showed "" or NaN would be worse than one that
+    // shows nothing.
+    const rawTotal = Number(byRole(r, roles, 'total'));
+    return {
+      id: r.id,
+      number: str(byRole(r, roles, 'number')) || `#${r.id}`,
+      client: clientNameFor(r, schema, provider),
+      issued: str(byRole(r, roles, 'issued')),
+      status: str(byRole(r, roles, 'status')),
+      total: isFinite(rawTotal) && byRole(r, roles, 'total') !== '' && byRole(r, roles, 'total') != null ? rawTotal : null,
+    };
+  });
 }
 
 /** Just the client's display name — used by the picker, which does not need the full address. */

@@ -33,6 +33,7 @@ import { DOCUMENT_KINDS } from './doc/kinds.js';
 import { LAYOUTS } from './doc/layouts.js';
 import { renderComposer } from './compose/composer.js';
 import { buildPreset, findPreset, simpleRate, RATES_UPDATED } from './money/tax/rates.js';
+import { formatMoney } from './money/currency.js';
 
 /**
  * Tax regimes offered in the demo bar.
@@ -99,6 +100,7 @@ const app = {
   setupTrade: 'freelancer',
   // 'demo' until connected, then 'full' or 'denied'. What Grist actually allows, not what was asked.
   access: 'demo',
+  filter: '',        // the sidebar's search box
   mode: 'view',      // view | compose | send | settings
   draft: null,
   busy: false,
@@ -439,15 +441,155 @@ function render() {
   if (!host) return;
   clear(host);
   previewHost = el('div', { class: 'studio-page' });
-  host.appendChild(el('div', { class: 'studio' }, [renderBar(), renderBody()]));
+
+  const drawer = renderDrawer();
+  host.appendChild(el('div', { class: 'studio' + (drawer ? ' has-drawer' : '') }, [
+    renderBar(),
+    el('div', { class: 'studio-main' }, [renderSidebar(), renderBody()]),
+    drawer,
+  ]));
+  // The drawer is created closed and opened a beat later so its slide-in can play. setTimeout, not
+  // requestAnimationFrame, for the same reason the toast uses it: rAF is starved while the tab is
+  // not compositing — an embedded widget in a background tab — and a drawer that never opens is a
+  // Settings button that does nothing.
+  if (drawer) setTimeout(() => drawer.classList.add('is-open'), 10);
   paintPreview();
+}
+
+/**
+ * The invoice list, as a place rather than a dropdown.
+ *
+ * A dropdown shows one invoice and hides the rest; a business looking at its invoicing needs the
+ * rest — what is overdue, what is still a draft — visible at a glance. Each row carries the number,
+ * the client, the amount and a status chip, and the list is the navigation: clicking a row shows
+ * that document. On narrow screens the bar's picker takes over and this is hidden — one control or
+ * the other, never both.
+ */
+function renderSidebar() {
+  if (!app.schema?.invoice) return null;
+  const all = listInvoices(app.schema, app.provider);
+  const money = settingsNow().money;
+  const fmt = (v) => formatMoney(v, { ...money.format, currency: money.currency });
+
+  const listHost = el('nav', { class: 'studio-side__list', 'aria-label': 'Invoices' });
+  const paint = () => {
+    const q = app.filter.trim().toLowerCase();
+    const rows = q ? all.filter((i) => (i.number + ' ' + i.client).toLowerCase().includes(q)) : all;
+    clear(listHost);
+    if (!rows.length) {
+      listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : 'No invoices yet. New starts one.' }));
+      return;
+    }
+    for (const i of rows) {
+      const active = i.id === app.currentRowId;
+      const row = el('button', {
+        class: 'studio-side__row' + (active ? ' is-active' : ''), type: 'button',
+        'aria-current': active ? 'true' : null,
+      }, [
+        el('span', { class: 'studio-side__line' }, [
+          el('span', { class: 'studio-side__num', text: i.number }),
+          i.total != null ? el('span', { class: 'studio-side__total', text: fmt(i.total) }) : null,
+        ]),
+        el('span', { class: 'studio-side__line' }, [
+          el('span', { class: 'studio-side__client', text: i.client || '—' }),
+          i.status ? statusChip(i.status) : null,
+        ]),
+      ]);
+      row.addEventListener('click', () => { app.currentRowId = i.id; app.mode = 'view'; render(); });
+      listHost.appendChild(row);
+    }
+  };
+
+  // The search repaints only the list, so typing in it never rebuilds the box being typed in.
+  const search = el('input', {
+    class: 'studio-side__search', type: 'search', value: app.filter,
+    placeholder: 'Filter by number or client', 'aria-label': 'Filter invoices',
+  });
+  search.addEventListener('input', () => { app.filter = search.value; paint(); });
+
+  const newBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: 'New' });
+  newBtn.addEventListener('click', () => startCompose(null));
+
+  paint();
+  return el('aside', { class: 'studio-side' }, [
+    el('div', { class: 'studio-side__head' }, [
+      el('span', { class: 'studio-side__title', text: 'Invoices' }),
+      el('span', { class: 'studio-side__count', text: String(all.length) }),
+      el('span', { class: 'studio-side__spacer' }),
+      newBtn,
+    ]),
+    el('div', { class: 'studio-side__tools' }, [search]),
+    listHost,
+  ]);
+}
+
+/** A status as a dot plus the word — the colour is reinforcement, never the message. */
+function statusChip(status) {
+  const s = String(status).toLowerCase();
+  const kind = s.includes('overdue') ? 'overdue'
+    : s.includes('part') ? 'part'
+      : s.includes('paid') && !s.includes('un') ? 'paid'
+        : s.includes('sent') ? 'sent'
+          : (s.includes('cancel') || s.includes('void')) ? 'cancelled'
+            : 'draft';
+  return el('span', { class: 'studio-status is-' + kind }, [
+    el('span', { class: 'studio-status__dot', 'aria-hidden': 'true' }),
+    el('span', { text: status }),
+  ]);
+}
+
+/**
+ * Settings and Send live in a drawer over the right edge, the way Advanced Charts edits its
+ * dashboard: the document stays visible underneath, which is what makes a settings change
+ * observable as it is made instead of after the panel closes. The panels keep their own bars —
+ * Save and Close are theirs — so the drawer is a place, not another layer of chrome.
+ */
+function renderDrawer() {
+  if (app.mode !== 'settings' && app.mode !== 'send') return null;
+
+  let panel = null;
+  if (app.mode === 'settings') {
+    panel = renderSettingsPanel({
+      settings: app.stored,
+      existingNumbers: app.schema?.invoice ? existingNumbers(app.schema, app.provider) : [],
+      onPreview: paintPreview,
+      onRebuild: () => render(),
+      onClose: () => { app.mode = 'view'; render(); },
+      onSave: async (next) => {
+        const res = await saveSettings(next);
+        app.stored = res.settings;
+        paintPreview();
+        return res;
+      },
+    });
+  } else {
+    const settings = settingsNow();
+    const row = currentRow();
+    panel = renderSendPanel({
+      draft: resolveInvoice(row, app.schema, app.provider, settings),
+      settings,
+      live: app.live,
+      canWrite: canWrite(),
+      onClose: () => { app.mode = 'view'; render(); },
+      actions: {
+        queue: (row2) => queueToOutbox(row2, app.provider, { live: app.live }),
+        release: (ids) => releaseOutbox(ids, app.provider, { live: app.live }),
+        recordSend,
+      },
+    });
+  }
+
+  return el('aside', {
+    class: 'studio-drawer', role: 'dialog', 'aria-modal': 'false',
+    'aria-label': app.mode === 'settings' ? 'Settings' : 'Send',
+  }, [el('div', { class: 'studio-drawer__body' }, [panel])]);
 }
 
 function renderBar() {
   const invoices = app.schema?.invoice ? listInvoices(app.schema, app.provider) : [];
   if (invoices.length && app.currentRowId == null) app.currentRowId = invoices[0].id;
 
-  const picker = el('select', { class: 'studio-select', 'aria-label': 'Choose a document' },
+  const picker = el('select', { class: 'studio-select studio-bar__picker', 'aria-label': 'Choose a document' },
     invoices.map((i) => el('option', {
       value: String(i.id), selected: i.id === app.currentRowId ? true : null,
       text: [i.number, i.client].filter(Boolean).join(' · '),
@@ -723,42 +865,16 @@ function renderBody() {
     }));
   }
 
-  if (app.mode === 'settings') {
-    parts.push(renderSettingsPanel({
-      settings: app.stored,
-      existingNumbers: app.schema?.invoice ? existingNumbers(app.schema, app.provider) : [],
-      onPreview: paintPreview,
-      onRebuild: () => render(),
-      onClose: () => { app.mode = 'view'; render(); },
-      onSave: async (next) => {
-        const res = await saveSettings(next);
-        app.stored = res.settings;
-        paintPreview();
-        return res;
-      },
-    }));
-  }
-
-  if (app.mode === 'send') {
-    const settings = settingsNow();
-    const row = currentRow();
-    parts.push(renderSendPanel({
-      draft: resolveInvoice(row, app.schema, app.provider, settings),
-      settings,
-      live: app.live,
-      canWrite: canWrite(),
-      onClose: () => { app.mode = 'view'; render(); },
-      actions: {
-        queue: (row2) => queueToOutbox(row2, app.provider, { live: app.live }),
-        release: (ids) => releaseOutbox(ids, app.provider, { live: app.live }),
-        recordSend,
-      },
-    }));
-  }
-
   parts.push(previewHost);
   return el('div', { class: 'studio-body' }, parts);
 }
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && (app.mode === 'settings' || app.mode === 'send')) {
+    app.mode = 'view';
+    render();
+  }
+});
 
 boot().catch((err) => {
   console.error('[Invoice Studio] failed to start', err);

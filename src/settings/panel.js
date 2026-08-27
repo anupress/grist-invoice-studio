@@ -18,7 +18,6 @@ import { nextNumber } from '../money/numbering.js';
 import { DOCUMENT_KINDS } from '../doc/kinds.js';
 import { LAYOUTS } from '../doc/layouts.js';
 import { numberFormatFor } from './defaults.js';
-import { templatesBySector, findTemplate, templateChanges, applyTemplate } from '../templates/index.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from '../compose/ui.js';
 
 const opt = (value, label) => ({ value, label });
@@ -42,44 +41,6 @@ export function renderSettingsPanel(ctx) {
   // Anything that changes how a document LOOKS redraws it, so the effect of a setting is visible
   // while it is being chosen rather than after the panel is closed.
   const touched = () => { paintSamples(); if (onPreview) onPreview(); };
-
-  // ---- start from a trade -------------------------------------------------------------------------
-  const templateNote = el('p', { class: 'set-lead' });
-  const templateChooser = selectInput(
-    [opt('', '— leave my settings as they are —'),
-      ...templatesBySector().flatMap((g) => g.items.map((t) => opt(t.id, `${g.sector} · ${t.label}`)))],
-    '', (v) => {
-      const template = findTemplate(v);
-      if (!template) { templateNote.textContent = ''; return; }
-      const changes = templateChanges(template, s);
-      templateNote.textContent = changes.length
-        ? `Would change ${changes.length} setting${changes.length === 1 ? '' : 's'}: ${changes.map((c) => c.path.split('.').pop()).join(', ')}. Your own name and address are never touched.`
-        : 'Nothing to change — your settings already match.';
-      pendingTemplate = template;
-    }, { ariaLabel: 'Start from a trade' });
-
-  let pendingTemplate = null;
-  const applyBtn = button('Apply it', () => {
-    if (!pendingTemplate) { say('Choose a trade first.', 'warn'); return; }
-    const next = applyTemplate(pendingTemplate, s);
-    // Written back into the same object the panel is editing, then the panel is rebuilt — several
-    // sections change at once, and repainting one field at a time would show a form that is half
-    // one trade and half another.
-    Object.assign(s, next);
-    // A toast rather than the inline status line, because applying a template rebuilds the whole
-    // panel — several sections change at once — and anything written into the panel would be
-    // destroyed by the rebuild it triggers.
-    toast(`Applied ${pendingTemplate.label}. Nothing is stored until you press Save settings.`, 'ok');
-    if (ctx.onRebuild) ctx.onRebuild();
-    else touched();
-  });
-
-  const templateSection = section('Start from a trade', [
-    el('p', { class: 'set-lead', text: 'A starting point rather than a design: what the document is called, the wording it needs, how its numbers run, and whether prices include tax. Your own name and address are never changed by one.' }),
-    field('Trade', templateChooser),
-    templateNote,
-    applyBtn,
-  ]);
 
   // ---- your business ---------------------------------------------------------------------------
   const b = s.business;
@@ -340,7 +301,6 @@ export function renderSettingsPanel(ctx) {
       saveBtn,
       button('Close', onClose),
     ]),
-    templateSection,
     businessSection,
     moneySection,
     taxSection,

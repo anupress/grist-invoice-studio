@@ -185,3 +185,120 @@ html, body {
 .studio-setup__list { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); }
 .studio-setup__list li { margin: 2px 0; }
 .studio-setup__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+
+/* ---- the app frame -------------------------------------------------------------------------
+ * Bar on top, sidebar and content side by side, each scrolling on its own. The frame fills the
+ * iframe exactly; nothing scrolls the page itself, which is what makes it feel like an
+ * application rather than a document. */
+.studio { height: 100%; }
+.studio-main { flex: 1 1 auto; display: flex; min-height: 0; }
+.studio-body { overflow-y: auto; min-width: 0; }
+
+/* ---- the invoice list ----------------------------------------------------------------------- */
+.studio-side {
+  width: 276px; flex: none;
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--rule);
+}
+.studio-side__head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px; }
+.studio-side__title {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.studio-side__count {
+  font-size: 11px; font-weight: 650; padding: 1px 8px; border-radius: 999px;
+  background: var(--sunk); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.studio-side__spacer { flex: 1 1 auto; }
+.studio-side__head .studio-btn--sm { margin-top: 0; }
+.studio-side__tools { padding: 0 14px 10px; }
+.studio-side__search {
+  width: 100%; font: inherit; font-size: 13px;
+  padding: 6px 9px;
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule-2); border-radius: var(--radius);
+  transition: border-color var(--speed), box-shadow var(--speed);
+}
+.studio-side__search:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.studio-side__list {
+  flex: 1 1 auto; overflow-y: auto; min-height: 0;
+  padding: 0 8px 10px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.studio-side__row {
+  appearance: none; -webkit-appearance: none; font: inherit; text-align: left;
+  width: 100%; cursor: pointer;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 10px;
+  background: transparent; color: var(--ink-2);
+  border: 0; border-left: 3px solid transparent; border-radius: var(--radius);
+  transition: background var(--speed), border-color var(--speed);
+}
+.studio-side__row:hover { background: var(--sunk); }
+.studio-side__row.is-active { background: var(--accent-soft); border-left-color: var(--accent); }
+.studio-side__row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.studio-side__line { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.studio-side__num {
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.studio-side__total { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.studio-side__client { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.studio-side__empty { margin: 6px 8px; font-size: 12.5px; color: var(--muted); }
+
+/* Status chips: the dot reinforces the word, never replaces it. */
+.studio-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 650; letter-spacing: .03em;
+  color: var(--muted); white-space: nowrap; flex: none;
+}
+.studio-status__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; }
+.studio-status.is-paid { color: var(--ok); }
+.studio-status.is-paid .studio-status__dot { background: var(--ok); }
+.studio-status.is-overdue { color: var(--risk); }
+.studio-status.is-overdue .studio-status__dot { background: var(--risk); }
+.studio-status.is-sent { color: var(--accent); }
+.studio-status.is-sent .studio-status__dot { background: var(--accent); }
+.studio-status.is-part { color: var(--warn); }
+.studio-status.is-part .studio-status__dot { background: var(--warn); }
+.studio-status.is-cancelled { text-decoration: line-through; }
+
+/* ---- the drawer ------------------------------------------------------------------------------
+ * Settings and Send slide over the right edge; the document stays visible underneath, so a
+ * settings change is observable as it is made. On wide screens the content shifts aside instead
+ * of being covered. */
+.studio-drawer {
+  --drawer-w: min(560px, 100vw);
+  position: fixed; top: 0; right: 0; bottom: 0; width: var(--drawer-w);
+  z-index: 40;
+  background: var(--surface);
+  border-left: 1px solid var(--rule);
+  box-shadow: -14px 0 36px -20px rgba(0, 0, 0, .45);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform .26s ease;
+}
+.studio-drawer.is-open { transform: none; }
+.studio-drawer__body { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+.studio-drawer .set, .studio-drawer .snd {
+  border: 0; border-radius: 0; box-shadow: none; max-width: none;
+}
+@media (min-width: 1100px) {
+  .studio.has-drawer .studio-body { margin-right: min(560px, 100vw); }
+}
+
+/* One control or the other: the sidebar on room, the bar's picker without. */
+@media (max-width: 879px) { .studio-side { display: none; } }
+@media (min-width: 880px) { .studio-bar__picker { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-drawer, .studio-side__row, .studio-side__search { transition: none; }
+}
+
+@media print {
+  .studio-side, .studio-drawer { display: none !important; }
+  .studio, .studio-main { display: block; height: auto; }
+  .studio-body { overflow: visible; margin-right: 0 !important; }
+}

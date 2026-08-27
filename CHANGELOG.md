@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.0
+
+### The application frame
+
+- The invoice list is now a sidebar rather than a dropdown. Each row shows the number, the client,
+  the amount and a status chip — Paid, Sent, Overdue, Part paid, Draft — so what needs chasing is
+  visible at a glance, and clicking a row shows that document. A filter box narrows the list by
+  number or client. On narrow screens the bar's picker takes over; one control or the other, never
+  both.
+- Settings and Send open in a drawer over the right edge instead of pushing the document off the
+  page. The document stays visible while settings change, and on wide screens it shifts aside
+  rather than being covered. Escape closes the drawer.
+- The bar, the sidebar and the content each scroll on their own, so the frame fills the widget the
+  way an application does rather than the way a page does.
+- The Start from a trade section is gone from Settings. The trade is chosen once, during document
+  setup, where it also builds the sample data — a second copy of the same control inside Settings
+  asked a question that had already been answered.
+
 ## 1.4.0
 
 ### The chrome
