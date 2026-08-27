@@ -1,133 +1,158 @@
-# Invoice Studio — a custom widget for Grist (by ANUPRESS)
+# Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.1.0-0F1B2D.svg)](CHANGELOG.md)
 
-Raise, render and send invoices from the tables your business already keeps — inside Grist, with no
-server anywhere. Everything runs in the viewer's browser and your data never leaves your document.
+A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
+It runs entirely in the viewer's browser. There is no server and no third-party service.
 
-Pick a client, add lines from your own product table, watch the document build itself as you type,
-and send it — by your own mail client, by a webhook, or as a PDF. Tax follows the customer's country
-across the EU and thirty more, or you can just type the rate you charge.
+## What it does
 
-## It already knows Grist's own Invoicing template
+- Reads an existing Grist document and maps its columns to invoice fields. Grist's own Invoicing
+  template needs no configuration at all.
+- Creates and edits invoices, quotes, proformas, receipts, credit notes, statements, delivery notes
+  and packing slips, and writes them back as rows.
+- Calculates tax from a rate table, or from a single rate you enter.
+- Produces a PDF, a self-contained HTML file, or an email body.
+- Sends through your mail client, the clipboard, a Grist webhook, or a POST to an endpoint of yours.
 
-Grist ships an [Invoicing template](https://www.getgrist.com/templates/invoicing-template/), and it
-is where most people start. Invoice Studio recognises that schema on sight — `Prepare_Invoices`,
-`Items`, `Businesses`, and the column vocabulary its widget accepts — and maps itself with nothing
-to configure. Point this at that document and it works immediately.
+## Use it in Grist
 
-It also tells you what that template cannot do, because those limits are real:
+1. Add a widget and choose **Custom**.
+2. Paste `https://anupress.github.io/grist-invoice-studio/` into Enter Custom URL.
+3. Grant full access when Grist asks. It is needed to read your tables and write invoices back.
 
-| In the template | Why it matters |
+Test on a copy of your document first. The write path has not yet run against a live Grist document.
+
+## Grist's Invoicing template
+
+[Grist's Invoicing template](https://www.getgrist.com/templates/invoicing-template/) is recognised by
+column signature, so a renamed table still matches. The column vocabulary its own widget accepts
+(`Number`, `Client`, `Items`, `Invoicer`, `Issued`, `Due`, `Subtotal`, `Taxes`, `Deduction`, `Total`,
+`Note`, `Paid`) is supported, so swapping the widget URL is the whole migration.
+
+That template has limits worth knowing about before you rely on it:
+
+| Column | Behaviour |
 |---|---|
-| `Number` is the formula `$id + 51371` | Delete one invoice and every later number silently shifts |
-| `Invoicer` is a hardcoded dict in a formula | Changing your own address means editing code |
-| `Total` is a Text column, empty on every row | The only real total lives in a hidden summary table |
-| `Businesses` has no email column | Nothing can ever be sent to anyone |
-| The widget hardcodes US dollars | Every invoice it produces, anywhere, is in dollars |
-| No status and no paid date | Nothing to age, nothing to chase, nothing to automate |
+| `Number` | A formula, `$id + 51371`. Deleting an invoice renumbers every later one. |
+| `Invoicer` | A hardcoded dict inside a formula. Changing your address means editing code. |
+| `Total` | Text, and empty on every row. The real total is in an auto-summary table. |
+| `Businesses` | No email column, so nothing can be sent. |
+| Currency | The widget hardcodes USD. |
+| Status | Absent, along with a paid date. |
 
-One button — **Upgrade this document** — adds the missing columns without renaming or removing
-anything, and copies the old computed invoice numbers into the new stored column so nothing loses
-its number. Running it twice does nothing.
+**Upgrade this document** adds the missing columns. It only adds: nothing is renamed, retyped or
+removed. Existing invoice numbers are copied into the new stored column, and running it again does
+nothing.
 
-## Try it without Grist
+## Tax
 
-`index.html` runs in a plain browser tab against a bundled sample document that is a copy of the
-shape of Grist's template, so the demo doubles as the compatibility proof:
+Tax works one of three ways: a single rate you type in, a table of rates matched to the customer, or
+none at all.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/serve.ps1
-# then open http://127.0.0.1:4178/
-```
+In table mode, rows match on country, state, postcode and city, resolved by priority, with compound
+rates, per-line tax classes and a per-row flag for whether shipping is taxed. Presets cover the EU
+(27 states, standard and reduced, each under its local name), 30 further countries, India GST (CGST
+and SGST within your state, IGST outside it), Canada including Quebec's compound QST, the UK,
+Australia, the UAE, Singapore and South Africa.
 
-Any static server works — there is no build step in development, and no dependencies at runtime.
+A single document can override the calculation with a fixed tax amount.
 
-## Connecting it to a real document
-
-Add a widget, choose **Custom**, paste the URL, and grant full access when Grist asks — that is what
-lets it read your tables and write invoices back.
-
-**Try it on a copy of your document the first time.** Everything here is exercised against the
-bundled demo, but writing to a real Grist document — creating rows, adding columns, the outbox —
-has not been through a live document yet. Copies are cheap; a billing table is not.
-
-## The shared core
-
-This repository is separate from [Advanced Charts](https://github.com/anupress/grist-advanced-charts),
-which means the Grist bridge, the data provider, the theme, the sanitizer and the icon set exist in
-both. They are not maintained twice. `src/core/` is **copied** from that repository by
-`scripts/sync-core.mjs`, driven by `core.manifest.json`, and is read-only here.
-
-```bash
-npm run sync         # copy from ../WidgetIdea and refresh core.lock.json
-npm run sync:check   # fail if anything under src/core/ has been edited, or has moved on upstream
-npm run sync:list    # what is shared, and where each file lands
-```
-
-`sync:check` runs in CI on every push. If you need to change a core file, change it upstream and
-re-sync; if the change belongs only to Invoice Studio, it does not belong in core — move it into a
-module of our own and drop it from the manifest.
-
-**One thing the two products must not share.** Advanced Charts stores its whole dashboard design in
-`ANUPRESS_Config` under the key `site`, via the core's `saveConfig()`. Invoice Studio stores its
-settings in the same table under `invoiceStudio`, through its own code in `src/settings/store.js`,
-so both widgets can live in one document without either erasing the other. Never call the core's
-`saveConfig()` from here — a test in `tests/settings.test.mjs` guards the boundary.
+Presets are a starting point, dated in `src/money/tax/rates.js`. They are not tax advice, and rates
+change. Brazil and US sales tax are deliberately not included, since neither reduces to a small
+table.
 
 ## Sending
 
-A browser cannot send email. That is not a limitation we chose and there is no way around it, so
-Invoice Studio is explicit about who does the sending instead. Four routes, cheapest first:
+A browser cannot send email, and Grist's own email action only reaches people with access to the
+document, so it cannot email a client. The four routes reflect that:
 
-| Route | Setup | Leaves the browser? | Works with nobody watching |
+| Route | Setup | Leaves the browser | Runs unattended |
 |---|---|---|---|
-| **Open in your mail client** | none | no — your OS does the handover | no |
-| **Copy the message** | none | no | no |
-| **Download the document** | none | no | no |
-| **Outbox** — a table in your own document | one Grist webhook | Grist sends it, not us | **yes** |
-| **Direct** — post to your own endpoint | paste a URL | yes, to *your* host | no |
+| Mail client | none | no, the OS takes over | no |
+| Clipboard | none | no | no |
+| Download PDF or HTML | none | no | no |
+| Outbox | one Grist webhook | Grist sends it | yes |
+| Direct POST | an endpoint URL | yes, to your host | no |
 
-The **Outbox** is the one that runs unattended, and it is worth understanding why it has to work
-this way. Grist can fire a webhook when a row changes, whether or not anyone has this page open —
-but its own *send an email* action only reaches people who have access to the document, so it
-cannot email your client. So the widget writes the message into an `ANUPRESS_Outbox` table, you
-release it, Grist's webhook fires, and something of yours delivers it. The
-[`recipes/`](recipes/) folder has that something, ready to paste: a Cloudflare Worker, a Node relay
-that speaks real SMTP, and setup steps for n8n, Make, Zapier and the Grist side itself.
+The Outbox is a table in your own document. Queueing writes a held row; releasing it sets a boolean,
+which is the transition a Grist webhook fires on. [`recipes/`](recipes/) contains the far end: a
+Cloudflare Worker, a Node relay that speaks SMTP, and setup notes for n8n, Make, Zapier and Grist.
 
-Two things this deliberately will **not** do: store an SMTP password or a mail-provider API key —
-they would sit in a table every editor of your document can read, and browsers cannot call those
-APIs anyway — and send anything over plain `http` to a host that is not on your own machine.
+No SMTP password or API key is ever stored. Settings live in your Grist document, readable by anyone
+who can edit it, so credentials belong in whatever you run at the far end. Endpoints must be HTTPS
+unless they are on localhost.
+
+## Documents
+
+Eight document kinds and four layouts. A delivery note and a packing slip show no prices; a quote
+carries an expiry rather than a due date; a receipt shows no payment details.
+
+Paper: A4, US Letter, US Legal, A5, and 80mm or 58mm till rolls, which switch to a single-column
+layout. Three densities. The choice applies to the PDF and to browser printing.
+
+The PDF writer is part of this repository rather than a dependency. It uses the standard PDF fonts,
+so files embed no font data and an invoice is around 6KB. Those fonts are WinAnsi, which means
+non-Latin scripts cannot be drawn; symbols such as `₹` are transliterated (`Rs.`) rather than
+dropped.
+
+## Development
+
+No build step. `index.html` loads `src/` as native ES modules, and all libraries are vendored.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/serve.ps1
+# http://127.0.0.1:4178/
+```
+
+```bash
+npm test        # 13 suites, no framework
+npm run build   # esbuild + obfuscator into dist/, which CI deploys to Pages
+```
+
+### The shared core
+
+`src/core/` is copied from [Advanced Charts](https://github.com/anupress/grist-advanced-charts) by
+`scripts/sync-core.mjs` and is read-only here.
+
+```bash
+npm run sync         # copy from ../WidgetIdea and refresh core.lock.json
+npm run sync:check   # fail if src/core/ has been edited, or has moved on upstream
+npm run sync:list    # what is shared, and where each file lands
+```
+
+`sync:check` runs in CI. To change a core file, change it upstream and re-sync. If a change belongs
+only to Invoice Studio it does not belong in core; move it into a module here and drop it from
+`core.manifest.json`.
+
+Settings are stored in `ANUPRESS_Config` under the key `invoiceStudio`. Advanced Charts uses `site`
+for its dashboard design, so the two coexist in one document. Do not call the core's `saveConfig()`
+from this repository; `tests/settings.test.mjs` checks the keys still differ.
 
 ## Privacy
 
-ANUPRESS has no server. Every document is composed in the viewer's browser, and nothing is
-transmitted to us — there is nothing of ours for it to be transmitted to.
+Everything is composed in the viewer's browser. ANUPRESS runs no server and receives nothing.
 
-**The one exception, stated plainly:** if you fill in the *Direct* endpoint, this page posts the
-invoice, the client's name and address, and the message to the URL **you** typed. It is off until
-you type one, it names the destination host on screen every time before you press send, and it goes
-to your host rather than through ours. The Outbox route is the same bargain a step removed: your
-document, your webhook, your sender.
+The exception is the Direct route. If you enter an endpoint URL, the page posts the invoice, the
+client's name and address and the message to that URL. It is inactive until you enter one, and the
+destination host is shown on screen before each send.
 
-
-## Repo map
+## Repository
 
 ```
-src/core/     copied from Advanced Charts — read-only here
-src/model/    schema recognition, role mapping, drafts, and the write PLAN
-src/money/    rounding, the tax rate table, shipping, discounts, totals, numbering
-src/doc/      document kinds, field visibility, layouts, the renderer
-src/compose/  the composer and the send panel
-src/send/     message templating and each delivery route
-src/export/   the HTML document, and a hand-written PDF writer
-src/templates/ fourteen trades, as starting points
-src/settings/ what a business decides once, and where it is stored
-src/grist/    the only code that actually writes to Grist
-recipes/      the far end: Worker, SMTP relay, n8n, Make, Zapier, Grist setup
-tests/        no framework — plain ES modules, one verdict per file
+src/core/       copied from Advanced Charts, read-only
+src/model/      schema recognition, column roles, drafts, and the write plan
+src/money/      rounding, tax rates, shipping, discounts, totals, numbering
+src/doc/        document kinds, field visibility, layouts, renderer
+src/compose/    composer and send panel
+src/send/       message templating and each delivery route
+src/export/     HTML file and PDF writer
+src/templates/  fourteen trades
+src/settings/   settings and their storage
+src/grist/      the only code that writes to Grist
+recipes/        Worker, SMTP relay, n8n, Make, Zapier, Grist setup
+tests/          plain ES modules, one verdict per file
 ```
 
 ## License
