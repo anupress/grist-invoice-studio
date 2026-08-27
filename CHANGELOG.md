@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.10.1
+
+### An audit pass
+
+- A statement of account said "Balance outstanding £0.00" beneath rows plainly stating otherwise,
+  everywhere it was drawn. Its rows are documents with a running balance, not items with amounts,
+  so its figures now come from those columns — charges billed, payments received, and a closing
+  balance taken from the last stated balance rather than summed, because a running balance is
+  already cumulative. The plain-text version also dropped those rows entirely; it now prints them
+  as date, reference and figures.
+- The full-bleed mastheads reached the card edge by cancelling the document padding with hardcoded
+  negative margins, and the padding is not one number: it shrinks on narrow screens and on till
+  rolls. Banded and Letterhead have overshot by 20px on any screen under 700px wide for as long as
+  the responsive rule existed, clipping real text behind the card edge. The bleed now follows the
+  padding through a variable, in the widget and in the exported file alike, and the stale literal
+  copy in the media query — the reason the fix appeared not to take — is gone.
+- The sidebar showed every total with the business currency's symbol, including on documents fixed
+  in another currency. Each row now formats in its own currency.
+
 ## 1.10.0
 
 ### Four new layouts

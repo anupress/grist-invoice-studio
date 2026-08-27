@@ -46,6 +46,7 @@ export function listInvoices(schema, provider) {
       client: clientNameFor(r, schema, provider),
       issued: str(byRole(r, roles, 'issued')),
       status: str(byRole(r, roles, 'status')),
+      currency: str(byRole(r, roles, 'currency')).toUpperCase(),
       total: isFinite(rawTotal) && byRole(r, roles, 'total') !== '' && byRole(r, roles, 'total') != null ? rawTotal : null,
     };
   });

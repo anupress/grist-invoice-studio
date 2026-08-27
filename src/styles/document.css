@@ -8,6 +8,13 @@
  */
 
 .inv-doc {
+  /* The full-bleed mastheads reach the card edge by cancelling this padding with negative
+   * margins. Held in variables rather than repeated as literals, because the padding changes on
+   * narrow screens and on till rolls — and a hardcoded bleed then overshoots, clipping real text
+   * behind the card edge. That bug shipped: banded and letterhead overshot by 20px on any screen
+   * under 700px wide, quietly, for as long as the responsive rule existed. */
+  --bleed-x: 44px;
+  --bleed-y: 40px;
   background: var(--doc-paper);
   color: var(--doc-ink);
   font-family: var(--font-doc);
@@ -75,7 +82,7 @@
 .inv-head.is-banded { display: block; }
 .inv-band {
   background: var(--doc-accent); color: #fff;
-  margin: -40px -44px 0; padding: 26px 44px 22px;
+  margin: calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)) 0; padding: 26px var(--bleed-x) 22px;
   display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
 }
 /* On the coloured band a transparent PNG may vanish and a flattened JPEG is a white box; a
@@ -95,7 +102,7 @@
 .inv-strip {
   background: var(--doc-accent-soft, #eef3fb);
   border-left: 3px solid var(--doc-accent);
-  margin: -40px -44px 0; padding: 22px 44px;
+  margin: calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)) 0; padding: 22px var(--bleed-x);
   display: flex; justify-content: space-between; align-items: center; gap: 20px;
 }
 .inv-strip__left { min-width: 0; }
@@ -192,13 +199,15 @@
 
 /* ---- small screens -------------------------------------------------------------------------- */
 @media (max-width: 700px) {
-  .inv-doc { padding: 24px 20px 32px; }
+  .inv-doc { padding: 24px 20px 32px; --bleed-x: 20px; --bleed-y: 24px; }
   .inv-parties, .inv-parties.has-shipto { grid-template-columns: 1fr; gap: 18px; }
   .inv-metas { text-align: left; }
   .inv-head.is-classic, .inv-head.is-minimal { flex-direction: column; }
   .inv-title { text-align: left; }
   .inv-title__number { justify-content: flex-start; }
-  .inv-band, .inv-strip { margin: -24px -20px 0; padding-left: 20px; padding-right: 20px; }
+  /* No literals here any more: the bleed variables already carry the narrow padding, and a
+   * literal repeated in a media query is exactly how the till-roll case broke — the variable is
+   * right on the element while a stale copy of it wins the cascade. */
   .inv-totals { min-width: 0; }
 }
 
@@ -207,7 +216,7 @@
 .inv-head.is-slate { display: block; }
 .inv-slate {
   background: var(--doc-ink); color: #fff;
-  margin: -40px -44px 0; padding: 26px 44px 24px;
+  margin: calc(-1 * var(--bleed-y)) calc(-1 * var(--bleed-x)) 0; padding: 26px var(--bleed-x) 24px;
   display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
 }
 .inv-slate .inv-brand__name { color: #fff; }
@@ -247,10 +256,10 @@
 .inv-cent__rule { width: 56px; border-top: 2px solid var(--doc-accent); margin: 10px 0 6px; }
 
 @media print {
-  .inv-doc { padding: 0; }
-  /* The full-bleed mastheads bleed to the page margin rather than to a card edge that is not
-     there any more once the application chrome is gone. */
-  .inv-band, .inv-strip, .inv-slate { margin-left: 0; margin-right: 0; margin-top: 0; padding-left: 20px; padding-right: 20px; }
+  /* The card edge is gone in print, so there is nothing to bleed past: zero the bleed and give
+     the blocks their own modest inset instead. */
+  .inv-doc { padding: 0; --bleed-x: 0px; --bleed-y: 0px; }
+  .inv-band, .inv-strip, .inv-slate { padding-left: 20px; padding-right: 20px; }
 }
 
 /* ---- narrow paper -------------------------------------------------------------------------------
@@ -259,12 +268,21 @@
  * export/pdf/invoice.js — so what is printed from the browser and what is generated as a file agree.
  */
 [data-paper^="receipt"] .studio-page { max-width: 302px; }
-[data-paper^="receipt"] .inv-doc { padding: 14px 12px 18px; gap: 12px; font-size: 12px; }
+[data-paper^="receipt"] .inv-doc { padding: 14px 12px 18px; gap: 12px; font-size: 12px; --bleed-x: 12px; --bleed-y: 14px; }
 [data-paper^="receipt"] .inv-head { flex-direction: column; align-items: center; text-align: center; gap: 4px; border-bottom-width: 1px; padding-bottom: 10px; }
 [data-paper^="receipt"] .inv-brand { flex-direction: column; gap: 4px; }
 [data-paper^="receipt"] .inv-brand__name { font-size: 15px; }
 [data-paper^="receipt"] .inv-title { text-align: center; }
 [data-paper^="receipt"] .inv-title__number { justify-content: center; font-size: 14px; }
+[data-paper^="receipt"] .inv-band, [data-paper^="receipt"] .inv-strip, [data-paper^="receipt"] .inv-slate {
+  padding-top: 12px; padding-bottom: 12px;
+}
+[data-paper^="receipt"] .inv-slate { flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+[data-paper^="receipt"] .inv-strip { flex-direction: column; align-items: flex-start; gap: 8px; }
+[data-paper^="receipt"] .inv-hl__word { font-size: 20px; letter-spacing: .1em; padding-bottom: 8px; margin-bottom: 8px; text-align: center; }
+[data-paper^="receipt"] .inv-hl__row { flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+[data-paper^="receipt"] .inv-hl__meta { align-items: center; }
+[data-paper^="receipt"] .inv-rail { border-left-width: 3px; padding: 2px 0 2px 10px; gap: 8px; }
 [data-paper^="receipt"] .inv-parties { grid-template-columns: 1fr; gap: 8px; }
 [data-paper^="receipt"] .inv-metas { text-align: left; min-width: 0; gap: 4px; }
 [data-paper^="receipt"] .inv-meta.is-total .inv-meta__value { font-size: 16px; }

@@ -174,6 +174,27 @@ export function computeDraftTotals(draft, settings = {}) {
   const money = settings.money || {};
   const supply = money.placeOfSupply || {};
 
+  // A statement's rows are documents with a running balance, not items with amounts, so its
+  // figures come from those columns: charges billed, payments received, and a closing balance
+  // taken from the LAST stated balance rather than summed — a running balance is already
+  // cumulative, and adding one up double-counts everything before it. Without this, a statement
+  // showed "Balance outstanding £0.00" beneath rows plainly stating otherwise.
+  if (documentKind(draft.kind).lineMode === 'documents') {
+    const rows = (draft.lines || []).filter((l) => l.charge != null || l.paid != null || l.balance != null);
+    if (rows.length) {
+      const charges = rows.reduce((a, l) => a + (l.charge || 0), 0);
+      const paid = rows.reduce((a, l) => a + (l.paid || 0), 0);
+      const last = [...rows].reverse().find((l) => l.balance != null);
+      return {
+        ...emptyTotals(draft.currency || money.currency || 'USD'),
+        subtotal: charges,
+        total: charges,
+        amountPaid: paid,
+        balance: last ? last.balance : charges - paid,
+      };
+    }
+  }
+
   return computeTotals({
     lines: (draft.lines || []).map((l, i) => ({
       id: l.id != null ? l.id : i + 1,

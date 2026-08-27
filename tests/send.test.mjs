@@ -296,6 +296,44 @@ const { documentToPlainText } = await import(pathToFileURL(_resolve(ROOT, 'src/s
   ok('but no money', !/Total\s+[£$€]/.test(note));
 }
 
+// A statement's rows are documents with a running balance, not items with amounts. The bug this
+// guards: those rows vanished from the text entirely, and the totals beneath them said £0.00 —
+// a statement plainly contradicting itself.
+{
+  const { recalc } = await import(pathToFileURL(_resolve(ROOT, 'src/model/draft.js')).href);
+  const st = recalc(normaliseDraft({
+    kind: 'statement', number: 'ST-01', issued: '2026-08-01', currency: 'GBP', format: { currency: 'GBP' },
+    client: { name: 'Harbour Lane Bakery' },
+    lines: [
+      { date: '2026-07-06', reference: 'INV-0001', charge: 1680, balance: 1680, itemised: false },
+      { date: '2026-07-20', reference: 'PAY-0001', paid: 1000, balance: 680, itemised: false },
+    ],
+  }), { money: { currency: 'GBP', taxMode: 'none', taxEnabled: false, taxRates: [] } });
+
+  eq('charges billed', st.totals.subtotal, 1680);
+  eq('payments received', st.totals.amountPaid, 1000);
+  // The closing balance is the LAST stated balance, never a sum — a running balance is already
+  // cumulative, and summing one double-counts everything before it.
+  eq('the closing balance is the last stated balance', st.totals.balance, 680);
+
+  const txt = documentToPlainText(st, {});
+  ok('the charge row is on the statement', txt.includes('INV-0001') && txt.includes('£1,680.00'));
+  ok('the payment row too', txt.includes('paid £1,000.00'));
+  ok('and the bottom line agrees with the rows', txt.includes('Balance outstanding £680.00'));
+  ok('nothing claims zero', !txt.includes('£0.00'));
+}
+
+// The sidebar lists each row in ITS currency — a document fixed in dollars shown with a pound
+// sign would be the list contradicting the document it opens.
+{
+  const { listInvoices } = await import(pathToFileURL(_resolve(ROOT, 'src/model/resolve.js')).href);
+  const schema = { invoice: { table: 'Invoices', roles: { number: 'N', currency: 'Cur', total: 'T', status: 'S', issued: 'I', client: 'C' } } };
+  const provider = { records: (t) => (t === 'Invoices' ? [{ id: 1, N: 'INV-1', Cur: 'usd', T: 500, S: 'Sent', I: '', C: '' }, { id: 2, N: 'INV-2', Cur: '', T: 300, S: '', I: '', C: '' }] : []) };
+  const rows = listInvoices(schema, provider);
+  eq('a stored currency is carried, upper-cased', rows[0].currency, 'USD');
+  eq('no stored currency is empty, meaning the business currency', rows[1].currency, '');
+}
+
 // The exported file carries its own copy of the document styles, and a masthead the screen can
 // draw but the file cannot is an invoice that changes design when it is downloaded. Guarded on
 // the source text because the CSS lives in a template string no test can render.

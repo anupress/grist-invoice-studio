@@ -42,7 +42,19 @@ export function documentToPlainText(draft, settings = {}) {
   out.push('');
 
   // One line per item. Quantity first, because that is what a reader checks against what arrived.
+  // A statement's rows are not items at all — they are documents with a running balance — so they
+  // print as date, reference and figures instead of pretending to be quantities of something.
   for (const l of draft.lines || []) {
+    if (l.charge != null || l.paid != null || l.balance != null) {
+      out.push([
+        docDate(l.date),
+        String(l.reference || l.description || '').trim(),
+        l.charge != null ? money(l.charge) : '',
+        l.paid != null ? `paid ${money(l.paid)}` : '',
+        l.balance != null ? `balance ${money(l.balance)}` : '',
+      ].filter(Boolean).join('  ·  '));
+      continue;
+    }
     const desc = String(l.description || '').trim();
     if (!desc && !l.amount) continue;
     if (!kind.showsMoney) {

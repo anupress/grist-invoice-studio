@@ -509,7 +509,9 @@ function renderSidebar() {
   if (!app.schema?.invoice) return null;
   const all = listInvoices(app.schema, app.provider);
   const money = settingsNow().money;
-  const fmt = (v) => formatMoney(v, { ...money.format, currency: money.currency });
+  // Each row in ITS currency: a document fixed in dollars listed with a pound sign would be the
+  // sidebar contradicting the document it opens.
+  const fmt = (v, cur) => formatMoney(v, { ...money.format, currency: cur || money.currency });
 
   const listHost = el('nav', { class: 'studio-side__list', 'aria-label': 'Invoices' });
   const paint = () => {
@@ -528,7 +530,7 @@ function renderSidebar() {
       }, [
         el('span', { class: 'studio-side__line' }, [
           el('span', { class: 'studio-side__num', text: i.number }),
-          i.total != null ? el('span', { class: 'studio-side__total', text: fmt(i.total) }) : null,
+          i.total != null ? el('span', { class: 'studio-side__total', text: fmt(i.total, i.currency) }) : null,
         ]),
         el('span', { class: 'studio-side__line' }, [
           el('span', { class: 'studio-side__client', text: i.client || '—' }),
