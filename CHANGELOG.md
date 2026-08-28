@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.16.0
+
+- Settings gains a Trade tab: the same starting points setup offers, available for the rest of the
+  document's life. A café that becomes a shop reapplies its trade there — wording, numbering,
+  layout and tax defaults — with the changes listed before they are made, and identity (name,
+  address, logo, saved messages) never touched. Nothing is stored until Save settings.
+- This section existed once, sat unexplained at the top of the panel, and earned its removal. It
+  returns as its own door now that setup has taught what a trade is.
+
 ## 1.15.0
 
 - The starter's Image column is Attachments again — the type a Grist user actually drags photos

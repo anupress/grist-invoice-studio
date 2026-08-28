@@ -19,6 +19,7 @@ import { DOCUMENT_KINDS } from '../doc/kinds.js';
 import { LAYOUTS } from '../doc/layouts.js';
 import { numberFormatFor } from './defaults.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from '../compose/ui.js';
+import { templatesBySector, findTemplate, templateChanges, applyTemplate } from '../templates/index.js';
 import { MESSAGE_TEMPLATES } from '../send/message.js';
 
 const opt = (value, label) => ({ value, label });
@@ -35,6 +36,7 @@ const TABS = [
   { id: 'document', label: 'Document' },
   { id: 'messages', label: 'Messages' },
   { id: 'sending', label: 'Sending' },
+  { id: 'trade', label: 'Trade' },
 ];
 let activeTab = 'business';
 
@@ -319,6 +321,39 @@ export function renderSettingsPanel(ctx) {
     ...messageEditors,
   ]);
 
+  // ---- trade -----------------------------------------------------------------------------------
+  // The same starting points setup offers, available for the rest of the document's life. A cafe
+  // that becomes a shop should not have to recreate its document to change its wording, numbering,
+  // layout and tax defaults. This section once sat unexplained at the top of the panel and earned
+  // its removal; it returns as its own door, with the change listed before it is made.
+  const tradeNote = el('p', { class: 'set-lead' });
+  let pendingTrade = null;
+  const tradeChooser = selectInput(
+    [opt('', '\u2014 choose a trade \u2014'),
+      ...templatesBySector().flatMap((g) => g.items.map((t) => opt(t.id, `${g.sector} \u00b7 ${t.label}`)))],
+    '', (v) => {
+      pendingTrade = findTemplate(v) || null;
+      if (!pendingTrade) { tradeNote.textContent = ''; return; }
+      const changes = templateChanges(pendingTrade, s);
+      tradeNote.textContent = changes.length
+        ? `Would change ${changes.length} setting${changes.length === 1 ? '' : 's'}: ${changes.map((c) => c.path.split('.').pop()).join(', ')}. Your name, address, logo and messages are never touched.`
+        : 'Nothing to change \u2014 your settings already match this trade.';
+    }, { ariaLabel: 'Trade' });
+
+  const applyTradeBtn = button('Apply this trade', () => {
+    if (!pendingTrade) { say('Choose a trade first.', 'warn'); return; }
+    Object.assign(s, applyTemplate(pendingTrade, s));
+    toast(`Applied ${pendingTrade.label}. Nothing is stored until you press Save settings.`, 'ok');
+    if (ctx.onRebuild) ctx.onRebuild();
+  }, { variant: 'primary' });
+
+  const tradeSection = section('Change of trade', [
+    el('p', { class: 'set-lead', text: 'The same starting point the setup offered, reapplicable any time: the document\u2019s wording, how its numbers run, the layout it opens with, and whether prices include tax. It is a starting point, not a design \u2014 anything you change afterwards is yours \u2014 and it never touches who you are: name, address, logo and saved messages stay exactly as they are.' }),
+    field('Trade', tradeChooser),
+    tradeNote,
+    applyTradeBtn,
+  ]);
+
   // ---- delivery ------------------------------------------------------------------------------------
   const del = s.delivery;
   const deliverySection = section('Sending', [
@@ -365,6 +400,7 @@ export function renderSettingsPanel(ctx) {
     document: [documentSection],
     messages: [messagesSection],
     sending: [deliverySection],
+    trade: [tradeSection],
   };
 
   const tabStrip = el('div', { class: 'set-tabs', role: 'tablist' }, TABS.map((t) => {
