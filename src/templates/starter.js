@@ -43,10 +43,13 @@ const CLIENT_COLUMNS = [
 
 const PRODUCT_COLUMNS = [
   { id: 'SKU', label: 'SKU', type: 'Text' },
-  // Attachments, added after the atomic create like every Attachments column here. Left empty:
-  // the document looks exactly as it always has until somebody drops a photo in, and then the
-  // invoices for that product carry it.
-  { id: 'Image', label: 'Image', type: 'Attachments' },
+  // Text, not Attachments, and the difference is the whole live path: the sample pictograms are
+  // data URIs, an Attachments column cannot legally hold text, and Attachments columns are added
+  // AFTER the atomic create, whose record write skips them — so a live cafe got an empty column
+  // and no pictures, while the in-memory demo cheerfully showed both. A Text column rides the
+  // create with its values. It takes a data URI or an https URL; a business that prefers dragging
+  // photos in adds an Attachments column instead, and the renderer honours either.
+  { id: 'Image', label: 'Image', type: 'Text' },
   { id: 'Name', label: 'Name', type: 'Text' },
   { id: 'Price', label: 'Unit price', type: 'Numeric' },
   { id: 'Unit', label: 'Unit', type: 'Text' },

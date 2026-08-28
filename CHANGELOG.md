@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.14.2
+
+- The starter's sample pictures never reached a live document, only the demo. The Image column was
+  typed Attachments — added after the atomic create, whose record write skips it, and unable to
+  hold a text data URI in any case — so a live café got an empty column and no pictures while the
+  in-memory demo cheerfully showed both. The starter's Image column is now Text and rides the
+  create with its values; it takes a data URI or an https URL. The upgrade still offers an
+  Attachments-typed Image for businesses that prefer dragging photos in, and the renderer honours
+  either.
+- The running version is now visible: hover the Connected/Demo pill, or look for
+  "[Invoice Studio] v…" in the console. "Is my iframe on the new bundle or a cached one" was
+  undiagnosable without it.
+
 ## 1.14.1
 
 - Every asset URL in the built page now carries the version. Without it, a Grist iframe that had

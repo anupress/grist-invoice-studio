@@ -67,6 +67,10 @@ function moneySettings(money) {
   };
 }
 
+// Bumped with every release. Shown on the mode pill and logged at boot, because "is my iframe
+// running the new bundle or a cached one" was undiagnosable without it.
+const APP_VERSION = '1.14.2';
+
 const app = {
   provider: null,
   schema: null,
@@ -156,6 +160,7 @@ function rescan() {
 }
 
 async function boot() {
+  console.info('[Invoice Studio] v' + APP_VERSION);
   const connected = await bridge.connect();
 
   // Before anything is read. The core connects at "read table", and at that level Grist refuses to
@@ -727,7 +732,7 @@ function renderBar() {
         el('img', { class: 'studio-bar__logo', src: ANUPRESS_LOGO, alt: 'ANUPRESS' }),
         el('span', { class: 'studio-bar__name', text: 'Invoice Studio' }),
       ]),
-      el('span', { class: `studio-bar__mode is-${mode}` }, [
+      el('span', { class: `studio-bar__mode is-${mode}`, title: 'Invoice Studio v' + APP_VERSION }, [
         el('span', { class: 'studio-bar__dot', 'aria-hidden': 'true' }),
         el('span', { text: modeText }),
       ]),

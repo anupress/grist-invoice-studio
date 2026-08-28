@@ -214,6 +214,13 @@ eq('the catalogue image column is mapped', detProducts.roles.image, 'Image');
 {
   const shop = starter.starterTablesFor('retail', {}).find((t) => t.id === 'Products').records;
   ok('retail products carry pictures', shop.every((p) => String(p.Image).startsWith('data:image/svg+xml')));
+  const cafe = starter.starterTablesFor('restaurant', {}).find((t) => t.id === 'Products').records;
+  ok('so does the cafe', cafe.every((p) => String(p.Image).startsWith('data:image/svg+xml')));
+  // Text, not Attachments: an Attachments column cannot hold a data URI, and it is added after
+  // the atomic create whose record write skips it — the combination that shipped empty columns to
+  // live documents while the in-memory demo showed pictures.
+  eq('the Image column is Text, so the create carries the values',
+    starter.starterTablesFor('retail', {}).find((t) => t.id === 'Products').columns.find((c) => c.id === 'Image').type, 'Text');
   const trade = starter.starterTablesFor('construction', {}).find((t) => t.id === 'Products').records;
   ok('a construction catalogue starts picture-free', trade.every((p) => !p.Image));
 }
