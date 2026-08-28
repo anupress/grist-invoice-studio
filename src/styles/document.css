@@ -297,3 +297,15 @@
 [data-density="compact"] .inv-lines td { padding: 6px 12px; }
 [data-density="roomy"] .inv-doc { padding: 52px 56px 60px; gap: 34px; font-size: 16px; }
 [data-density="roomy"] .inv-lines td { padding: 14px 12px; }
+
+/* ---- line thumbnails --------------------------------------------------------------------------
+ * The column exists only when at least one line has a picture, so a document without pictures is
+ * exactly the document it was before pictures existed. */
+.inv-lines th.is-img, .inv-lines td.is-img { width: 44px; padding-right: 8px; }
+.inv-lines__img {
+  width: 36px; height: 36px; object-fit: cover; display: block;
+  border: 1px solid var(--doc-rule); border-radius: 4px;
+  background: #fff;
+}
+[data-paper^="receipt"] .inv-lines th.is-img, [data-paper^="receipt"] .inv-lines td.is-img { width: 30px; padding-right: 4px; }
+[data-paper^="receipt"] .inv-lines__img { width: 24px; height: 24px; }

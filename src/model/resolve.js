@@ -148,6 +148,7 @@ function resolveLines(row, schema, provider, opts) {
           hsn: R.hsn ? str(r[R.hsn]) : '',
           unit: R.unit ? str(r[R.unit]) : '',
           discountAmount: R.lineDiscount ? num(r[R.lineDiscount]) : 0,
+          image: R.image ? (r[R.image] ?? null) : null,
         };
       });
     }
@@ -169,6 +170,29 @@ function resolveLines(row, schema, provider, opts) {
  * purpose — it is identical on every invoice, it is branding, and Grist's own template putting it
  * in a formula column is the clearest possible argument for not doing that.
  */
+/**
+ * A line with no image of its own borrows the catalogue's, matched by name.
+ *
+ * The line table rarely stores pictures — the catalogue is their natural home — and a business
+ * that photographed its products should not have to photograph every invoice line again. Name
+ * matching is the same linkage the composer's picker uses, so what fills a line is what
+ * illustrates it.
+ */
+export function borrowCatalogueImages(lines, products, provider) {
+  if (!products?.roles?.image || !provider) return lines;
+  const R = products.roles;
+  const rows = provider.records(products.table) || [];
+  const byName = new Map();
+  for (const r of rows) {
+    const name = str(r[R.name]).toLowerCase();
+    if (name && r[R.image] != null && r[R.image] !== '') byName.set(name, r[R.image]);
+  }
+  if (!byName.size) return lines;
+  return lines.map((l) => (l.image == null || l.image === '')
+    ? { ...l, image: byName.get(str(l.description).toLowerCase()) ?? null }
+    : l);
+}
+
 export function resolveInvoice(row, schema, provider, settings = {}) {
   if (!row || !schema?.invoice) return null;
   const roles = schema.invoice.roles;

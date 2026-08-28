@@ -63,6 +63,8 @@ const FILE_CSS = `
   .inv-lines th:first-child, .inv-lines td:first-child { padding-left: 0; }
   .inv-lines th:last-child, .inv-lines td:last-child { padding-right: 0; }
   .inv-lines .is-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .inv-lines th.is-img, .inv-lines td.is-img { width: 44px; padding-right: 8px; }
+  .inv-lines__img { width: 36px; height: 36px; object-fit: cover; display: block; border: 1px solid #dfe5ec; border-radius: 4px; background: #fff; }
   .inv-totals { display: flex; flex-direction: column; gap: 6px; margin-left: auto; min-width: 260px; }
   .inv-total { display: flex; justify-content: space-between; gap: 24px; font-size: 14px; }
   .inv-total__label { color: #5f7285; }

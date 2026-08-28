@@ -58,6 +58,9 @@ export function fieldsFor(draft, settings = {}, overrides = {}) {
     showHsn,
     hsnMissing,
     showUnit: lines.some((l) => String(l.unit || '').trim()),
+    // The thumbnail column exists only when there is at least one thumbnail to put in it, so a
+    // document without pictures is EXACTLY the document it was before pictures existed.
+    showImages: itemised && lines.some((l) => l.image != null && l.image !== ''),
     showLineDiscount: money_ && itemised && anyLineDiscount,
     showSecondDate: !!kind.dateLabels.second,
     showPaid: money_ && Number(totals.amountPaid) > 0,

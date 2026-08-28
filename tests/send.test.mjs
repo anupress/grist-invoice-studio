@@ -367,5 +367,34 @@ const { documentToPlainText } = await import(pathToFileURL(_resolve(ROOT, 'src/s
   ok('and the URL stays under the ceiling', huge.url.length <= 1900);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Line pictures: borrowed from the catalogue by name, and only stable sources reach an email.
+// ---------------------------------------------------------------------------------------------
+{
+  const { borrowCatalogueImages } = await import(pathToFileURL(_resolve(ROOT, 'src/model/resolve.js')).href);
+  const products = { table: 'Products', roles: { name: 'Name', unitPrice: 'Price', image: 'Image' } };
+  const provider = { records: () => [
+    { id: 1, Name: 'Enamel mug', Price: 11.5, Image: 'data:image/png;base64,MUG=' },
+    { id: 2, Name: 'Tote bag', Price: 14, Image: null },
+  ] };
+  const lines = [
+    { description: 'Enamel Mug', image: null },
+    { description: 'Tote bag', image: null },
+    { description: 'Enamel mug', image: 'data:image/png;base64,OWN=' },
+  ];
+  const out = borrowCatalogueImages(lines, products, provider);
+  eq('a line borrows its product picture, case-insensitively', out[0].image, 'data:image/png;base64,MUG=');
+  eq('a product without a picture lends nothing', out[1].image, null);
+  eq('a line with its own picture keeps it', out[2].image, 'data:image/png;base64,OWN=');
+  eq('no image role means untouched lines', borrowCatalogueImages(lines, { table: 'P', roles: { name: 'Name' } }, provider), lines);
+
+  const { documentToEmailHtml } = await import(pathToFileURL(_resolve(ROOT, 'src/send/email-document.js')).href);
+  const withPic = draft({ lines: [{ description: 'Mug shot', quantity: 1, unitPrice: 10, amount: 10, image: 'data:image/png;base64,MUG=' }] });
+  ok('a stable picture reaches the email', documentToEmailHtml(withPic, {}).includes('src="data:image/png;base64,MUG="'));
+  // A token URL dies within minutes of the message arriving, which is worse than no picture.
+  const attHtml = documentToEmailHtml(draft({ lines: [{ description: 'Attached', quantity: 1, unitPrice: 10, amount: 10, image: ['L', 9] }] }), {});
+  ok('an attachment id never does', !attHtml.includes('attachments/9') && !/img src="\[/.test(attHtml));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.12.0
+
+### Pictures on the lines
+
+- A line item can carry a picture. Add an Image column — Attachments, an https URL, or a data URI —
+  to the line-item or product table, and a 36px thumbnail appears beside each description, on
+  screen and in the exported HTML file. A line without its own picture borrows the catalogue's,
+  matched by product name, so photographing the catalogue once illustrates every invoice.
+- The column exists only when at least one line has a picture: a document without pictures is
+  EXACTLY the document it was before pictures existed, which is the whole promise.
+- Grist attachments are resolved to short-lived token URLs on screen, cached for a minute. Exports
+  and emails deliberately carry only stable sources — https or data URIs — because a token URL
+  frozen into a file or a message dies within minutes, and a picture that decays is worse than
+  none. An <img> is never given anything else: plain http and javascript: are refused.
+- New starter documents include an empty Image column on the catalogue, ready for photos. The PDF
+  stays text-only, as it always has.
+
 ## 1.11.0
 
 ### Your own statuses

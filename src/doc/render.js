@@ -18,6 +18,7 @@ import { el } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
 import { documentKind } from './kinds.js';
 import { fieldsFor, lineColumns } from './fields.js';
+import { firstAttachmentId } from '../core/grist/bridge.js';
 import { renderMasthead } from './layouts.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -120,6 +121,25 @@ function lineCell(line, col, M) {
  * `settings` supplies the things that are the same on every document — payment details, the
  * closing line — and `overrides` lets a block force a field on or off.
  */
+/**
+ * What an image cell can actually be shown as.
+ *
+ * A string is trusted only when it is somewhere an <img> can safely go — https, or a data URI.
+ * An Attachments cell is a list-tuple holding ids; those need the resolver main.js provides,
+ * which trades an id for a short-lived token URL. Exports pass NO resolver on purpose: a token
+ * URL frozen into a downloaded file or an email dies within minutes, and a picture that decays
+ * is worse than none.
+ */
+export function imageSrc(cell, resolver) {
+  if (cell == null || cell === '') return null;
+  if (typeof cell === 'string') {
+    const s = cell.trim();
+    return /^(https:\/\/|data:image\/)/i.test(s) ? s : null;
+  }
+  const id = firstAttachmentId(cell);
+  return id != null && resolver ? resolver(id) : null;
+}
+
 export function renderDocument(draft, settings = {}, overrides = {}) {
   if (!draft) return el('div', { class: 'inv-empty', text: 'No document selected.' });
 
@@ -175,11 +195,21 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
     ]),
   ]);
 
+  // The thumbnail column exists only when there is at least one thumbnail to put in it, so a
+  // document without pictures is exactly the document it was before pictures existed.
+  const showImages = !!fields.showImages;
   const table = el('table', { class: 'inv-lines' }, [
-    el('thead', {}, [el('tr', {}, cols.map((c) =>
-      el('th', { scope: 'col', class: c.numeric ? 'is-num' : null, text: c.label })))]),
-    el('tbody', {}, (draft.lines || []).map((line) => el('tr', {}, cols.map((c) =>
-      el('td', { class: c.numeric ? 'is-num' : null, text: lineCell(line, c, M) }))))),
+    el('thead', {}, [el('tr', {}, [
+      showImages ? el('th', { scope: 'col', class: 'is-img', 'aria-label': 'Image' }) : null,
+      ...cols.map((c) => el('th', { scope: 'col', class: c.numeric ? 'is-num' : null, text: c.label })),
+    ])]),
+    el('tbody', {}, (draft.lines || []).map((line) => {
+      const src = showImages ? imageSrc(line.image, overrides.resolveImage) : null;
+      return el('tr', {}, [
+        showImages ? el('td', { class: 'is-img' }, src ? [el('img', { class: 'inv-lines__img', src, alt: '', loading: 'lazy' })] : []) : null,
+        ...cols.map((c) => el('td', { class: c.numeric ? 'is-num' : null, text: lineCell(line, c, M) })),
+      ]);
+    })),
   ]);
 
   const totals = fields.showTotals

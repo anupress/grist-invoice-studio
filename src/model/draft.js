@@ -59,6 +59,8 @@ export function normaliseLine(l = {}, index = 0) {
     hsn: text(l.hsn),
     unit: text(l.unit),
     discountAmount: num(l.discountAmount, 0),
+    // Raw on purpose — an Attachments cell is a list-tuple whose id the renderer resolves.
+    image: l.image ?? null,
     itemised: l.itemised !== false,
     // Statement rows carry documents rather than items; harmless on an ordinary line.
     date: text(l.date),

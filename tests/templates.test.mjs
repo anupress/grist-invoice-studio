@@ -205,6 +205,10 @@ eq('and the clients', detected.client.table, 'Clients');
 eq('the invoice number is a real stored column', detected.invoice.roles.number, 'InvoiceNumber');
 eq('the status is mapped', detected.invoice.roles.status, 'Status');
 eq('client emails are mapped, so it can send', detected.client.roles.email, 'Email');
+// The catalogue's picture column maps to the image role, which is what lets an invoice line show
+// the product it bills for. Empty by default: a document without pictures stays exactly as it was.
+const detProducts = m2.detectProducts(built.map((t) => ({ id: t.id, label: t.label, columns: t.columns })), detected);
+eq('the catalogue image column is mapped', detProducts.roles.image, 'Image');
 // And nothing is left for the upgrade to add to the invoice table.
 eq('nothing left to upgrade', m2.upgradeChecklist(detected).invoice.length, 0);
 

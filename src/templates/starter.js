@@ -43,6 +43,10 @@ const CLIENT_COLUMNS = [
 
 const PRODUCT_COLUMNS = [
   { id: 'SKU', label: 'SKU', type: 'Text' },
+  // Attachments, added after the atomic create like every Attachments column here. Left empty:
+  // the document looks exactly as it always has until somebody drops a photo in, and then the
+  // invoices for that product carry it.
+  { id: 'Image', label: 'Image', type: 'Attachments' },
   { id: 'Name', label: 'Name', type: 'Text' },
   { id: 'Price', label: 'Unit price', type: 'Numeric' },
   { id: 'Unit', label: 'Unit', type: 'Text' },

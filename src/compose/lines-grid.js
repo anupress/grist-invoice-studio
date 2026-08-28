@@ -57,6 +57,7 @@ export function renderLinesGrid(draft, { products, fields, onEdit, onStructure }
       if (p.unitPrice != null) { line.unitPrice = p.unitPrice; priceInput.value = String(p.unitPrice); }
       if (p.taxClass) line.taxClass = p.taxClass;
       if (p.hsn) { line.hsn = p.hsn; if (hsnInput) hsnInput.value = p.hsn; }
+      if (p.image != null) line.image = p.image;
       recalcLine();
     };
 

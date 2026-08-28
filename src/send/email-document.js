@@ -15,7 +15,7 @@
 import { formatMoney } from '../money/currency.js';
 import { documentKind } from '../doc/kinds.js';
 import { fieldsFor, lineColumns } from '../doc/fields.js';
-import { docDate } from '../doc/render.js';
+import { docDate, imageSrc } from '../doc/render.js';
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -65,7 +65,13 @@ ${(extra || []).filter(Boolean).map((l) => `<tr><td style="${F};font-size:12px;c
 /** A cell of the lines table, as the string it prints as. */
 function cell(line, col, money) {
   switch (col.id) {
-    case 'description': return esc(line.description || '');
+    case 'description': {
+      // Only a stable source — https or a data URI — ever reaches an email. An attachment's token
+      // URL would die within minutes of the message arriving, which is worse than no picture.
+      const src = imageSrc(line.image);
+      const img = src ? `<img src="${esc(src)}" alt="" width="34" height="34" style="width:34px;height:34px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:8px;border:0" />` : '';
+      return img + esc(line.description || '');
+    }
     case 'hsn': return esc(line.hsn || '—');
     case 'quantity': return esc(String(line.quantity ?? ''));
     case 'unit': return esc(line.unit || '');

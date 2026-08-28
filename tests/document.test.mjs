@@ -172,5 +172,32 @@ eq('but not its number', converted.number, '');
 eq('nor its row', converted.rowId, null);
 eq('and it starts as a draft again', converted.status, 'Draft');
 
+// ---------------------------------------------------------------------------------------------
+// Line images. The rule that matters most: a document without pictures is EXACTLY the document
+// it was before pictures existed.
+// ---------------------------------------------------------------------------------------------
+{
+  const render = await import(pathToFileURL(_resolve(ROOT, 'src/doc/render.js')).href);
+  const plain = draftMod.normaliseDraft({ kind: 'invoice', lines: [{ description: 'Work', quantity: 1, unitPrice: 10 }] });
+  eq('no images means no image column', f.fieldsFor(plain, {}).showImages, false);
+  const pictured = draftMod.normaliseDraft({ kind: 'invoice', lines: [
+    { description: 'Mug', quantity: 1, unitPrice: 10, image: 'data:image/png;base64,AAAA' },
+    { description: 'Bag', quantity: 1, unitPrice: 10 },
+  ] });
+  eq('one picture is enough to earn the column', f.fieldsFor(pictured, {}).showImages, true);
+  eq('the raw cell survives normalisation', pictured.lines[0].image, 'data:image/png;base64,AAAA');
+
+  // What an <img> may be given.
+  eq('an https URL is trusted', render.imageSrc('https://example.com/a.jpg'), 'https://example.com/a.jpg');
+  eq('a data URI is trusted', render.imageSrc('data:image/png;base64,AAAA'), 'data:image/png;base64,AAAA');
+  eq('plain http is not — it would mix content', render.imageSrc('http://example.com/a.jpg'), null);
+  eq('javascript: certainly is not', render.imageSrc('javascript:alert(1)'), null);
+  // An Attachments cell holds ids, and ids mean nothing without the resolver main.js provides.
+  eq('an attachment cell without a resolver is nothing', render.imageSrc(['L', 7]), null);
+  eq('with one, the id is traded for a URL', render.imageSrc(['L', 7], (id) => 'url-for-' + id), 'url-for-7');
+  eq('a bare id works the same way', render.imageSrc(7, (id) => 'url-for-' + id), 'url-for-7');
+  eq('emptiness is nothing, not a crash', render.imageSrc(null), null);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

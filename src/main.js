@@ -14,7 +14,7 @@ import * as bridge from './core/grist/bridge.js';
 import { DummyProvider, GristProvider } from './core/data/provider.js';
 import { SAMPLE_DATA, SAMPLE_SENDER, SAMPLE_MONEY } from './data/sample.js';
 import { detectSchema, upgradeChecklist, detectProducts, productOptions, statusOptions } from './model/schema.js';
-import { listInvoices, listClients, resolveInvoice } from './model/resolve.js';
+import { listInvoices, listClients, resolveInvoice, borrowCatalogueImages } from './model/resolve.js';
 import { emptyDraft, normaliseDraft, recalc, convertDraft } from './model/draft.js';
 import { buildWritePlan, describePlan, existingNumbers } from './model/write.js';
 import { buildUpgradePlan } from './model/migrate.js';
@@ -231,6 +231,8 @@ function startCompose(row) {
   const settings = settingsNow();
   if (row) {
     app.draft = resolveInvoice(row, app.schema, app.provider, settings);
+    // The same borrow the view applies, or a line's picture would vanish the moment Edit opened.
+    if (app.products) app.draft.lines = borrowCatalogueImages(app.draft.lines, app.products, app.provider);
     // The resolver's flat fallback invents one line standing for the invoice's amount. That is
     // right for reading a document and wrong for editing one — it would be saved as a real line
     // item nobody typed.
@@ -405,6 +407,34 @@ async function enableEditing() {
 let previewHost = null;
 
 /**
+ * Attachment id → a token URL an <img> can load, cached briefly.
+ *
+ * The bridge says never to cache these, and for anything persisted that is absolute — but an
+ * <img> being repainted several times a second cannot fetch a fresh token per paint either. A
+ * short TTL is the honest middle: within a minute the same URL is reused, after it the next paint
+ * resolves a fresh one. A miss returns null and kicks off the resolve; the repaint when it lands
+ * is what makes thumbnails appear a beat after the document, which is how images load everywhere.
+ */
+const ATTACHMENT_TTL = 60000;
+const attachmentUrls = new Map();   // id → { url, at }
+const attachmentPending = new Set();
+
+function resolveImage(id) {
+  const hit = attachmentUrls.get(id);
+  if (hit && Date.now() - hit.at < ATTACHMENT_TTL) return hit.url;
+  if (!app.live || attachmentPending.has(id)) return hit ? hit.url : null;
+  attachmentPending.add(id);
+  bridge.resolveAttachmentById(id).then((meta) => {
+    attachmentPending.delete(id);
+    if (meta?.url) {
+      attachmentUrls.set(id, { url: meta.url, at: Date.now() });
+      paintPreview();
+    }
+  }).catch(() => attachmentPending.delete(id));
+  return hit ? hit.url : null;
+}
+
+/**
  * Tell the printer what paper this is.
  *
  * `@page` cannot be scoped by a selector — it is a page-level at-rule, so there is no way to write
@@ -436,10 +466,13 @@ function paintPreview() {
   if (!previewHost) return;
   const settings = settingsNow();
   applyPaperSize(app.stored.document.paperSize);
-  const draft = app.mode === 'compose'
+  let draft = app.mode === 'compose'
     ? (app.draft = recalc(app.draft, settings))
     : (currentRow() ? resolveInvoice(currentRow(), app.schema, app.provider, settings) : sampleDraft(settings));
-  previewHost.replaceChildren(renderDocument(draft, settings));
+  // Lines without pictures borrow the catalogue's, matched by name — the catalogue is where a
+  // business keeps its product photos, and an invoice line for that product should show it.
+  if (app.products) draft = { ...draft, lines: borrowCatalogueImages(draft.lines, app.products, app.provider) };
+  previewHost.replaceChildren(renderDocument(draft, settings, { resolveImage }));
 }
 
 /**

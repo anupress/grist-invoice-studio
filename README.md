@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.11.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.12.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -72,6 +72,8 @@ Everything a business decides once lives in Settings, saved into the Grist docum
 invoice is from — name, address, email, tax number — the logo, the accent colour, the layout, the
 paper size, how numbers run, the payment wording, and how tax works. None of it is typed on an
 invoice.
+
+Line items can carry pictures: add an Image column (Attachments, a URL, or a data URI) to your line-item or product table and a thumbnail appears beside each description. Lines without their own picture borrow the catalogue's, matched by product name. A document with no pictures looks exactly as it always has — the column only exists when there is something to put in it.
 
 The logo is uploaded in Settings and stored inside the document as a scaled-down data URI, so
 nothing is hosted anywhere. It appears on every layout, in the email body, and in the downloaded

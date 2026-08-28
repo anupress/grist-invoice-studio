@@ -169,6 +169,7 @@ const LINE_PATTERNS = {
   description:  [/^description$/i, /^item$/i, /^details$/i, /^service$/i, /^product$/i, /desc/i],
   quantity:     [/^quantity$/i, /^qty$/i, /^units?$/i, /^hours$/i],
   unitPrice:    [/^price$/i, /^unit_?price$/i, /^rate$/i, /^cost$/i],
+  image:        [/^(image|photo|picture|thumb(?:nail)?|img)s?$/i],
   lineTotal:    [/^total$/i, /^amount$/i, /^line_?total$/i, /^subtotal$/i],
   product:      [/^product$/i, /^sku$/i, /^item_?ref$/i, /^catalog/i],
   taxClass:     [/^tax_?class$/i, /^tax_?rate$/i, /^vat_?rate$/i, /^gst_?rate$/i],
@@ -197,6 +198,7 @@ const PRODUCT_PATTERNS = {
   name:      [/^name$/i, /^product$/i, /^item$/i, /^service$/i, /^title$/i],
   sku:       [/^sku$/i, /^code$/i, /^ref$/i, /^part_?no$/i],
   unitPrice: [/^price$/i, /^unit_?price$/i, /^rate$/i, /^cost$/i, /^amount$/i],
+  image: [/^(image|photo|picture|thumb(?:nail)?|img)s?$/i],
   taxClass:  [/^tax_?class$/i, /^vat_?class$/i],
   hsn:       [/^hsn$/i, /^sac$/i, /^hsn_?code$/i],
   unit:      [/^unit$/i, /^uom$/i],
@@ -499,6 +501,9 @@ export function productOptions(products, provider) {
       unitPrice: isFinite(price) ? price : null,
       taxClass: R.taxClass ? String(r[R.taxClass] ?? '').trim() : '',
       hsn: R.hsn ? String(r[R.hsn] ?? '').trim() : '',
+      // Raw, not stringified: an Attachments cell is a list-tuple, and turning it into text here
+      // would destroy the id the renderer needs to resolve it.
+      image: R.image ? (r[R.image] ?? null) : null,
     };
   }).filter((p) => p.name);
 }
