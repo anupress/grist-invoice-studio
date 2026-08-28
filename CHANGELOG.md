@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.15.0
+
+- The starter's Image column is Attachments again — the type a Grist user actually drags photos
+  into. Yesterday's Text detour solved the sample-picture problem by giving users a worse column,
+  which was backwards. The real fix: on a live document, setup now UPLOADS the sample pictograms
+  through Grist's attachment API after the column exists and writes the returned ids into the
+  cells, so a fresh café gets a proper Attachments column with real attachments in it. The demo
+  keeps them in memory as before. Uploading is decorative: any failure costs the pictures, never
+  the setup.
+- A document that got the Text-typed column from 1.14.2 keeps working — the renderer honours a
+  URL or data URI in a Text column exactly as it honours an attachment.
+
 ## 1.14.2
 
 - The starter's sample pictures never reached a live document, only the demo. The Image column was

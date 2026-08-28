@@ -43,13 +43,12 @@ const CLIENT_COLUMNS = [
 
 const PRODUCT_COLUMNS = [
   { id: 'SKU', label: 'SKU', type: 'Text' },
-  // Text, not Attachments, and the difference is the whole live path: the sample pictograms are
-  // data URIs, an Attachments column cannot legally hold text, and Attachments columns are added
-  // AFTER the atomic create, whose record write skips them — so a live cafe got an empty column
-  // and no pictures, while the in-memory demo cheerfully showed both. A Text column rides the
-  // create with its values. It takes a data URI or an https URL; a business that prefers dragging
-  // photos in adds an Attachments column instead, and the renderer honours either.
-  { id: 'Image', label: 'Image', type: 'Text' },
+  // Attachments, because dragging a photo into a cell is the gesture a Grist user reaches for.
+  // The sample pictograms are data URIs, which an Attachments column cannot hold — so on a live
+  // document the writer UPLOADS them through Grist's attachment API after the column exists, and
+  // the demo simply keeps them in memory. Both worlds get the same pictures, each in the only
+  // form its column can carry.
+  { id: 'Image', label: 'Image', type: 'Attachments' },
   { id: 'Name', label: 'Name', type: 'Text' },
   { id: 'Price', label: 'Unit price', type: 'Numeric' },
   { id: 'Unit', label: 'Unit', type: 'Text' },

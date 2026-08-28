@@ -339,6 +339,64 @@ async function dressColumns(table) {
 }
 
 /**
+ * The sample pictures, turned into real attachments.
+ *
+ * The starter carries them as data URIs, which is the only form an in-memory demo can hold — but
+ * an Attachments column holds attachment ids, not text. So on a live document each picture is
+ * uploaded through Grist's attachment API and the returned id written into the cell as the
+ * list-tuple Grist expects. Uploading is owner-gated where ACLs apply, and decorative: any
+ * failure costs the pictures, never the setup, which is why it warns instead of failing.
+ */
+function dataUriToBlob(uri) {
+  const comma = uri.indexOf(',');
+  const header = uri.slice(5, comma);            // e.g. "image/svg+xml;charset=utf-8"
+  const type = header.split(';')[0] || 'application/octet-stream';
+  const body = uri.slice(comma + 1);
+  if (/;base64/.test(header)) {
+    const bin = atob(body);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type });
+  }
+  return new Blob([decodeURIComponent(body)], { type });
+}
+
+async function seedSampleAttachments(table) {
+  const col = (table.columns || []).find((c) => c.type === 'Attachments' && c.id === 'Image');
+  if (!col) return;
+  const rows = (table.records || [])
+    .map((r, i) => ({ rowId: i + 1, uri: r[col.id] }))
+    .filter((x) => typeof x.uri === 'string' && x.uri.startsWith('data:image/'));
+  if (!rows.length) return;
+
+  try {
+    const token = await g().docApi.getAccessToken({ readOnly: false });
+    if (!token?.baseUrl || !token?.token) return;
+
+    const updates = [];
+    for (const r of rows) {
+      const blob = dataUriToBlob(r.uri);
+      const form = new FormData();
+      form.append('upload', blob, `sample-${table.id.toLowerCase()}-${r.rowId}.svg`);
+      const res = await fetch(`${token.baseUrl}/attachments?auth=${token.token}`, {
+        method: 'POST',
+        body: form,
+        // Grist's CSRF guard: without this header the upload endpoint refuses the POST.
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!res.ok) throw new Error(`upload answered ${res.status}`);
+      const ids = await res.json();
+      if (Array.isArray(ids) && ids[0] != null) {
+        updates.push(['UpdateRecord', table.id, r.rowId, { [col.id]: ['L', ids[0]] }]);
+      }
+    }
+    if (updates.length) await apply(updates);
+  } catch (e) {
+    console.warn('[Invoice Studio] the sample pictures could not be attached — the document works without them', e);
+  }
+}
+
+/**
  * Build the tables a fresh document needs, with a few invoices in them.
  *
  * Uses the core's `createTableWithRecords`, which sends AddTable and BulkAddRecord as ONE action
@@ -394,6 +452,7 @@ export async function createStarterTables(tables, provider, { live }) {
     }
     created.push(t.id);
     await dressColumns(t);
+    await seedSampleAttachments(t);
   }
 
   bridge.invalidateMetaCache();

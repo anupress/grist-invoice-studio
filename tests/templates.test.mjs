@@ -216,11 +216,11 @@ eq('the catalogue image column is mapped', detProducts.roles.image, 'Image');
   ok('retail products carry pictures', shop.every((p) => String(p.Image).startsWith('data:image/svg+xml')));
   const cafe = starter.starterTablesFor('restaurant', {}).find((t) => t.id === 'Products').records;
   ok('so does the cafe', cafe.every((p) => String(p.Image).startsWith('data:image/svg+xml')));
-  // Text, not Attachments: an Attachments column cannot hold a data URI, and it is added after
-  // the atomic create whose record write skips it — the combination that shipped empty columns to
-  // live documents while the in-memory demo showed pictures.
-  eq('the Image column is Text, so the create carries the values',
-    starter.starterTablesFor('retail', {}).find((t) => t.id === 'Products').columns.find((c) => c.id === 'Image').type, 'Text');
+  // Attachments, because dragging a photo in is the gesture a Grist user reaches for. The data
+  // URIs in the records are what the DEMO shows and what the live writer UPLOADS through the
+  // attachment API — they never enter the column as text.
+  eq('the Image column is Attachments — the type a person drags photos into',
+    starter.starterTablesFor('retail', {}).find((t) => t.id === 'Products').columns.find((c) => c.id === 'Image').type, 'Attachments');
   const trade = starter.starterTablesFor('construction', {}).find((t) => t.id === 'Products').records;
   ok('a construction catalogue starts picture-free', trade.every((p) => !p.Image));
 }
