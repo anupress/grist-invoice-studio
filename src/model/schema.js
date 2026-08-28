@@ -120,6 +120,10 @@ export const UPGRADE_PLAN = {
     { id: 'SentTo', type: 'Text', role: 'sentTo',
       why: 'The address it went to — which is not always the address on the client record today.' },
   ],
+  product: [
+    { id: 'Image', type: 'Attachments', role: 'image',
+      why: 'A picture on each product puts a thumbnail beside every invoice line that bills it \u2014 photograph the catalogue once and every document is illustrated.' },
+  ],
   client: [
     { id: 'Email', type: 'Text', role: 'email',
       why: 'The official template has no email column anywhere, which is why it can never send anything.' },
@@ -566,16 +570,18 @@ export function withChoice(widgetOptions, value) {
   return { changed: true, widgetOptions: JSON.stringify({ ...wo, choices: [...choices, v] }) };
 }
 
-export function upgradeChecklist(schema) {
-  const out = { invoice: [], client: [], line: [] };
+export function upgradeChecklist(schema, products = null) {
+  const out = { invoice: [], client: [], line: [], product: [] };
   if (!schema || !schema.invoice) return out;
 
   for (const [part, items] of Object.entries(UPGRADE_PLAN)) {
     // A part the document does not have at all (no client table, say) cannot be upgraded in place;
-    // creating it is a different action with different consequences, so it is left out here.
-    if (!schema[part]) continue;
-    const mapped = schema[part].roles || {};
-    const derived = schema[part].derived || {};
+    // creating it is a different action with different consequences, so it is left out here. The
+    // catalogue lives outside the schema — detected separately — so it is looked up separately.
+    const source = part === 'product' ? products : schema[part];
+    if (!source) continue;
+    const mapped = source.roles || {};
+    const derived = source.derived || {};
     for (const item of items) {
       if (item.replacesFormula && derived[item.role]) { out[part].push(item); continue; }
       if (mapped[item.role]) continue;

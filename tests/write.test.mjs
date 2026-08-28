@@ -260,6 +260,19 @@ ok('and converted once its target exists',
 ok('conversions come after every table is created',
   create.findIndex((a) => a[0] === 'ModifyColumn') > create.map((a) => a[0]).lastIndexOf('AddTable'));
 
+// The upgrade plan reaches the catalogue when it is handed one.
+{
+  const schemaU = detectSchema([
+    { id: 'Invoices', columns: [{ id: 'InvoiceNumber', label: 'Invoice number', type: 'Text' }, { id: 'Client', label: 'Client', type: 'Text' }, { id: 'Issued', label: 'Issued', type: 'Date' }] },
+    { id: 'Products', columns: [{ id: 'Name', label: 'Name', type: 'Text' }, { id: 'Price', label: 'Unit price', type: 'Numeric' }] },
+  ]);
+  const productsU = { table: 'Products', roles: { name: 'Name', unitPrice: 'Price' } };
+  const planU = mig.buildUpgradePlan(schemaU, { Invoices: [], Products: [] }, null, productsU);
+  ok('the plan adds Image to the catalogue table', planU.columns.some((c) => c.table === 'Products' && c.id === 'Image'));
+  const planNo = mig.buildUpgradePlan(schemaU, { Invoices: [], Products: [{ id: 'Image', type: 'Attachments' }] }, null, productsU);
+  ok('but never a second one', !planNo.columns.some((c) => c.table === 'Products' && c.id === 'Image'));
+}
+
 // ---------------------------------------------------------------------------------------------
 // Currency: the one field where empty is an instruction, not an omission.
 // ---------------------------------------------------------------------------------------------

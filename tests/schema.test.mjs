@@ -194,6 +194,18 @@ eq('the heuristic alone rejects that table', m.detectSchema(oddTables).client, n
 eq('client email is mapped, so warnings do not complain about it',
   (forced.warnings || []).some((w) => w.code === 'no-client-email'), false);
 
+// The catalogue joins the upgrade: a Products table without an Image column is offered one —
+// which is how a document created before pictures existed gets them without being recreated.
+{
+  const noImage = { table: 'Products', roles: { name: 'Name', unitPrice: 'Price' } };
+  const withImage = { table: 'Products', roles: { name: 'Name', unitPrice: 'Price', image: 'Image' } };
+  const someSchema = m.detectSchema(oddTables, { force: { invoice: 'Ledger', line: 'Detail' } });
+  eq('a catalogue without pictures is offered the column', m.upgradeChecklist(someSchema, noImage).product.map((i) => i.id), ['Image']);
+  eq('one that has it is offered nothing', m.upgradeChecklist(someSchema, withImage).product, []);
+  eq('no catalogue at all is offered nothing', m.upgradeChecklist(someSchema).product, []);
+  eq('and the old call shape still answers for the rest', m.upgradeChecklist(someSchema).invoice.length > 0, true);
+}
+
 // A choice that names nothing real changes nothing.
 eq('an unknown table id is ignored', m.detectSchema(oddTables, { force: { invoice: 'Nonsense' } }).source !== 'chosen', true);
 eq('no force at all is plain detection', m.detectSchema(oddTables).source, 'heuristic');

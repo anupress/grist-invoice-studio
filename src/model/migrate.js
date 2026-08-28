@@ -18,10 +18,11 @@
 import { upgradeChecklist } from './schema.js';
 
 /** Which table each part of the checklist belongs to, given a detected schema. */
-function tableFor(schema, part) {
+function tableFor(schema, part, products) {
   if (part === 'invoice') return schema?.invoice?.table || null;
   if (part === 'line') return schema?.line?.table || null;
   if (part === 'client') return schema?.client?.table || null;
+  if (part === 'product') return products?.table || null;
   return null;
 }
 
@@ -47,14 +48,14 @@ function columnDef(item) {
  * the plan rather than attempted and rejected. `only` narrows the plan to a chosen set of ids,
  * which is how the UI lets someone take the status column and decline the rest.
  */
-export function buildUpgradePlan(schema, columnsByTable = {}, only = null) {
-  const wanted = upgradeChecklist(schema);
+export function buildUpgradePlan(schema, columnsByTable = {}, only = null, products = null) {
+  const wanted = upgradeChecklist(schema, products);
   const columns = [];
   const alreadyThere = [];
   const chosen = only ? new Set(only) : null;
 
   for (const [part, items] of Object.entries(wanted)) {
-    const table = tableFor(schema, part);
+    const table = tableFor(schema, part, products);
     if (!table) continue;
     const present = new Set((columnsByTable[table] || []).map((c) => c.id));
 

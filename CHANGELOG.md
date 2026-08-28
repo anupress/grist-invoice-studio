@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.0
+
+- The upgrade now reaches the catalogue: a Products table without an Image column is offered one,
+  through the same hint and the same Add button as every other missing column. This is how a
+  document created before pictures existed gets them — new setups always had the column; existing
+  documents had no path to it at all, which was a real gap, not an option.
+
 ## 1.13.1
 
 - The tax-regime chooser is gone from the demo bar too. Tax is a setting, and a demo teaching a

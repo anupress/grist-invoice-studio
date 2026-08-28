@@ -348,7 +348,7 @@ async function runUpgrade() {
   if (app.busy) return;
   const columnsByTable = {};
   for (const t of app.provider.tables() || []) columnsByTable[t.id] = app.provider.columns(t.id) || [];
-  const plan = buildUpgradePlan(app.schema, columnsByTable);
+  const plan = buildUpgradePlan(app.schema, columnsByTable, null, app.products);
   if (!plan.ok) { toast('This document already has everything.', 'ok'); return; }
 
   // No confirm() dialog. The panel this button sits inside already lists every column, the reason
@@ -994,8 +994,8 @@ function renderDataPanel() {
     ]));
   }
 
-  const todo = upgradeChecklist(s);
-  const count = todo.invoice.length + todo.client.length + todo.line.length;
+  const todo = upgradeChecklist(s, app.products);
+  const count = todo.invoice.length + todo.client.length + todo.line.length + todo.product.length;
   if (count) {
     // The label states exactly what pressing it does, because the panel it sits in is the
     // confirmation — "Upgrade this document" is a promise, "Add these 13 columns" is a fact.
@@ -1006,7 +1006,7 @@ function renderDataPanel() {
     go.addEventListener('click', runUpgrade);
     bits.push(el('details', { class: 'studio-upgrade' }, [
       el('summary', { text: `${count} column${count === 1 ? '' : 's'} would make this document a full billing system` }),
-      el('ul', {}, [...todo.invoice, ...todo.client, ...todo.line].map((i) =>
+      el('ul', {}, [...todo.invoice, ...todo.client, ...todo.line, ...todo.product].map((i) =>
         el('li', {}, [el('code', { text: i.id }), el('span', { text: ' — ' + i.why })]))),
       el('p', { class: 'studio-upgrade__note', text: 'Only adds columns. Nothing is renamed, retyped or removed, and running it again does nothing.' }),
       go,
@@ -1050,8 +1050,8 @@ function renderHintStrip() {
   if (rowCurrency && rowCurrency !== app.stored.money.currency) {
     return hintStrip(`This document is fixed in ${rowCurrency}; your business currency is ${app.stored.money.currency}. Clear its Currency field to make it follow your settings.`, 'Edit', () => startCompose(row));
   }
-  const todo = upgradeChecklist(s);
-  const count = todo.invoice.length + todo.client.length + todo.line.length;
+  const todo = upgradeChecklist(s, app.products);
+  const count = todo.invoice.length + todo.client.length + todo.line.length + todo.product.length;
   if (count) {
     return hintStrip(`${count} column${count === 1 ? '' : 's'} would make this document a full billing system.`, 'Review in Data', () => { app.mode = 'data'; render(); });
   }
