@@ -199,7 +199,13 @@ export function buildWritePlan(draft, schema, context = {}) {
     ok: false,
     problems,
     skipped,
-    invoice: { table: schema.invoice.table, rowId: draft.rowId ?? null, fields: invoiceFields },
+    invoice: {
+      table: schema.invoice.table, rowId: draft.rowId ?? null, fields: invoiceFields,
+      // Carried so the writer can extend a Choice column's list when a status is new. The plan is
+      // the only thing that knows both the column and the value as typed.
+      statusColumn: schema.invoice.roles.status || null,
+      statusValue: String(draft.status || '').trim(),
+    },
     lines: null,
   };
 

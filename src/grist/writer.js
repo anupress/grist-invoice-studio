@@ -8,6 +8,7 @@
 
 import * as bridge from '../core/grist/bridge.js';
 import { ensureFullAccess } from './access.js';
+import { withChoice } from '../model/schema.js';
 
 const g = () => (typeof window !== 'undefined' ? window.grist : undefined);
 
@@ -175,12 +176,19 @@ export async function savePlan(plan, provider, { live }) {
 
   if (!live) {
     const res = demoSave(plan, provider.data);
-    if (res.ok) provider.setData(provider.data);
+    if (res.ok) {
+      ensureStatusChoiceDemo(plan, provider.data);
+      provider.setData(provider.data);
+    }
     return res;
   }
 
   const denied = await requireFullAccess('Saving');
   if (denied) return denied;
+
+  // Before the row lands, not after: a Choice column shows a value outside its list as invalid,
+  // and a person who just typed their own status should never see it arrive flagged.
+  await ensureStatusChoice(plan, provider);
 
   const res = await liveSave(plan);
   if (res.ok) {
@@ -192,6 +200,37 @@ export async function savePlan(plan, provider, { live }) {
     await provider.prime([plan.invoice.table, plan.lines?.table].filter(Boolean));
   }
   return res;
+}
+
+/**
+ * A status typed by hand becomes a real choice on the column, not an intruder in it.
+ *
+ * Grist accepts any text into a Choice column but marks values outside the list as invalid, so a
+ * business inventing "Awaiting approval" would see it flagged in their own grid forever. Extending
+ * the list is an addition that preserves everything else in the options — the colours on existing
+ * choices included — and a failure here only costs the registration, never the save, which is why
+ * it warns instead of failing.
+ */
+async function ensureStatusChoice(plan, provider) {
+  const inv = plan.invoice;
+  if (!inv.statusColumn || !inv.statusValue) return;
+  const col = (provider.columns(inv.table) || []).find((c) => c.id === inv.statusColumn);
+  if (!col || !/^Choice/.test(String(col.type || ''))) return;
+  const next = withChoice(col.widgetOptions, inv.statusValue);
+  if (!next.changed) return;
+  const res = await apply([['ModifyColumn', inv.table, inv.statusColumn, { widgetOptions: next.widgetOptions }]]);
+  if (!res.ok) console.warn('[Invoice Studio] could not add the new status to the column choices', res.error);
+  else bridge.invalidateMetaCache();
+}
+
+/** The same registration for the demo document, so the suggestions grow there too. */
+function ensureStatusChoiceDemo(plan, data) {
+  const inv = plan.invoice;
+  if (!inv.statusColumn || !inv.statusValue) return;
+  const col = (data.tables[inv.table]?.columns || []).find((c) => c.id === inv.statusColumn);
+  if (!col || !/^Choice/.test(String(col.type || ''))) return;
+  const next = withChoice(col.widgetOptions, inv.statusValue);
+  if (next.changed) col.widgetOptions = next.widgetOptions;
 }
 
 /**
@@ -331,7 +370,9 @@ export async function createStarterTables(tables, provider, { live }) {
     for (const t of todo) {
       provider.data.tables[t.id] = {
         id: t.id, label: t.label,
-        columns: t.columns.map((c) => ({ id: c.id, label: c.label, type: c.type, isFormula: false })),
+        // widgetOptions included: the status suggestions read the choice list off the column, and
+        // a demo column without one would order the offer differently from a live document.
+        columns: t.columns.map((c) => ({ id: c.id, label: c.label, type: c.type, isFormula: false, widgetOptions: c.widgetOptions || null })),
         records: t.records.map((r, i) => ({ id: i + 1, ...r })),
       };
     }

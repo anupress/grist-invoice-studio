@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.11.0
+
+### Your own statuses
+
+- The composer's Status field is a text input with suggestions, not a fixed list: pick one of the
+  offered statuses or type your own. The suggestions are the document's own vocabulary — the
+  Status column's choice list first, then every status in use in the rows, then the built-ins —
+  deduplicated case-insensitively with the owner's spelling kept.
+- Saving a status the column has not seen before registers it on the column's choices, before the
+  row lands, so Grist never shows the value flagged as invalid. The registration is an addition
+  that preserves everything else in the options, the colours on existing choices included, and a
+  failure there only costs the registration, never the save.
+- A custom status survives sending. The stamp only promotes Draft to Sent; a word it does not know
+  is left exactly as the business wrote it. The sidebar chip and the document pill show any status;
+  the recognised ones keep their colours and the rest sit neutral.
+- Previously the field was a fixed six-option list, so editing a document whose status was not on
+  it silently rewrote the status to Draft.
+
 ## 1.10.1
 
 ### An audit pass

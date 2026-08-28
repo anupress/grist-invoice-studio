@@ -16,7 +16,6 @@ import { fieldsFor } from '../doc/fields.js';
 import { renderLinesGrid, blankLine } from './lines-grid.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from './ui.js';
 
-const STATUSES = ['Draft', 'Sent', 'Part paid', 'Paid', 'Overdue', 'Cancelled'];
 
 /**
  * Build the composer.
@@ -96,8 +95,16 @@ export function renderComposer(ctx) {
     fields.showSecondDate
       ? field(kind.dateLabels.second, textInput(draft.due, (v) => { draft.due = v; onEdit(); }, { type: 'date' }))
       : null,
-    field('Status', selectInput(STATUSES.map((s) => ({ value: s, label: s })), draft.status || 'Draft',
-      (v) => { draft.status = v; onEdit(); })),
+    // A text input with the document's own statuses as suggestions, not a fixed list: a business
+    // that works in "Awaiting approval" gets to say so, and saving registers the new status on the
+    // column's choices so Grist stops treating it as a stranger.
+    field('Status', (() => {
+      const input = textInput(draft.status || 'Draft', (v) => { draft.status = v; onEdit(); }, { ariaLabel: 'Status' });
+      const options = ctx.statuses && ctx.statuses.length ? ctx.statuses : ['Draft', 'Sent', 'Part paid', 'Paid', 'Overdue', 'Cancelled'];
+      const dlId = 'cmp-status-' + Math.random().toString(36).slice(2, 8);
+      input.setAttribute('list', dlId);
+      return el('div', { class: 'cmp-grid__desc' }, [input, el('datalist', { id: dlId }, options.map((s) => el('option', { value: s })))]);
+    })(), 'Pick one or type your own — a new status joins the document\u2019s choices when you save.'),
     field('Their reference', textInput(draft.reference, (v) => { draft.reference = v; onEdit(); }, { placeholder: 'PO number' })),
   ], { grid: true });
 

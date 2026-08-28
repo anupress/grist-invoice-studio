@@ -103,6 +103,10 @@ eq('and addressed', stamp.sentTo, 'pay@kingfisher.example');
 // The status only moves forward: emailing a receipt for a paid invoice must not un-pay it.
 const paidStamp = rules.stampAfterSend(draft({ status: 'Paid' }), m, { now: NOW });
 eq('a paid invoice stays paid', paidStamp.status, 'Paid');
+// A status the business invented survives sending — the stamp only promotes Draft, never a word
+// it does not know. 'Awaiting sign-off' after sending is still 'Awaiting sign-off'.
+const customStamp = rules.stampAfterSend(draft({ status: 'Awaiting sign-off' }), m, { now: NOW });
+eq('a custom status is left exactly as it was', customStamp.status, 'Awaiting sign-off');
 const receiptStamp = rules.stampAfterSend(draft({ status: 'Sent' }), { ...m, templateId: 'payment_received' }, { now: NOW });
 eq('sending a receipt marks it paid', receiptStamp.status, 'Paid');
 const overdueStamp = rules.stampAfterSend(draft({ status: 'Overdue' }), { ...m, templateId: 'reminder_overdue' }, { now: NOW });

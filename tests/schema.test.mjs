@@ -212,5 +212,40 @@ eq('with its price column', cat.roles.unitPrice, 'Price');
 eq('a chosen catalogue with no name column yields nothing',
   m.detectProducts([{ id: 'Numbers', columns: [{ id: 'N', label: 'Amount', type: 'Numeric' }] }], null, { force: 'Numbers' }), null);
 
+// ---------------------------------------------------------------------------------------------
+// Statuses are a vocabulary, not a constant. The document's own words come first.
+// ---------------------------------------------------------------------------------------------
+eq('choices come out of parsed options', m.choicesOf({ choices: ['Draft', 'Approved'] }), ['Draft', 'Approved']);
+eq('and out of the JSON string Grist stores', m.choicesOf('{"choices":["Draft","Approved"]}'), ['Draft', 'Approved']);
+eq('broken JSON is no choices, not a crash', m.choicesOf('{oops'), []);
+eq('no options is no choices', m.choicesOf(null), []);
+
+{
+  const schema = { invoice: { table: 'Invoices', roles: { status: 'Status' } } };
+  const provider = {
+    columns: () => [{ id: 'Status', type: 'Choice', widgetOptions: '{"choices":["Draft","Awaiting approval"]}' }],
+    records: () => [{ id: 1, Status: 'In dispute' }, { id: 2, Status: 'draft' }, { id: 3, Status: '' }],
+  };
+  const opts = m.statusOptions(schema, provider);
+  eq('the column’s own choices lead', opts.slice(0, 2), ['Draft', 'Awaiting approval']);
+  ok('a status merely in use is still a real status', opts.includes('In dispute'));
+  ok('the built-ins follow for anything not covered', opts.includes('Paid') && opts.includes('Overdue'));
+  // "draft" in a row and "Draft" in the choices are one status, spelled the owner's way.
+  eq('deduplicated case-insensitively, first casing kept', opts.filter((s) => s.toLowerCase() === 'draft'), ['Draft']);
+  eq('no document at all still offers the defaults', m.statusOptions(null, null), m.STATUS_DEFAULTS);
+}
+
+// Registering a new choice is an addition, never a rewrite.
+{
+  const wo = JSON.stringify({ choices: ['Draft', 'Paid'], choiceOptions: { Paid: { fillColor: '#e2f2eb' } } });
+  const added = m.withChoice(wo, 'Awaiting approval');
+  eq('the new choice lands at the end', JSON.parse(added.widgetOptions).choices, ['Draft', 'Paid', 'Awaiting approval']);
+  eq('the colours on existing choices survive', JSON.parse(added.widgetOptions).choiceOptions.Paid.fillColor, '#e2f2eb');
+  eq('a value already present changes nothing', m.withChoice(wo, 'paid').changed, false);
+  eq('an empty value changes nothing', m.withChoice(wo, '  ').changed, false);
+  eq('unparsable options start fresh rather than crash', JSON.parse(m.withChoice('{oops', 'Held').widgetOptions).choices, ['Held']);
+  eq('and the result is the string Grist stores', typeof added.widgetOptions, 'string');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

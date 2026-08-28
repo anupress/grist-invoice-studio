@@ -13,7 +13,7 @@ import { ANUPRESS_LOGO } from './core/assets/brand-logo.js';
 import * as bridge from './core/grist/bridge.js';
 import { DummyProvider, GristProvider } from './core/data/provider.js';
 import { SAMPLE_DATA, SAMPLE_SENDER, SAMPLE_MONEY } from './data/sample.js';
-import { detectSchema, upgradeChecklist, detectProducts, productOptions } from './model/schema.js';
+import { detectSchema, upgradeChecklist, detectProducts, productOptions, statusOptions } from './model/schema.js';
 import { listInvoices, listClients, resolveInvoice } from './model/resolve.js';
 import { emptyDraft, normaliseDraft, recalc, convertDraft } from './model/draft.js';
 import { buildWritePlan, describePlan, existingNumbers } from './model/write.js';
@@ -1013,6 +1013,7 @@ function renderBody() {
       schema: app.schema,
       clients: listClients(app.schema, app.provider),
       products: productOptions(app.products, app.provider),
+      statuses: statusOptions(app.schema, app.provider),
       settings: settingsNow(),
       live: app.live,
       canWrite: canWrite(),

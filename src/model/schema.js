@@ -503,6 +503,64 @@ export function productOptions(products, provider) {
   }).filter((p) => p.name);
 }
 
+/** The statuses every document understands before anyone adds their own. */
+export const STATUS_DEFAULTS = ['Draft', 'Sent', 'Part paid', 'Paid', 'Overdue', 'Cancelled'];
+
+/** The choices inside a column's widgetOptions, whether Grist handed them over parsed or as JSON. */
+export function choicesOf(widgetOptions) {
+  let wo = widgetOptions;
+  if (typeof wo === 'string') { try { wo = JSON.parse(wo); } catch { return []; } }
+  return Array.isArray(wo?.choices) ? wo.choices.map((c) => String(c)).filter(Boolean) : [];
+}
+
+/**
+ * The statuses this document actually uses, in the order a person would want them offered.
+ *
+ * Three sources, most specific first: the Status column's own choice list (the vocabulary the
+ * document's owner set up in Grist), then every value present in the rows (a status in use is a
+ * real status whether or not anyone registered it), then the built-in defaults. Deduplicated
+ * case-insensitively with the first-seen casing kept, because "paid" and "Paid" are one status
+ * and the owner's spelling of it wins.
+ */
+export function statusOptions(schema, provider) {
+  const out = [];
+  const seen = new Set();
+  const add = (v) => {
+    const t = String(v || '').trim();
+    if (!t || seen.has(t.toLowerCase())) return;
+    seen.add(t.toLowerCase());
+    out.push(t);
+  };
+
+  const statusCol = schema?.invoice?.roles?.status;
+  if (statusCol && provider) {
+    const col = (provider.columns(schema.invoice.table) || []).find((c) => c.id === statusCol);
+    for (const c of choicesOf(col?.widgetOptions)) add(c);
+    for (const r of provider.records(schema.invoice.table) || []) add(r[statusCol]);
+  }
+  for (const s of STATUS_DEFAULTS) add(s);
+  return out;
+}
+
+/**
+ * A column's widgetOptions with one more choice in it.
+ *
+ * Returns `{ changed, widgetOptions }` where widgetOptions is the JSON string Grist stores.
+ * Everything else in the options — choiceOptions with their colours, alignment, whatever a later
+ * Grist adds — is preserved, because this is an addition, never a rewrite. A value already present
+ * (case-insensitively) changes nothing.
+ */
+export function withChoice(widgetOptions, value) {
+  const v = String(value || '').trim();
+  if (!v) return { changed: false, widgetOptions: null };
+  let wo = widgetOptions;
+  if (typeof wo === 'string') { try { wo = JSON.parse(wo); } catch { wo = null; } }
+  if (!wo || typeof wo !== 'object' || Array.isArray(wo)) wo = {};
+  const choices = Array.isArray(wo.choices) ? wo.choices.map(String) : [];
+  if (choices.some((c) => c.toLowerCase() === v.toLowerCase())) return { changed: false, widgetOptions: null };
+  return { changed: true, widgetOptions: JSON.stringify({ ...wo, choices: [...choices, v] }) };
+}
+
 export function upgradeChecklist(schema) {
   const out = { invoice: [], client: [], line: [] };
   if (!schema || !schema.invoice) return out;
