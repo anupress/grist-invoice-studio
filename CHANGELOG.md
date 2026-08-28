@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.14.1
+
+- Every asset URL in the built page now carries the version. Without it, a Grist iframe that had
+  loaded the widget once kept serving its cached app.js for as long as its cache pleased —
+  deploys landed on Pages and never reached the documents already using the widget, which
+  surfaced as "the fix did not do anything". This is the release that makes every later release
+  actually arrive.
+- The restaurant trade gets pictograms on its catalogue too — a plate and a coffee — so a café
+  choosing its own trade sees the thumbnails working immediately, the same way the shops do.
+
 ## 1.14.0
 
 - The upgrade now reaches the catalogue: a Products table without an Image column is offered one,

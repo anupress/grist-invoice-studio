@@ -106,10 +106,16 @@ const PICS = {
   notebook: PIC("<rect width='72' height='72' rx='10' fill='#e9f3ec'/><rect x='20' y='16' width='34' height='40' rx='4' fill='#16704a'/><rect x='20' y='16' width='7' height='40' fill='#0e4a30'/><path d='M33 28h15M33 36h15M33 44h15' stroke='#e9f3ec' stroke-width='3'/>"),
   cushion: PIC("<rect width='72' height='72' rx='10' fill='#f6ecec'/><rect x='16' y='16' width='40' height='40' rx='12' fill='#a33830'/><circle cx='36' cy='36' r='4' fill='#f6ecec'/>"),
   planter: PIC("<rect width='72' height='72' rx='10' fill='#eef1f5'/><path d='M22 34h28l-4 22H26z' fill='#5f7285'/><path d='M36 34c0-10 6-16 14-18-1 10-6 16-14 18zm0 0c0-10-6-16-14-18 1 10 6 16 14 18z' fill='#16704a'/>"),
+  lunch: PIC("<rect width='72' height='72' rx='10' fill='#f7f0e6'/><ellipse cx='36' cy='44' rx='24' ry='9' fill='#c77d2a'/><path d='M16 44a20 14 0 0 1 40 0z' fill='#e8e2d6'/><circle cx='36' cy='30' r='3' fill='#c77d2a'/>"),
+  coffee: PIC("<rect width='72' height='72' rx='10' fill='#efe9e4'/><path d='M22 30h24v14a12 12 0 0 1-24 0z' fill='#5b3a24'/><path d='M46 32h5a6 6 0 0 1 0 12h-5' fill='none' stroke='#5b3a24' stroke-width='4'/><path d='M29 18c0 3-3 3-3 6m10-6c0 3-3 3-3 6' fill='none' stroke='#a98868' stroke-width='3' stroke-linecap='round'/>"),
   gift: PIC("<rect width='72' height='72' rx='10' fill='#fdf1e0'/><rect x='16' y='30' width='40' height='26' rx='3' fill='#c77d2a'/><rect x='33' y='30' width='6' height='26' fill='#fdf1e0'/><path d='M36 30c-8 0-12-4-12-8 6-2 10 2 12 8zm0 0c8 0 12-4 12-8-6-2-10 2-12 8z' fill='none' stroke='#c77d2a' stroke-width='4'/>"),
 };
 
 export const SAMPLE_LINES = {
+  restaurant: [
+    { description: 'Set lunch', quantity: 2, unitPrice: 18.5, image: PICS.lunch },
+    { description: 'Coffee', quantity: 2, unitPrice: 3.2, image: PICS.coffee },
+  ],
   retail: [
     { description: 'Enamel mug', quantity: 2, unitPrice: 11.5, image: PICS.mug },
     { description: 'Cotton tote bag', quantity: 1, unitPrice: 14, image: PICS.tote },

@@ -82,19 +82,26 @@ copyIfExists('vendor', path.join(OUT, 'vendor'));
 copyIfExists('src/styles', path.join(OUT, 'assets/styles'));
 
 // 4. Production index.html — the obfuscated entry chunk, and nothing else.
+//
+// Every asset URL carries the package version. Without it, a Grist iframe that loaded the widget
+// once keeps serving the cached app.js for as long as its cache pleases — deploys land on Pages
+// and never reach the documents already using the widget, which surfaces as "the fix did not do
+// anything". The HTML itself is what Grist re-requests; versioned URLs make it pull fresh assets
+// the moment it does.
+const V = '?v=' + JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
 const indexHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Invoice Studio — by ANUPRESS</title>
-<link rel="stylesheet" href="assets/styles/tokens.css"/>
-<link rel="stylesheet" href="assets/styles/studio.css"/>
-<link rel="stylesheet" href="assets/styles/composer.css"/>
-<link rel="stylesheet" href="assets/styles/send.css"/>
-<link rel="stylesheet" href="assets/styles/settings.css"/>
-<link rel="stylesheet" href="assets/styles/document.css"/>
-<script src="vendor/grist-plugin-api.js"></script>
+<link rel="stylesheet" href="assets/styles/tokens.css${V}"/>
+<link rel="stylesheet" href="assets/styles/studio.css${V}"/>
+<link rel="stylesheet" href="assets/styles/composer.css${V}"/>
+<link rel="stylesheet" href="assets/styles/send.css${V}"/>
+<link rel="stylesheet" href="assets/styles/settings.css${V}"/>
+<link rel="stylesheet" href="assets/styles/document.css${V}"/>
+<script src="vendor/grist-plugin-api.js${V}"></script>
 </head><body><div id="studio-root" aria-live="polite"></div>
-<script src="assets/app.js"></script></body></html>`;
+<script src="assets/app.js${V}"></script></body></html>`;
 fs.writeFileSync(path.join(OUT, 'index.html'), indexHtml);
 
 console.log('\nBuild complete -> dist/');
