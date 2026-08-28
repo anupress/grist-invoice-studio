@@ -36,21 +36,6 @@ import { field, section } from './compose/ui.js';
 import { buildPreset, findPreset, simpleRate, RATES_UPDATED } from './money/tax/rates.js';
 import { formatMoney } from './money/currency.js';
 
-/**
- * Tax regimes offered in the demo bar.
- *
- * Each is a real configuration rather than a label. The two Indian entries differ only in place of
- * supply, and that difference is the whole reason the rate table has priorities.
- */
-const REGIONS = [
-  { id: 'gb', label: 'United Kingdom — VAT', money: { taxMode: 'preset', taxPreset: 'gb-vat', currency: 'GBP', homeCountry: 'GB', defaultCustomerCountry: 'GB' } },
-  { id: 'de', label: 'Germany — VAT', money: { taxMode: 'preset', taxPreset: 'eu-vat', currency: 'EUR', homeCountry: 'DE', defaultCustomerCountry: 'DE', format: { position: 'right_space', thousandSeparator: '.', decimalSeparator: ',' } } },
-  { id: 'in-intra', label: 'India — same state (CGST + SGST)', money: { taxMode: 'preset', taxPreset: 'in-gst', currency: 'INR', homeState: 'MH', homeCountry: 'IN', placeOfSupply: { country: 'IN', state: 'MH' } } },
-  { id: 'in-inter', label: 'India — other state (IGST)', money: { taxMode: 'preset', taxPreset: 'in-gst', currency: 'INR', homeState: 'MH', homeCountry: 'IN', placeOfSupply: { country: 'IN', state: 'KA' } } },
-  { id: 'ca-qc', label: 'Canada, Quebec — GST + compound QST', money: { taxMode: 'preset', taxPreset: 'ca-gst', currency: 'CAD', homeCountry: 'CA', placeOfSupply: { country: 'CA', state: 'QC' } } },
-  { id: 'au', label: 'Australia — GST, tax-inclusive prices', money: { taxMode: 'preset', taxPreset: 'au-gst', currency: 'AUD', homeCountry: 'AU', defaultCustomerCountry: 'AU', pricesIncludeTax: true } },
-  { id: 'none', label: 'Not registered for tax', money: { taxMode: 'none', taxPreset: null, currency: 'GBP', taxEnabled: false } },
-];
 
 /**
  * Settings, with the tax table built from whichever preset is selected.
@@ -97,7 +82,6 @@ const app = {
   // business's stored choice — so it has to start as 'nothing chosen', or the stored layout can
   // never take effect and a template that sets one appears to do nothing.
   layout: null,
-  region: 'gb',
   setupTrade: 'freelancer',
   // 'demo' until connected, then 'full' or 'denied'. What Grist actually allows, not what was asked.
   access: 'demo',
@@ -136,12 +120,6 @@ function settingsNow() {
     // The bar's layout chooser is a per-session try-it-out; the stored one is the business's choice.
     layout: app.layout || st.document.layout,
   };
-}
-
-function setRegion(id) {
-  const region = REGIONS.find((r) => r.id === id) || REGIONS[0];
-  app.region = region.id;
-  app.stored.money = sanitise({ money: { ...SAMPLE_MONEY, format: undefined, ...region.money } }).money;
 }
 
 /**
@@ -398,6 +376,14 @@ async function runUpgrade() {
  */
 async function doRefresh() {
   if (app.busy) return;
+  // The demo lives in this page; there is nothing newer to fetch. Saying so beats hiding the
+  // button, because a control that exists on live and not in the demo reads as a broken demo.
+  if (!app.live) {
+    rescan();
+    render();
+    toast('The demo data lives in this page, so there is nothing newer to fetch — redrawn anyway.', 'ok');
+    return;
+  }
   app.busy = true;
   try {
     const wanted = (app.provider.tables() || []).map((t) => t.id);
@@ -624,6 +610,8 @@ function renderSidebar() {
   });
   const newBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--primary', type: 'button', text: 'New' });
   newBtn.addEventListener('click', () => startCompose(null));
+  const refreshBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: 'Refresh', title: 'Re-read every table from the document' });
+  refreshBtn.addEventListener('click', doRefresh);
 
   paint();
   return el('aside', { class: 'studio-side' }, [
@@ -631,6 +619,7 @@ function renderSidebar() {
       el('span', { class: 'studio-side__title', text: 'Invoices' }),
       el('span', { class: 'studio-side__count', text: String(all.length) }),
       el('span', { class: 'studio-side__spacer' }),
+      refreshBtn,
       editBtn,
       newBtn,
     ]),
@@ -746,10 +735,6 @@ function renderBar() {
     invoices.length ? picker : null,
     chooser('Document kind', DOCUMENT_KINDS, app.kind, (v) => { app.kind = v; if (app.draft) app.draft.kind = v; }),
     chooser('Layout', LAYOUTS, app.layout || app.stored.document.layout, (v) => { app.layout = v; if (app.draft) app.draft.layout = v; }),
-    // Demo only. It exists so a visitor can flip between regimes and watch the totals change; on a
-    // connected document it would OVERWRITE the business's saved tax settings with sample ones.
-    // A real business sets tax up once, in Settings, not on every document.
-    app.live ? null : chooser('Tax regime', REGIONS, app.region, setRegion),
     el('div', { class: 'studio-bar__spacer' }),
     app.live && !canWrite() ? btn('Enable editing', enableEditing, 'primary') : null,
     // Narrow-screen stand-ins for the sidebar's Edit and New: the sidebar owns them, and these
@@ -766,9 +751,12 @@ function renderBar() {
       b.classList.add('studio-bar__narrow');
       return b;
     })() : null,
+    (() => {
+      const b = btn('Refresh', doRefresh);
+      b.classList.add('studio-bar__narrow');
+      return b;
+    })(),
     app.mode !== 'send' && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
-    // Live only: the demo has nothing behind it to re-read.
-    app.live ? btn('Refresh', doRefresh) : null,
     btn(app.mode === 'data' ? 'Close data' : 'Data', () => {
       app.mode = app.mode === 'data' ? 'view' : 'data';
       render();

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.1
+
+- The tax-regime chooser is gone from the demo bar too. Tax is a setting, and a demo teaching a
+  control the real thing does not have was teaching the wrong thing.
+- Refresh moves into the sidebar beside Edit and New, and appears in the demo as well — where it
+  says honestly that the demo data lives in the page and redraws anyway, because a control that
+  exists on live and not in the demo reads as a broken demo. The bar keeps a narrow-screen copy.
+
 ## 1.13.0
 
 ### Seeing it work

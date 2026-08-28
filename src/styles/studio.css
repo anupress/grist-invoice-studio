@@ -327,3 +327,6 @@ html, body {
 
 /* The bar's Edit/New exist only where the sidebar (which owns them) does not. */
 @media (min-width: 880px) { .studio-bar__narrow { display: none; } }
+
+/* Three buttons beside the count can brush the sidebar's width; wrapping beats clipping. */
+.studio-side__head { flex-wrap: wrap; row-gap: 6px; }
