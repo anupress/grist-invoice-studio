@@ -24,7 +24,7 @@ import { loadSettings, saveSettings, sanitise } from './settings/store.js';
 import { numberFormatFor } from './settings/defaults.js';
 import { renderSettingsPanel } from './settings/panel.js';
 import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate } from './templates/index.js';
-import { starterTablesFor } from './templates/starter.js';
+import { starterTablesFor, SAMPLE_LINES } from './templates/starter.js';
 import { ensureFullAccess } from './grist/access.js';
 import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
@@ -386,6 +386,33 @@ async function runUpgrade() {
   render();
 }
 
+/**
+ * Re-read everything from the document, then draw again.
+ *
+ * Grist offers a custom widget no change notification to subscribe to, so without this the only
+ * way to see rows edited in the document next door was to reload the whole widget. reload(), not
+ * invalidate-and-prime: the latter replaces rows only, so a column added or renamed in Grist — or
+ * a whole new table — stayed invisible. Refresh exists precisely to answer "what does the
+ * document say now", so it re-reads the schema and the table list too. Settings are re-read for
+ * the same reason: a colleague may have saved theirs from another tab.
+ */
+async function doRefresh() {
+  if (app.busy) return;
+  app.busy = true;
+  try {
+    const wanted = (app.provider.tables() || []).map((t) => t.id);
+    const { reloaded } = await app.provider.reload(wanted);
+    app.stored = await loadSettings();
+    rescan();
+    toast(`Refreshed ${reloaded} table${reloaded === 1 ? '' : 's'} from your document.`, 'ok');
+  } catch (e) {
+    console.warn('[Invoice Studio] refresh failed', e);
+    toast('Could not refresh — ' + (e?.message || 'unknown error'), 'err');
+  }
+  app.busy = false;
+  render();
+}
+
 async function enableEditing() {
   // Through the probe, not bridge.escalateToFull() directly: ready() resolves whether or not the
   // user granted anything, and canWrite() reads app.access — asking without updating that leaves
@@ -484,7 +511,10 @@ function paintPreview() {
  */
 function sampleDraft(settings) {
   const t = findTradeTemplate(app.setupTrade) || findTradeTemplate('freelancer');
-  const lines = (t?.lines || []).filter((l) => Number(l.unitPrice) > 0);
+  // The same substitution setup itself makes, so the sample IS a preview of what setting up
+  // builds — pictures included for the shop trades.
+  const lines = SAMPLE_LINES[app.setupTrade]
+    || (t?.lines || []).filter((l) => Number(l.unitPrice) > 0);
   const iso = (d) => d.toISOString().slice(0, 10);
   const due = new Date();
   due.setDate(due.getDate() + 30);
@@ -582,7 +612,17 @@ function renderSidebar() {
   });
   search.addEventListener('input', () => { app.filter = search.value; paint(); });
 
-  const newBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: 'New' });
+  // Edit and New live here, with the list they act on. On narrow screens the sidebar is hidden
+  // and the bar's copies take over — one set or the other, never both.
+  const editBtn = el('button', {
+    class: 'studio-btn studio-btn--sm', type: 'button',
+    text: app.mode === 'compose' ? 'Close' : 'Edit',
+  });
+  editBtn.addEventListener('click', () => {
+    if (app.mode === 'compose') { app.mode = 'view'; app.draft = null; render(); }
+    else startCompose(currentRow());
+  });
+  const newBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--primary', type: 'button', text: 'New' });
   newBtn.addEventListener('click', () => startCompose(null));
 
   paint();
@@ -591,6 +631,7 @@ function renderSidebar() {
       el('span', { class: 'studio-side__title', text: 'Invoices' }),
       el('span', { class: 'studio-side__count', text: String(all.length) }),
       el('span', { class: 'studio-side__spacer' }),
+      editBtn,
       newBtn,
     ]),
     el('div', { class: 'studio-side__tools' }, [search]),
@@ -711,11 +752,23 @@ function renderBar() {
     app.live ? null : chooser('Tax regime', REGIONS, app.region, setRegion),
     el('div', { class: 'studio-bar__spacer' }),
     app.live && !canWrite() ? btn('Enable editing', enableEditing, 'primary') : null,
-    app.mode === 'compose'
-      ? btn('Close', () => { app.mode = 'view'; app.draft = null; render(); })
-      : btn('Edit', () => startCompose(currentRow())),
-    app.mode === 'view' ? btn('New', () => startCompose(null)) : null,
+    // Narrow-screen stand-ins for the sidebar's Edit and New: the sidebar owns them, and these
+    // exist only where the sidebar does not. CSS hides them at the same breakpoint that shows it.
+    (() => {
+      const b = app.mode === 'compose'
+        ? btn('Close', () => { app.mode = 'view'; app.draft = null; render(); })
+        : btn('Edit', () => startCompose(currentRow()));
+      b.classList.add('studio-bar__narrow');
+      return b;
+    })(),
+    app.mode === 'view' ? (() => {
+      const b = btn('New', () => startCompose(null));
+      b.classList.add('studio-bar__narrow');
+      return b;
+    })() : null,
     app.mode !== 'send' && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
+    // Live only: the demo has nothing behind it to re-read.
+    app.live ? btn('Refresh', doRefresh) : null,
     btn(app.mode === 'data' ? 'Close data' : 'Data', () => {
       app.mode = app.mode === 'data' ? 'view' : 'data';
       render();

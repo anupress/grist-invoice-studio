@@ -209,6 +209,14 @@ eq('client emails are mapped, so it can send', detected.client.roles.email, 'Ema
 // the product it bills for. Empty by default: a document without pictures stays exactly as it was.
 const detProducts = m2.detectProducts(built.map((t) => ({ id: t.id, label: t.label, columns: t.columns })), detected);
 eq('the catalogue image column is mapped', detProducts.roles.image, 'Image');
+// The shop trades ship pictograms so the thumbnail feature is visible from the first second;
+// every other trade's catalogue starts picture-free, and so do its documents.
+{
+  const shop = starter.starterTablesFor('retail', {}).find((t) => t.id === 'Products').records;
+  ok('retail products carry pictures', shop.every((p) => String(p.Image).startsWith('data:image/svg+xml')));
+  const trade = starter.starterTablesFor('construction', {}).find((t) => t.id === 'Products').records;
+  ok('a construction catalogue starts picture-free', trade.every((p) => !p.Image));
+}
 // And nothing is left for the upgrade to add to the invoice table.
 eq('nothing left to upgrade', m2.upgradeChecklist(detected).invoice.length, 0);
 

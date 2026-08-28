@@ -94,16 +94,31 @@ const ITEM_COLUMNS = [
  * invoice in the document then totals nothing. These two shops get a real basket instead; every
  * other trade's lines are already priced work and are used as they are.
  */
-const SAMPLE_LINES = {
+// Little flat pictograms as data URIs, so the two shop trades demonstrate line thumbnails the
+// moment they are chosen — in the setup sample and in the document it builds. SVG in an <img>
+// runs no script, and everything drawn is invented, like all sample data here.
+const PIC = (body) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'>" + body + "</svg>");
+
+const PICS = {
+  mug: PIC("<rect width='72' height='72' rx='10' fill='#eaf1fa'/><rect x='16' y='22' width='28' height='30' rx='5' fill='#14509b'/><path d='M44 28h7a7 7 0 0 1 0 14h-7' fill='none' stroke='#14509b' stroke-width='5'/>"),
+  tote: PIC("<rect width='72' height='72' rx='10' fill='#f4efe4'/><path d='M20 28h32l-4 26H24z' fill='#8a5a08'/><path d='M28 28v-4a8 8 0 0 1 16 0v4' fill='none' stroke='#8a5a08' stroke-width='4'/>"),
+  notebook: PIC("<rect width='72' height='72' rx='10' fill='#e9f3ec'/><rect x='20' y='16' width='34' height='40' rx='4' fill='#16704a'/><rect x='20' y='16' width='7' height='40' fill='#0e4a30'/><path d='M33 28h15M33 36h15M33 44h15' stroke='#e9f3ec' stroke-width='3'/>"),
+  cushion: PIC("<rect width='72' height='72' rx='10' fill='#f6ecec'/><rect x='16' y='16' width='40' height='40' rx='12' fill='#a33830'/><circle cx='36' cy='36' r='4' fill='#f6ecec'/>"),
+  planter: PIC("<rect width='72' height='72' rx='10' fill='#eef1f5'/><path d='M22 34h28l-4 22H26z' fill='#5f7285'/><path d='M36 34c0-10 6-16 14-18-1 10-6 16-14 18zm0 0c0-10-6-16-14-18 1 10 6 16 14 18z' fill='#16704a'/>"),
+  gift: PIC("<rect width='72' height='72' rx='10' fill='#fdf1e0'/><rect x='16' y='30' width='40' height='26' rx='3' fill='#c77d2a'/><rect x='33' y='30' width='6' height='26' fill='#fdf1e0'/><path d='M36 30c-8 0-12-4-12-8 6-2 10 2 12 8zm0 0c8 0 12-4 12-8-6-2-10 2-12 8z' fill='none' stroke='#c77d2a' stroke-width='4'/>"),
+};
+
+export const SAMPLE_LINES = {
   retail: [
-    { description: 'Enamel mug', quantity: 2, unitPrice: 11.5 },
-    { description: 'Cotton tote bag', quantity: 1, unitPrice: 14 },
-    { description: 'Notebook, A5, ruled', quantity: 3, unitPrice: 8.75 },
+    { description: 'Enamel mug', quantity: 2, unitPrice: 11.5, image: PICS.mug },
+    { description: 'Cotton tote bag', quantity: 1, unitPrice: 14, image: PICS.tote },
+    { description: 'Notebook, A5, ruled', quantity: 3, unitPrice: 8.75, image: PICS.notebook },
   ],
   ecommerce: [
-    { description: 'Linen cushion cover, 45cm', quantity: 2, unitPrice: 32 },
-    { description: 'Ceramic planter, small', quantity: 1, unitPrice: 18.5 },
-    { description: 'Gift wrapping', quantity: 1, unitPrice: 3.5 },
+    { description: 'Linen cushion cover, 45cm', quantity: 2, unitPrice: 32, image: PICS.cushion },
+    { description: 'Ceramic planter, small', quantity: 1, unitPrice: 18.5, image: PICS.planter },
+    { description: 'Gift wrapping', quantity: 1, unitPrice: 3.5, image: PICS.gift },
   ],
 };
 
@@ -133,6 +148,9 @@ export function starterTablesFor(templateId, { numberPrefix = 'INV-', grossOf = 
     Stock: 25,
     TaxClass: '',
     HSN: '',
+    // The shop trades ship with pictograms so the thumbnail feature is visible from the first
+    // second; every other trade's column starts empty and the document stays picture-free.
+    Image: l.image || '',
   }));
 
   const year = new Date().getFullYear();

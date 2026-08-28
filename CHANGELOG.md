@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.13.0
+
+### Seeing it work
+
+- The two shop trades — retail and the online shop — ship with little flat pictograms on their
+  catalogue, so line thumbnails are visible from the first second: in the sample shown during
+  setup, and in the document setup builds. Every other trade's catalogue starts picture-free, and
+  so do its documents. The pictograms are drawn SVG, invented like all sample data here.
+- Edit and New move into the sidebar, beside the list they act on; Edit reads Close while the
+  composer is open. On narrow screens, where the sidebar gives way to the bar's picker, the bar
+  grows its own Edit and New — one set or the other, never both.
+- A Refresh button, on connected documents only, re-reads every table, the schema, the table list
+  and the saved settings, then draws again. Grist gives a custom widget no change notification, so
+  this is how rows edited in the document next door — or by a colleague — arrive without reloading
+  the whole widget.
+
 ## 1.12.0
 
 ### Pictures on the lines
