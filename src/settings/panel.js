@@ -36,7 +36,6 @@ const TABS = [
   { id: 'document', label: 'Document' },
   { id: 'messages', label: 'Messages' },
   { id: 'sending', label: 'Sending' },
-  { id: 'trade', label: 'Trade' },
 ];
 let activeTab = 'business';
 
@@ -348,7 +347,7 @@ export function renderSettingsPanel(ctx) {
   }, { variant: 'primary' });
 
   const tradeSection = section('Change of trade', [
-    el('p', { class: 'set-lead', text: 'The same starting point the setup offered, reapplicable any time: the document\u2019s wording, how its numbers run, the layout it opens with, and whether prices include tax. It is a starting point, not a design \u2014 anything you change afterwards is yours \u2014 and it never touches who you are: name, address, logo and saved messages stay exactly as they are.' }),
+    el('p', { class: 'set-lead', text: 'The same starting point the setup offered, reapplicable any time: the document\u2019s wording, how its numbers run, the layout it opens with, and whether prices include tax. It never touches who you are \u2014 name, address, logo and saved messages stay exactly as they are \u2014 and it never touches your tables: every trade uses the same four, because what differs between trades is what is sold, not how it is stored.' }),
     field('Trade', tradeChooser),
     tradeNote,
     applyTradeBtn,
@@ -392,7 +391,7 @@ export function renderSettingsPanel(ctx) {
   }, { variant: 'primary' });
 
   const groups = {
-    business: [businessSection],
+    business: [businessSection, tradeSection],
     // The rate grid only when there is a table to show. A grid sitting under "one rate I type in"
     // is an invitation to fill in something that will never be read.
     money: [moneySection, taxSection, m.taxMode === 'preset' ? ratesSection : null],
@@ -400,7 +399,6 @@ export function renderSettingsPanel(ctx) {
     document: [documentSection],
     messages: [messagesSection],
     sending: [deliverySection],
-    trade: [tradeSection],
   };
 
   const tabStrip = el('div', { class: 'set-tabs', role: 'tablist' }, TABS.map((t) => {

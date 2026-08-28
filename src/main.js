@@ -69,7 +69,7 @@ function moneySettings(money) {
 
 // Bumped with every release. Shown on the mode pill and logged at boot, because "is my iframe
 // running the new bundle or a cached one" was undiagnosable without it.
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.16.1';
 
 const app = {
   provider: null,

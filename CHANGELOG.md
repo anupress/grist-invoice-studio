@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.16.1
+
+- Change of trade moves to the bottom of the Business tab — it is a fact about the business, and a
+  seventh tab was one door too many. Its wording now also answers the structural question in
+  place: a trade never touches tables or columns, because every trade uses the same four tables;
+  what differs between trades is what is sold, not how it is stored.
+
 ## 1.16.0
 
 - Settings gains a Trade tab: the same starting points setup offers, available for the rest of the
