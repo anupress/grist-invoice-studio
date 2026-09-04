@@ -525,6 +525,92 @@ export async function removeSampleRows(sampleRows, provider, { live }) {
   return { ok: true, removed };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Single records: a client, a catalogue item
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Save one record from a plan (model/records.js): add when it has no row id, update when it has.
+ *
+ * Returns the row id either way, so a client added from inside the composer can be selected on
+ * the invoice the moment it exists.
+ */
+export async function saveRecord(plan, provider, { live }) {
+  if (!plan || !plan.ok) return { ok: false, error: (plan && plan.problems && plan.problems[0]) || 'Nothing to save.' };
+
+  if (!live) {
+    const table = provider.data.tables[plan.table];
+    if (!table) return { ok: false, error: `The demo document has no table called ${plan.table}.` };
+    const stored = asStored(plan.fields, table.columns);
+    let rowId = plan.rowId;
+    if (rowId == null) {
+      rowId = nextId(table.records);
+      table.records.push({ id: rowId, ...stored });
+    } else {
+      const row = table.records.find((r) => r.id === rowId);
+      if (!row) return { ok: false, error: 'That record is no longer in the document.' };
+      Object.assign(row, stored);
+    }
+    provider.setData(provider.data);
+    return { ok: true, rowId };
+  }
+
+  const denied = await requireFullAccess('Saving');
+  if (denied) return denied;
+  const res = await apply([plan.rowId == null
+    ? ['AddRecord', plan.table, null, plan.fields]
+    : ['UpdateRecord', plan.table, plan.rowId, plan.fields]]);
+  if (!res.ok) return { ok: false, error: res.error };
+  const rowId = plan.rowId == null ? res.retValues[0] : plan.rowId;
+  await provider.prime([plan.table]);
+  return { ok: true, rowId };
+}
+
+/** Remove one record. Nothing that points at it is touched: a reference to a gone row is empty. */
+export async function removeRecord(table, rowId, provider, { live }) {
+  if (rowId == null) return { ok: false, error: 'Nothing to remove.' };
+  if (!live) {
+    const t = provider.data.tables[table];
+    if (!t) return { ok: false, error: `The demo document has no table called ${table}.` };
+    t.records = t.records.filter((r) => r.id !== rowId);
+    provider.setData(provider.data);
+    return { ok: true };
+  }
+  const denied = await requireFullAccess('Removing');
+  if (denied) return denied;
+  const res = await apply([['RemoveRecord', table, rowId]]);
+  if (!res.ok) return { ok: false, error: res.error };
+  await provider.prime([table]);
+  return { ok: true };
+}
+
+/**
+ * Upload a picture and hand back the cell value an Attachments column takes.
+ *
+ * The same route setup uses for the sample pictograms: a token for the attachment endpoint, a
+ * multipart POST, and the id that comes back wrapped as `['L', id]`. Only meaningful on a live
+ * document; the demo keeps the data URI itself, which is what the caller does without calling this.
+ */
+export async function uploadAttachment(dataUri, fileName = 'picture.jpg') {
+  const denied = await requireFullAccess('Uploading a picture');
+  if (denied) return denied;
+  try {
+    const token = await g().docApi.getAccessToken({ readOnly: false });
+    if (!token?.baseUrl || !token?.token) return { ok: false, error: 'Grist did not hand out an upload token.' };
+    const form = new FormData();
+    form.append('upload', dataUriToBlob(dataUri), fileName);
+    const res = await fetch(`${token.baseUrl}/attachments?auth=${token.token}`, {
+      method: 'POST', body: form, headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    if (!res.ok) return { ok: false, error: `The upload was refused (${res.status}).` };
+    const ids = await res.json();
+    if (!Array.isArray(ids) || ids[0] == null) return { ok: false, error: 'The upload returned no attachment id.' };
+    return { ok: true, value: ['L', ids[0]] };
+  } catch (e) {
+    return { ok: false, error: 'The picture could not be uploaded: ' + (e?.message || e) };
+  }
+}
+
 /** Add the columns an upgrade plan asks for. */
 export async function applyUpgrade(plan, provider, { live }) {
   const { upgradeActions, backfillActions } = await import('../model/migrate.js');

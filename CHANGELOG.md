@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.19.0 — Clients and the catalogue, without leaving the widget
+
+- **Three lists in the sidebar: Invoices, Clients, Catalogue.** Clients and catalogue items are
+  added, edited and removed in the body the way an invoice is composed there, with a live preview
+  of how the client's address block, or the item's thumbnail and price, will print. Removal is
+  two presses on one button a few seconds apart, never a browser dialog. A catalogue item takes a
+  picture by drag-and-drop — uploaded as a Grist attachment on a live document, kept in memory in
+  the demo — scaled to a thumbnail on the way in. Fields the table has no column for are shown
+  greyed with the reason.
+- **Quick-add from the invoice.** The client picker ends with "+ New client…", which opens the
+  same form inline and selects the new client the moment it is saved. Every line carries a star
+  that adds it to the catalogue, priced and unit-ed as typed; a line already in the catalogue says
+  so instead of duplicating.
+- **Column mapping.** Under each table in Data, every role can be pinned to any column of that
+  table, or to "none". Choices are stored with the table choice and outrank the name matching, so
+  tables built by hand with their own names — *Kunde*, *Preis*, *Bezeichnung* — work without
+  renaming a column. A pinned column serves one role only.
+- **Three doors on the empty-document screen**: set up with a sample business (as before), start
+  empty (the same four tables and columns, no rows, no sample business), or choose your own
+  tables. Data can also create a missing Clients or Products table on its own, empty.
+- `src/model/records.js` is the pure half: the forms resolved against a real table, the plan that
+  turns typed values into cells (attachments as `['L', id]`, text picture columns as an address),
+  and what could not be kept, reported.
+
 ## 1.18.0 — A complete sample business for every trade
 
 - **Setup builds a whole business, not four rows.** Every trade now has its own sample: an

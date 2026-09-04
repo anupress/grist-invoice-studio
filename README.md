@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.18.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.19.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -56,8 +56,24 @@ the widget; the clients, addresses, phone numbers and tax numbers are fictional 
 domains are reserved for examples.
 
 If you already keep invoices in tables of your own, the Data drawer lets you point each part —
-invoices, line items, clients, catalogue — at the table you use. Detection is only a guess, and a
-choice always beats it; columns inside a chosen table are still matched by name.
+invoices, line items, clients, catalogue — at the table you use, and then, under each table, pin
+any role to any column: a table whose client column is called *Kunde* and whose price is *Preis*
+works exactly as well once it is described there. Detection is only a guess, and a choice always
+beats it. A document that has invoices but no client or catalogue table can have one created,
+empty, from the same drawer.
+
+## Clients and the catalogue
+
+The left column holds three lists — Invoices, Clients, Catalogue — and clients and catalogue items
+are added and edited there, in the body, with a live preview of how the client's address block or
+the item's thumbnail and price will print. A catalogue item takes a picture by drag-and-drop; on a
+live document it is uploaded as a Grist attachment, in the demo it is kept in memory. Fields the
+table has no column for are shown greyed with the reason, never hidden.
+
+Two shortcuts keep you on the invoice: the client picker ends with "+ New client…", which opens
+the same form inline and selects the new client on save; and every line carries a star that adds
+it to the catalogue, priced as it was typed. Most catalogues get built that way, one invoice at a
+time.
 
 ## Grist's Invoicing template
 

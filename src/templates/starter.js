@@ -105,7 +105,17 @@ export function sampleBusinessFor(templateId) {
  * reference columns below can hold plain numbers, and why the tables have to be created in this
  * order — a reference to a table that does not exist yet is rejected.
  */
-export function starterTablesFor(templateId, { numberPrefix = 'INV-', grossOf = null } = {}) {
+export function starterTablesFor(templateId, { numberPrefix = 'INV-', grossOf = null, empty = false } = {}) {
+  // The same four tables with nothing in them, for someone who wants the structure and not the
+  // sample. Columns are identical, so the two paths never diverge.
+  if (empty) {
+    return [
+      { id: 'Clients', label: 'Clients', columns: CLIENT_COLUMNS, records: [] },
+      { id: 'Products', label: 'Products', columns: PRODUCT_COLUMNS, records: [] },
+      { id: 'Invoices', label: 'Invoices', columns: INVOICE_COLUMNS, records: [] },
+      { id: 'InvoiceItems', label: 'Invoice items', columns: ITEM_COLUMNS, records: [] },
+    ];
+  }
   const template = findTemplate(templateId);
   const sample = sampleFor(templateId);
   const terms = template?.terms || 'Net 30';

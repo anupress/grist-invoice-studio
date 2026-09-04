@@ -16,6 +16,7 @@ import { fieldsFor } from '../doc/fields.js';
 import { renderLinesGrid, blankLine } from './lines-grid.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from './ui.js';
 import { LANGUAGES, normaliseLanguage } from '../doc/lang.js';
+import { renderRecordForm } from './record-form.js';
 
 
 /**
@@ -70,12 +71,38 @@ export function renderComposer(ctx) {
   ]);
 
   // ---- who and when ---------------------------------------------------------------------------
-  const clientControl = clients && clients.length
+  // A client can be added without leaving the invoice: the last entry of the picker opens the
+  // same form the Clients list uses, and saving selects the new client here.
+  const newClientHost = el('div', { class: 'cmp-inline' });
+  const canAddClient = !!(ctx.clientForm && actions.addClient);
+  const openNewClient = () => {
+    newClientHost.replaceChildren(renderRecordForm({
+      kind: 'client', compact: true, canWrite,
+      roles: ctx.clientForm.roles, columns: ctx.clientForm.columns,
+      values: { name: '', email: '', phone: '', street1: '', street2: '', city: '', state: '', postcode: '', country: ctx.clientForm.defaultCountry || '', taxNumber: '', language: '' },
+      onSave: async (values) => {
+        const res = await actions.addClient(values);
+        if (res.ok) {
+          draft.clientRef = res.client.id;
+          draft.client = { ...res.client.party };
+          onRebuild();
+        }
+        return res;
+      },
+      onCancel: () => { newClientHost.replaceChildren(); if (clientControl.tagName === 'SELECT') clientControl.value = draft.clientRef != null ? String(draft.clientRef) : ''; },
+    }));
+  };
+  const clientControl = (clients && clients.length) || canAddClient
     ? selectInput(
-        [{ value: '', label: '— choose a client —' }, ...clients.map((c) => ({ value: String(c.id), label: c.name }))],
+        [
+          { value: '', label: '— choose a client —' },
+          ...(clients || []).map((c) => ({ value: String(c.id), label: c.name })),
+          ...(canAddClient ? [{ value: '__new__', label: '+ New client…' }] : []),
+        ],
         draft.clientRef != null ? String(draft.clientRef) : '',
         (v) => {
-          const chosen = clients.find((c) => String(c.id) === v);
+          if (v === '__new__') { openNewClient(); return; }
+          const chosen = (clients || []).find((c) => String(c.id) === v);
           // Choosing a client fills in the address, the email and the tax number in one go — the
           // whole reason a client table exists is not to type them again on every invoice.
           draft.clientRef = chosen ? chosen.id : null;
@@ -127,6 +154,7 @@ export function renderComposer(ctx) {
   const gridHost = el('div');
   const buildGrid = () => gridHost.replaceChildren(renderLinesGrid(draft, {
     products, fields, onEdit: edited, onStructure: onRebuild,
+    onAddProduct: actions.addProduct || null,
   }));
   buildGrid();
 
@@ -163,6 +191,7 @@ export function renderComposer(ctx) {
   // Everything a person types into, in one box, so the lock can hold all of it at once.
   const form = el('div', { class: 'cmp-form' + (locked ? ' is-locked' : '') }, [
     details,
+    newClientHost,
     section(kind.showsMoney ? 'Lines' : 'Items', [gridHost]),
     kind.showsMoney ? el('div', { class: 'cmp-moneyrow' }, [moneyBits, totalsBox]) : null,
     words,

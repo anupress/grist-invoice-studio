@@ -171,8 +171,15 @@ export const DEFAULT_DELIVERY = {
   includeInBody: true,
 };
 
-/** Table overrides, for when detection guesses wrong. Empty means work it out. */
-export const DEFAULT_TABLES = { invoice: '', line: '', client: '', product: '' };
+/**
+ * Table overrides, for when detection guesses wrong. Empty means work it out.
+ *
+ * `columns` goes one level down: per part, a role pinned to a column id — `{ invoice: { number:
+ * 'Nr' } }` — or to '-' for "this table has no such thing". Absent roles keep the automatic guess.
+ * This is what lets a document with columns named in German, or named anything at all, work
+ * without renaming them.
+ */
+export const DEFAULT_TABLES = { invoice: '', line: '', client: '', product: '', columns: { invoice: {}, line: {}, client: {}, product: {} } };
 
 /**
  * The electronic invoice.

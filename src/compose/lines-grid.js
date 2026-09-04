@@ -19,7 +19,7 @@ import { textInput, numberInput, button } from './ui.js';
  * `onEdit` fires for a value change and must NOT rebuild the grid — the cursor is in it.
  * `onStructure` fires when a row is added, removed or moved, and must.
  */
-export function renderLinesGrid(draft, { products, fields, onEdit, onStructure }) {
+export function renderLinesGrid(draft, { products, fields, onEdit, onStructure, onAddProduct }) {
   const fmt = draft.format || { currency: draft.currency };
   const showHsn = !!fields.showHsn;
   // One datalist for the whole grid: the browser shows catalogue names as the description is
@@ -90,6 +90,15 @@ export function renderLinesGrid(draft, { products, fields, onEdit, onStructure }
       priceInput,
       amountCell,
       el('div', { class: 'cmp-grid__gutter' }, [
+        // A line typed by hand becomes a catalogue item in one press, priced as it was typed. That
+        // is how most catalogues are built: one invoice at a time, not planned in advance.
+        onAddProduct ? button('', () => {
+          const name = String(line.description || '').trim();
+          if (!name) { onAddProduct(null, 'Type a description first.'); return; }
+          const known = (products || []).some((p) => (p.name || p.description || '').toLowerCase() === name.toLowerCase());
+          if (known) { onAddProduct(null, `${name} is already in the catalogue.`); return; }
+          onAddProduct({ name, unitPrice: Number(line.unitPrice) || 0, unit: line.unit || '', taxClass: line.taxClass || '', hsn: line.hsn || '' });
+        }, { icon: '☆', title: 'Add this line to the catalogue', variant: 'ghost' }) : null,
         button('', () => { move(draft.lines, index, -1); onStructure(); }, { icon: '↑', title: 'Move up', variant: 'ghost', disabled: index === 0 }),
         button('', () => { move(draft.lines, index, 1); onStructure(); }, { icon: '↓', title: 'Move down', variant: 'ghost', disabled: index === draft.lines.length - 1 }),
         button('', () => { draft.lines.splice(index, 1); if (!draft.lines.length) draft.lines.push(blankLine()); onStructure(); },

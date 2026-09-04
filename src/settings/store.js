@@ -170,6 +170,15 @@ export function sanitise(settings) {
   for (const key of ['invoice', 'line', 'client', 'product']) {
     s.tables[key] = typeof s.tables[key] === 'string' ? s.tables[key].slice(0, 64) : '';
   }
+  const cols = {};
+  for (const part of ['invoice', 'line', 'client', 'product']) {
+    const src = (s.tables.columns && s.tables.columns[part]) || {};
+    cols[part] = {};
+    for (const [role, colId] of Object.entries(src)) {
+      if (typeof colId === 'string' && colId && /^[\w-]{1,64}$/.test(role)) cols[part][role] = colId.slice(0, 64);
+    }
+  }
+  s.tables.columns = cols;
 
   // Saved message wordings: strings, capped, and an entry that overrides nothing is dropped.
   const messages = {};

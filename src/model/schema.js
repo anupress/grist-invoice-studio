@@ -281,8 +281,60 @@ export function detectSchema(tables, opts = {}) {
 
   // 1. Recognition — is this Grist's own template?  2. Heuristics.  3. The person's own choices,
   // which beat both: detection is a guess, however good, and a guess never outranks an answer.
+  // First the tables they chose, then the columns they chose within them.
   const auto = detectOfficial(list) || detectHeuristic(list);
-  return applyForce(auto, list, opts.force);
+  const forced = applyForce(auto, list, opts.force);
+  return applyColumnChoices(forced, list, opts.force && opts.force.columns);
+}
+
+/** The roles a part can map, in the order a person is asked about them. */
+export const ROLES_BY_PART = {
+  invoice: INVOICE_ROLES,
+  line: LINE_ROLES,
+  client: CLIENT_ROLES,
+  product: ['name', 'sku', 'unitPrice', 'unit', 'taxClass', 'hsn', 'stock', 'image'],
+};
+
+/**
+ * Pin roles to columns the person chose.
+ *
+ * `choices` is `{ invoice: { number: 'Nr', client: '-' }, … }`: a column id says "this one", a
+ * dash says "none — leave the role unmapped", and anything absent keeps the automatic guess. A
+ * column can serve one role only, so choosing it for one takes it away from whatever guessed it.
+ * A choice naming a column the table no longer has is ignored rather than honoured blindly.
+ */
+export function applyRoleChoices(roles, columns, choices) {
+  if (!choices || !Object.keys(choices).length) return roles;
+  const ids = new Set((columns || []).map((c) => c.id));
+  const out = { ...roles };
+  for (const [role, colId] of Object.entries(choices)) {
+    if (colId === '-') { delete out[role]; continue; }
+    if (!colId || !ids.has(colId)) continue;
+    for (const [r, c] of Object.entries(out)) if (c === colId && r !== role) delete out[r];
+    out[role] = colId;
+  }
+  return out;
+}
+
+function applyColumnChoices(schema, list, columns) {
+  if (!columns) return schema;
+  const byId = new Map(list.map((t) => [t.id, t]));
+  const out = { ...schema };
+  let touched = false;
+  for (const part of ['invoice', 'line', 'client']) {
+    const choices = columns[part];
+    if (!out[part] || !choices || !Object.keys(choices).length) continue;
+    const table = byId.get(out[part].table);
+    if (!table) continue;
+    const roles = applyRoleChoices(out[part].roles, table.columns, choices);
+    if (JSON.stringify(roles) !== JSON.stringify(out[part].roles)) {
+      out[part] = { ...out[part], roles, derived: {} };
+      touched = true;
+    }
+  }
+  if (!touched) return schema;
+  out.warnings = warningsFor(out);
+  return out;
 }
 
 /**
@@ -475,12 +527,22 @@ function detectHeuristic(list) {
  * offering a list of clients as products would be worse than offering nothing.
  */
 export function detectProducts(tables, schema = null, opts = {}) {
+  const found = detectProductsAuto(tables, schema, opts);
+  if (!found || !opts.columns) return found;
+  const t = (tables || []).find((x) => x && x.id === found.table);
+  const roles = applyRoleChoices(found.roles, t ? t.columns : [], opts.columns);
+  return roles.name ? { ...found, roles } : found;
+}
+
+function detectProductsAuto(tables, schema, opts) {
   // A chosen catalogue skips the scoring entirely — but it still has to look like one. A table
   // with no name column cannot fill a picker, so pointing at it yields nothing rather than junk.
   if (opts.force) {
     const t = (tables || []).find((x) => x && x.id === opts.force);
     if (t) {
-      const roles = mapRoles(t.columns, PRODUCT_PATTERNS);
+      // The person's column choices apply before the name test: a catalogue whose name column is
+      // called "Bezeichnung" is a catalogue once they have said so.
+      const roles = applyRoleChoices(mapRoles(t.columns, PRODUCT_PATTERNS), t.columns, opts.columns || {});
       return roles.name ? { table: t.id, roles } : null;
     }
   }

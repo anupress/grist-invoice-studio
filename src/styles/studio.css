@@ -248,6 +248,35 @@ html, body {
 .studio-side__client { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .studio-side__empty { margin: 6px 8px; font-size: 12.5px; color: var(--muted); }
 
+/* The three lists: invoices, clients, catalogue. A segmented switch at the top of the column. */
+.studio-side__switch {
+  display: flex; gap: 2px; margin: 12px 14px 0; padding: 3px;
+  background: var(--sunk); border-radius: 8px;
+}
+.studio-side__tab {
+  flex: 1 1 0; padding: 6px 4px; border: 0; border-radius: 6px; background: transparent;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.studio-side__tab.is-active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.studio-side__tab:disabled { opacity: .45; cursor: not-allowed; }
+.studio-side__tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.studio-side__row--record { display: flex; align-items: center; gap: 10px; }
+.studio-side__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.studio-side__name { font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.studio-side__thumb {
+  width: 30px; height: 30px; flex: none; border-radius: 5px; object-fit: cover;
+  border: 1px solid var(--rule); background: var(--surface);
+}
+.studio-side__thumb.is-empty { background: var(--sunk); }
+
+/* The column mapping in Data: a role a line, its column beside it. */
+.studio-cols { margin: 4px 0 10px; font-size: 12.5px; }
+.studio-cols summary { cursor: pointer; color: var(--muted); }
+.studio-cols__grid { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 6px 10px; align-items: center; margin-top: 8px; }
+.studio-cols__role { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+.studio-cols__row { display: contents; }
+.studio-cols__row.is-chosen .studio-cols__role { color: var(--accent); font-weight: 600; }
+
 /* Status chips: the dot reinforces the word, never replaces it. */
 .studio-status {
   display: inline-flex; align-items: center; gap: 5px;

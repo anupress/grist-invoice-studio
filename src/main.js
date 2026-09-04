@@ -25,7 +25,11 @@ import { numberFormatFor } from './settings/defaults.js';
 import { renderSettingsPanel } from './settings/panel.js';
 import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate } from './templates/index.js';
 import { starterTablesFor, SAMPLE_LINES, sampleBusinessFor } from './templates/starter.js';
-import { removeSampleRows } from './grist/writer.js';
+import { removeSampleRows, saveRecord, removeRecord, uploadAttachment } from './grist/writer.js';
+import { formFields, readRecord, recordPlan, recordName } from './model/records.js';
+import { renderRecordForm } from './compose/record-form.js';
+import { ROLES_BY_PART } from './model/schema.js';
+import { missingFrom } from './templates/starter.js';
 import { ensureFullAccess } from './grist/access.js';
 import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
@@ -96,6 +100,11 @@ const app = {
   // Set when a person chooses to edit an issued document anyway. Reset every time the composer
   // opens, so the choice is made per document rather than once and forgotten.
   unlocked: false,
+  // Which list the sidebar shows: the invoices, the clients, or the catalogue. Clients and the
+  // catalogue are edited in the body the same way an invoice is composed there.
+  list: 'invoices',
+  // The record open in the body when the mode is 'record': { kind: 'client'|'product', rowId }.
+  record: null,
 };
 
 const root = () => document.getElementById('studio-root');
@@ -160,10 +169,11 @@ function tablesWithColumns(provider) {
 
 function rescan() {
   const tables = tablesWithColumns(app.provider);
-  // The person's stored table choices outrank detection — a guess never beats an answer.
+  // The person's stored table choices outrank detection — a guess never beats an answer. Their
+  // column choices, one level down, outrank the name matching within a chosen table.
   const force = app.stored.tables || {};
   app.schema = detectSchema(tables, { force });
-  app.products = detectProducts(tables, app.schema, { force: force.product });
+  app.products = detectProducts(tables, app.schema, { force: force.product, columns: (force.columns || {}).product });
 }
 
 async function boot() {
@@ -517,7 +527,7 @@ function applyPaperSize(size) {
 }
 
 function paintPreview() {
-  if (!previewHost) return;
+  if (!previewHost || app.mode === 'record') return;
   const settings = settingsNow();
   applyPaperSize(app.stored.document.paperSize);
   let draft = app.mode === 'compose'
@@ -597,37 +607,87 @@ function render() {
  */
 function renderSidebar() {
   if (!app.schema?.invoice) return null;
-  const all = listInvoices(app.schema, app.provider);
   const money = settingsNow().money;
   // Each row in ITS currency: a document fixed in dollars listed with a pound sign would be the
   // sidebar contradicting the document it opens.
   const fmt = (v, cur) => formatMoney(v, { ...money.format, currency: cur || money.currency });
 
-  const listHost = el('nav', { class: 'studio-side__list', 'aria-label': 'Invoices' });
+  // Three lists share one column: the invoices, the clients, the catalogue. The switch is the
+  // sidebar's own, so clients and catalogue items are found where invoices are found, and edited
+  // where invoices are composed — in the body, not in a table somewhere else.
+  const LISTS = [
+    { id: 'invoices', label: 'Invoices', available: true },
+    { id: 'clients', label: 'Clients', available: !!recordSource('client') },
+    { id: 'products', label: 'Catalogue', available: !!recordSource('product') },
+  ];
+  if (!LISTS.find((l) => l.id === app.list)?.available) app.list = 'invoices';
+  const which = app.list;
+  const switcher = el('div', { class: 'studio-side__switch', role: 'tablist' }, LISTS.map((l) => {
+    const b = el('button', {
+      class: 'studio-side__tab' + (l.id === which ? ' is-active' : ''), type: 'button', role: 'tab',
+      'aria-selected': l.id === which ? 'true' : 'false', text: l.label,
+      title: l.available ? null : `This document has no ${l.label.toLowerCase()} table yet — Data can create one.`,
+      disabled: l.available ? null : true,
+    });
+    b.addEventListener('click', () => { app.list = l.id; app.filter = ''; render(); });
+    return b;
+  }));
+
+  const listHost = el('nav', { class: 'studio-side__list', 'aria-label': LISTS.find((l) => l.id === which).label });
+  const all = which === 'invoices' ? listInvoices(app.schema, app.provider) : listRecords(which === 'clients' ? 'client' : 'product');
+  const kind = which === 'clients' ? 'client' : 'product';
+
   const paint = () => {
     const q = app.filter.trim().toLowerCase();
-    const rows = q ? all.filter((i) => (i.number + ' ' + i.client).toLowerCase().includes(q)) : all;
     clear(listHost);
-    if (!rows.length) {
-      listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : 'No invoices yet. New starts one.' }));
+    if (which === 'invoices') {
+      const rows = q ? all.filter((i) => (i.number + ' ' + i.client).toLowerCase().includes(q)) : all;
+      if (!rows.length) {
+        listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : 'No invoices yet. New starts one.' }));
+        return;
+      }
+      for (const i of rows) {
+        const active = i.id === app.currentRowId && app.mode !== 'record';
+        const row = el('button', {
+          class: 'studio-side__row' + (active ? ' is-active' : ''), type: 'button',
+          'aria-current': active ? 'true' : null,
+        }, [
+          el('span', { class: 'studio-side__line' }, [
+            el('span', { class: 'studio-side__num', text: i.number }),
+            i.total != null ? el('span', { class: 'studio-side__total', text: fmt(i.total, i.currency) }) : null,
+          ]),
+          el('span', { class: 'studio-side__line' }, [
+            el('span', { class: 'studio-side__client', text: i.client || '—' }),
+            i.status ? statusChip(i.status) : null,
+          ]),
+        ]);
+        row.addEventListener('click', () => { app.currentRowId = i.id; app.mode = 'view'; app.record = null; render(); });
+        listHost.appendChild(row);
+      }
       return;
     }
-    for (const i of rows) {
-      const active = i.id === app.currentRowId;
+    const rows = q ? all.filter((r) => (r.name + ' ' + r.sub).toLowerCase().includes(q)) : all;
+    if (!rows.length) {
+      listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : (which === 'clients' ? 'No clients yet. New adds one.' : 'Nothing in the catalogue yet. New adds an item, or the star on an invoice line does.') }));
+      return;
+    }
+    for (const r of rows) {
+      const active = app.mode === 'record' && app.record?.kind === kind && app.record.rowId === r.id;
+      const src = which === 'products' ? imageSrcFor(r.image) : null;
       const row = el('button', {
-        class: 'studio-side__row' + (active ? ' is-active' : ''), type: 'button',
+        class: 'studio-side__row studio-side__row--record' + (active ? ' is-active' : ''), type: 'button',
         'aria-current': active ? 'true' : null,
       }, [
-        el('span', { class: 'studio-side__line' }, [
-          el('span', { class: 'studio-side__num', text: i.number }),
-          i.total != null ? el('span', { class: 'studio-side__total', text: fmt(i.total, i.currency) }) : null,
-        ]),
-        el('span', { class: 'studio-side__line' }, [
-          el('span', { class: 'studio-side__client', text: i.client || '—' }),
-          i.status ? statusChip(i.status) : null,
+        which === 'products' ? (src ? el('img', { class: 'studio-side__thumb', src, alt: '' }) : el('span', { class: 'studio-side__thumb is-empty', 'aria-hidden': 'true' })) : null,
+        el('span', { class: 'studio-side__text' }, [
+          el('span', { class: 'studio-side__line' }, [
+            el('span', { class: 'studio-side__name', text: r.name }),
+            r.price != null && r.price !== '' ? el('span', { class: 'studio-side__total', text: fmt(Number(r.price) || 0) }) : null,
+          ]),
+          r.sub ? el('span', { class: 'studio-side__client', text: r.sub }) : null,
         ]),
       ]);
-      row.addEventListener('click', () => { app.currentRowId = i.id; app.mode = 'view'; render(); });
+      row.addEventListener('click', () => openRecord(kind, r.id));
       listHost.appendChild(row);
     }
   };
@@ -635,29 +695,28 @@ function renderSidebar() {
   // The search repaints only the list, so typing in it never rebuilds the box being typed in.
   const search = el('input', {
     class: 'studio-side__search', type: 'search', value: app.filter,
-    placeholder: 'Filter by number or client', 'aria-label': 'Filter invoices',
+    placeholder: which === 'invoices' ? 'Filter by number or client' : 'Filter by name', 'aria-label': 'Filter the list',
   });
   search.addEventListener('input', () => { app.filter = search.value; paint(); });
 
   // Edit and New live here, with the list they act on. On narrow screens the sidebar is hidden
   // and the bar's copies take over — one set or the other, never both.
-  const editBtn = el('button', {
-    class: 'studio-btn studio-btn--sm', type: 'button',
-    text: app.mode === 'compose' ? 'Close' : 'Edit',
-  });
+  const editing = which === 'invoices' ? app.mode === 'compose' : app.mode === 'record';
+  const editBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: editing ? 'Close' : 'Edit' });
   editBtn.addEventListener('click', () => {
-    if (app.mode === 'compose') { app.mode = 'view'; app.draft = null; render(); }
-    else startCompose(currentRow());
+    if (editing) { app.mode = 'view'; app.draft = null; app.record = null; render(); return; }
+    if (which === 'invoices') startCompose(currentRow());
+    else if (all.length) openRecord(kind, app.record?.rowId ?? all[0].id);
   });
   const newBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--primary', type: 'button', text: 'New' });
-  newBtn.addEventListener('click', () => startCompose(null));
+  newBtn.addEventListener('click', () => (which === 'invoices' ? startCompose(null) : openRecord(kind, null)));
   const refreshBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: 'Refresh', title: 'Re-read every table from the document' });
   refreshBtn.addEventListener('click', doRefresh);
 
   paint();
   return el('aside', { class: 'studio-side' }, [
+    switcher,
     el('div', { class: 'studio-side__head' }, [
-      el('span', { class: 'studio-side__title', text: 'Invoices' }),
       el('span', { class: 'studio-side__count', text: String(all.length) }),
       el('span', { class: 'studio-side__spacer' }),
       refreshBtn,
@@ -667,6 +726,14 @@ function renderSidebar() {
     el('div', { class: 'studio-side__tools' }, [search]),
     listHost,
   ]);
+}
+
+/** A picture cell as something the sidebar can show — the same rules the document uses. */
+function imageSrcFor(cell) {
+  if (cell == null || cell === '') return null;
+  if (typeof cell === 'string') return /^(https:\/\/|data:image\/)/i.test(cell.trim()) ? cell.trim() : null;
+  const id = bridge.firstAttachmentId(cell);
+  return id != null ? resolveImage(id) : null;
 }
 
 /** A status as a dot plus the word — the colour is reinforcement, never the message. */
@@ -797,7 +864,7 @@ function renderBar() {
       b.classList.add('studio-bar__narrow');
       return b;
     })(),
-    app.mode !== 'send' && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
+    app.mode !== 'send' && app.mode !== 'record' && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
     btn(app.mode === 'data' ? 'Close data' : 'Data', () => {
       app.mode = app.mode === 'data' ? 'view' : 'data';
       render();
@@ -869,26 +936,31 @@ function renderSetup() {
   ]);
   chooser.addEventListener('change', () => { app.setupTrade = chooser.value; });
 
-  const go = el('button', { class: 'studio-btn studio-btn--primary', type: 'button', text: 'Set up this document' });
-  go.addEventListener('click', async () => {
-    // Four tables and a dozen records is a visible pause on a slow connection, and a button that
-    // looks unpressed invites a second press — which would try to create the tables twice.
-    go.disabled = true;
-    chooser.disabled = true;
-    go.textContent = 'Setting up…';
-    await runSetup(chooser.value);
-    if (go.isConnected) { go.disabled = false; chooser.disabled = false; go.textContent = 'Set up this document'; }
-  });
+  // Two ways to build, and a third door for people who already have tables. Both builds press
+  // once: four tables and a business's worth of records is a visible pause on a slow connection,
+  // and a button that looks unpressed invites a second press — which would try to create the
+  // tables twice.
+  const run = async (button, empty) => {
+    go.disabled = true; goEmpty.disabled = true; chooser.disabled = true;
+    const was = button.textContent;
+    button.textContent = 'Setting up…';
+    await runSetup(chooser.value, { empty });
+    if (button.isConnected) { go.disabled = false; goEmpty.disabled = false; chooser.disabled = false; button.textContent = was; }
+  };
+  const go = el('button', { class: 'studio-btn studio-btn--primary', type: 'button', text: 'Set up with a sample business' });
+  go.addEventListener('click', () => run(go, false));
+  const goEmpty = el('button', { class: 'studio-btn', type: 'button', text: 'Start empty' });
+  goEmpty.addEventListener('click', () => run(goEmpty, true));
 
   return el('div', { class: 'studio-notice studio-notice--warn' }, [
     el('strong', { text: 'This document has no invoices in it yet.' }),
-    el('p', { text: 'Invoice Studio looks for a table with something like an invoice number, a client and a date. Nothing here matched, so it can build those tables for you, with a few invoices already in them to work from.' }),
+    el('p', { text: 'Invoice Studio looks for a table with something like an invoice number, a client and a date. Nothing here matched. Pick your trade, then choose how to start:' }),
     el('ul', { class: 'studio-setup__list' }, [
-      el('li', { text: 'Clients, Products, Invoices and Invoice items' }),
-      el('li', { text: 'Four invoices: one overdue, one paid, one sent and one still a draft' }),
-      el('li', { text: 'Line items priced for the trade you pick' }),
+      el('li', {}, [el('strong', { text: 'With a sample business' }), el('span', { text: ' — Clients, Products, Invoices and Invoice items filled with a complete example for your trade: a business, its clients, its catalogue and five documents in five states. See everything working, then remove the sample rows from Data when your own data arrives.' })]),
+      el('li', {}, [el('strong', { text: 'Empty' }), el('span', { text: ' — the same four tables and columns with nothing in them. Add clients and catalogue items from the lists on the left, or straight from an invoice.' })]),
+      el('li', {}, [el('strong', { text: 'Your own tables' }), el('span', { text: ' — keep what you have and tell the widget which table and which columns hold what.' })]),
     ]),
-    el('div', { class: 'studio-setup__row' }, [chooser, go]),
+    el('div', { class: 'studio-setup__row' }, [chooser, go, goEmpty]),
     el('p', { class: 'studio-upgrade__note' }, [
       el('span', { text: 'Existing tables are never touched. Already keep invoices in tables of your own? ' }),
       (() => {
@@ -900,7 +972,7 @@ function renderSetup() {
   ]);
 }
 
-async function runSetup(templateId) {
+async function runSetup(templateId, { empty = false } = {}) {
   if (app.busy) return;
   const template = findTradeTemplate(templateId);
 
@@ -912,7 +984,7 @@ async function runSetup(templateId) {
   // ANUPRESS Works — so the first document is complete rather than headed "Your business". It is
   // remembered as a sample so the widget can keep pointing at Settings until it is replaced. A
   // business that already has a name is never touched.
-  if (!String(next.business.name || '').trim()) {
+  if (!empty && !String(next.business.name || '').trim()) {
     const sample = sampleBusinessFor(templateId);
     const { paymentDetails, ...identity } = sample;
     next.business = { ...next.business, ...identity };
@@ -934,6 +1006,7 @@ async function runSetup(templateId) {
   const kind = template?.kind || 'invoice';
 
   const tables = starterTablesFor(templateId, {
+    empty,
     numberPrefix: numberFormatFor(next, kind).prefix.replace(/\{[^}]+\}/g, '').replace(/-+$/, '') + '-',
     grossOf: ({ lines, address }) => computeTotals({ lines, addresses: { billing: address } }, money).total,
   });
@@ -955,8 +1028,143 @@ async function runSetup(templateId) {
   app.layout = null;                 // let the template's layout through rather than the bar's
   rescan();
   app.currentRowId = null;
-  toast(`Created ${res.created.join(', ')}.`, 'ok');
+  toast(empty ? `Created ${res.created.join(', ')}, empty. Add clients and catalogue items from the lists on the left.` : `Created ${res.created.join(', ')}.`, 'ok');
   render();
+}
+
+/**
+ * Create one of the four tables on its own, empty, for a document that has the others.
+ *
+ * A document built by hand often has invoices and clients and no catalogue. The composer works
+ * without one, but the picker, the pictures and the "add to catalogue" star need a table to
+ * live in, and this is a smaller step than setting the whole document up.
+ */
+async function createMissingTable(id) {
+  if (app.busy) return;
+  const existing = (app.provider.tables() || []).map((t) => t.id);
+  const want = missingFrom(existing, starterTablesFor(app.stored.setup?.trade || 'freelancer', { empty: true })).filter((t) => t.id === id);
+  if (!want.length) { toast(`This document already has a table called ${id}.`, 'warn'); return; }
+  app.busy = true;
+  const res = await createStarterTables(want, app.provider, { live: app.live });
+  app.busy = false;
+  if (!res.ok) { toast(res.error || `Could not create ${id}.`, 'err'); return; }
+  rescan();
+  toast(`Created ${id}, empty.`, 'ok');
+  render();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Clients and the catalogue, as records a person edits
+// ---------------------------------------------------------------------------------------------
+
+/** The table and roles behind a record kind, or null when the document has no such table. */
+function recordSource(kind) {
+  if (kind === 'client') return app.schema?.client ? { table: app.schema.client.table, roles: app.schema.client.roles } : null;
+  if (kind === 'product') return app.products ? { table: app.products.table, roles: app.products.roles } : null;
+  return null;
+}
+
+function recordColumns(kind) {
+  const src = recordSource(kind);
+  return src ? (app.provider.columns(src.table) || []) : [];
+}
+
+/** The rows of a record kind, with a display name, for the sidebar lists. */
+function listRecords(kind) {
+  const src = recordSource(kind);
+  if (!src) return [];
+  const R = src.roles;
+  return (app.provider.records(src.table) || []).map((r) => ({
+    id: r.id,
+    name: recordName({ name: R.name ? r[R.name] : '' }, kind),
+    // Clients show where they are; catalogue items what they cost.
+    sub: kind === 'client'
+      ? [R.city ? r[R.city] : '', R.email ? r[R.email] : ''].map((v) => String(v || '').trim()).filter(Boolean).join(' · ')
+      : [R.sku ? r[R.sku] : '', R.unit ? r[R.unit] : ''].map((v) => String(v || '').trim()).filter(Boolean).join(' · '),
+    price: kind === 'product' && R.unitPrice ? r[R.unitPrice] : null,
+    image: kind === 'product' && R.image ? r[R.image] : null,
+  }));
+}
+
+/**
+ * Save a record from the form: pictures uploaded first where the column takes attachments, then
+ * the row written, then the tables re-read so every list and picker sees it.
+ */
+async function saveRecordValues(kind, rowId, values) {
+  const src = recordSource(kind);
+  if (!src) return { ok: false, error: `This document has no ${kind === 'client' ? 'client' : 'catalogue'} table.` };
+  const columns = recordColumns(kind);
+  const fields = formFields(kind, src.roles, columns);
+  const picture = fields.find((f) => f.type === 'image');
+
+  // A picture typed in as a data URI goes up as an attachment on a live document with an
+  // Attachments column. In the demo, or into a Text column, the data URI itself is stored.
+  const toSave = { ...values };
+  if (picture && picture.attachments && typeof toSave.image === 'string' && toSave.image.startsWith('data:image/')) {
+    if (app.live) {
+      const up = await uploadAttachment(toSave.image, `${recordName(values, kind).replace(/[^\w-]+/g, '-').toLowerCase() || 'picture'}.jpg`);
+      if (!up.ok) return up;
+      toSave.image = up.value;
+    }
+  }
+
+  const plan = recordPlan({ kind, table: src.table, roles: src.roles, columns, rowId, values: toSave });
+  if (!plan.ok) return { ok: false, error: plan.problems[0] };
+  const res = await saveRecord(plan, app.provider, { live: app.live });
+  if (!res.ok) return res;
+  rescan();
+  const dropped = plan.skipped.map((s) => s.role);
+  return {
+    ok: true, rowId: res.rowId,
+    note: dropped.length ? `Saved — but ${dropped.join(', ')} could not be kept: no column for ${dropped.length === 1 ? 'it' : 'them'} in this table.` : undefined,
+  };
+}
+
+/** Open a record in the body. `rowId` null starts a new one. */
+function openRecord(kind, rowId) {
+  if (!recordSource(kind)) { toast(`This document has no ${kind === 'client' ? 'client' : 'catalogue'} table. Data can create one.`, 'warn'); return; }
+  app.record = { kind, rowId };
+  app.mode = 'record';
+  app.draft = null;
+  render();
+}
+
+function renderRecordEditor() {
+  const { kind, rowId } = app.record;
+  const src = recordSource(kind);
+  if (!src) return null;
+  const columns = recordColumns(kind);
+  const row = rowId != null ? (app.provider.records(src.table) || []).find((r) => r.id === rowId) : null;
+  if (rowId != null && !row) { app.mode = 'view'; app.record = null; return null; }
+  const values = row ? readRecord(row, kind, src.roles) : readRecord(null, kind, src.roles);
+  if (!row && kind === 'client') values.country = app.stored.money.defaultCustomerCountry || '';
+  const money = settingsNow().money;
+
+  return renderRecordForm({
+    kind, rowId, values, resolveImage, canWrite: canWrite(),
+    roles: src.roles, columns,
+    money: { ...money.format, currency: money.currency },
+    onSave: async (v) => {
+      const res = await saveRecordValues(kind, rowId, v);
+      if (res.ok) {
+        app.record = { kind, rowId: res.rowId };
+        toast(rowId == null ? `${recordName(v, kind)} added.` : 'Saved.', 'ok');
+        render();
+      }
+      return res;
+    },
+    onRemove: rowId == null ? null : async () => {
+      const res = await removeRecord(src.table, rowId, app.provider, { live: app.live });
+      if (res.ok) {
+        rescan();
+        app.mode = 'view'; app.record = null;
+        toast(`${recordName(values, kind)} removed.`, 'ok');
+        render();
+      }
+      return res;
+    },
+    onCancel: () => { app.mode = 'view'; app.record = null; render(); },
+  });
 }
 
 /** What we worked out about this document, said plainly rather than buried in a console log. */
@@ -973,6 +1181,50 @@ function renderDataPanel() {
   const tableIds = (app.provider.tables() || []).map((t) => t.id);
   const forced = app.stored.tables;
 
+  const persist = async (note) => {
+    const saved = await saveSettings(app.stored);
+    app.stored = saved.settings;
+    rescan();
+    app.currentRowId = null;
+    render();
+    if (note) toast(note, 'ok');
+  };
+
+  /**
+   * The columns of one part, role by role: the automatic guess, or the person's choice, or none.
+   *
+   * This is the door for tables built by hand with columns named however they were named — a
+   * "Kunde" is the client once it is chosen here, and stays chosen.
+   */
+  const columnsFor = (part, label) => {
+    const mapped = part === 'product' ? app.products : s && s[part];
+    if (!mapped) return null;
+    const cols = app.provider.columns(mapped.table) || [];
+    const choices = (forced.columns && forced.columns[part]) || {};
+    const rows = (ROLES_BY_PART[part] || []).map((role) => {
+      const sel = el('select', { class: 'cmp-input cmp-input--select', 'aria-label': `${label}: ${role}` }, [
+        el('option', { value: '', text: mapped.roles[role] && !choices[role] ? `automatic — ${mapped.roles[role]}` : 'automatic — nothing matched' }),
+        el('option', { value: '-', selected: choices[role] === '-' ? true : null, text: 'none in this table' }),
+        ...cols.map((c) => el('option', { value: c.id, selected: choices[role] === c.id ? true : null, text: c.id + (c.isFormula ? ' (formula)' : '') })),
+      ]);
+      sel.addEventListener('change', async () => {
+        forced.columns = forced.columns || {};
+        forced.columns[part] = forced.columns[part] || {};
+        if (sel.value) forced.columns[part][role] = sel.value; else delete forced.columns[part][role];
+        await persist(sel.value === '-' ? `${role}: none.` : sel.value ? `${role} is ${sel.value}.` : `${role}: automatic.`);
+      });
+      return el('div', { class: 'studio-cols__row' + (choices[role] ? ' is-chosen' : '') }, [
+        el('span', { class: 'studio-cols__role', text: role }),
+        sel,
+      ]);
+    });
+    const chosen = Object.keys(choices).length;
+    return el('details', { class: 'studio-cols' }, [
+      el('summary', { text: `Columns in ${mapped.table}${chosen ? ` — ${chosen} chosen by you` : ''}` }),
+      el('div', { class: 'studio-cols__grid' }, rows),
+    ]);
+  };
+
   const pick = (label, key, hint) => {
     const sel = el('select', { class: 'cmp-input', 'aria-label': label }, [
       el('option', { value: '', text: '— work it out automatically —' }),
@@ -980,22 +1232,29 @@ function renderDataPanel() {
     ]);
     sel.addEventListener('change', async () => {
       forced[key] = sel.value;
-      const saved = await saveSettings(app.stored);
-      app.stored = saved.settings;
-      rescan();
-      app.currentRowId = null;
-      render();
-      toast(sel.value ? `Reading ${label.toLowerCase()} from ${sel.value}.` : `Working out the ${label.toLowerCase()} table automatically.`, 'ok');
+      // A different table means the column choices made for the old one no longer apply.
+      if (forced.columns) forced.columns[key] = {};
+      await persist(sel.value ? `Reading ${label.toLowerCase()} from ${sel.value}.` : `Working out the ${label.toLowerCase()} table automatically.`);
     });
-    return field(label, sel, hint);
+    return el('div', {}, [field(label, sel, hint), columnsFor(key, label)]);
+  };
+
+  // A part the document has no table for at all can be created on its own, empty, rather than
+  // pointing at nothing. The starter's columns, so it works with everything else from the start.
+  const createOffer = (id, what) => {
+    const b = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: `Create a ${id} table` });
+    b.addEventListener('click', () => createMissingTable(id));
+    return el('p', { class: 'studio-upgrade__note' }, [el('span', { text: `No ${what} table was found. ` }), b]);
   };
 
   const tablesSection = section('Tables', [
-    el('p', { class: 'set-lead', text: 'Normally worked out from the column names. Choose a table here when the guess is wrong or your names are unusual; columns within it are still matched by name.' }),
+    el('p', { class: 'set-lead', text: 'Normally worked out from the column names. Choose a table here when the guess is wrong or your names are unusual, and open its columns to pin any role to any column — a table built by hand with its own names works exactly as well once it is described here.' }),
     pick('Invoices', 'invoice', 'One row per invoice.'),
     pick('Line items', 'line', 'Rows that point back at an invoice.'),
     pick('Clients', 'client', 'Who gets billed.'),
+    s && s.invoice && !s.client && !tableIds.includes('Clients') ? createOffer('Clients', 'client') : null,
     pick('Catalogue', 'product', 'What you sell, for the line picker.'),
+    s && s.invoice && !app.products && !tableIds.includes('Products') ? createOffer('Products', 'catalogue') : null,
   ]);
 
   const closeBtn = el('button', { class: 'cmp-btn', type: 'button', text: 'Close' });
@@ -1195,8 +1454,14 @@ function renderBody() {
     if (hint) parts.push(hint);
   }
 
+  if (app.mode === 'record' && app.record) {
+    const editor = renderRecordEditor();
+    if (editor) { parts.push(editor); return el('div', { class: 'studio-body' }, parts); }
+  }
+
   if (app.mode === 'compose' && app.draft) {
     const plan = app.schema?.invoice ? buildPlan() : null;
+    const clientSrc = recordSource('client');
     parts.push(renderComposer({
       draft: app.draft,
       schema: app.schema,
@@ -1209,11 +1474,30 @@ function renderBody() {
       locked: composeLocked(),
       planSummary: plan ? describePlan(plan) : '',
       skipped: plan ? plan.skipped : [],
+      // The client form, for "+ New client" inside the picker.
+      clientForm: clientSrc ? { roles: clientSrc.roles, columns: recordColumns('client'), defaultCountry: app.stored.money.defaultCustomerCountry || '' } : null,
       onEdit: paintPreview,
       onRebuild: () => render(),
       actions: {
         save,
         unlock: () => { app.unlocked = true; render(); },
+        // A client added mid-invoice: saved, then handed back in the shape the picker uses so the
+        // composer can select it without a round trip through the list.
+        addClient: async (values) => {
+          const res = await saveRecordValues('client', null, values);
+          if (!res.ok) return res;
+          const client = listClients(app.schema, app.provider).find((c) => c.id === res.rowId);
+          toast(`${recordName(values, 'client')} added to your clients.`, 'ok');
+          return { ok: true, client: client || { id: res.rowId, name: recordName(values, 'client'), party: { ...values } } };
+        },
+        // A line saved to the catalogue, priced as it was typed. Null means the grid is only
+        // explaining why it could not.
+        addProduct: recordSource('product') ? async (values, why) => {
+          if (!values) { toast(why, 'warn'); return; }
+          const res = await saveRecordValues('product', null, { ...values, sku: '', stock: '', image: null });
+          toast(res.ok ? `${values.name} added to the catalogue.` : (res.error || 'Could not add it.'), res.ok ? 'ok' : 'err');
+          if (res.ok) render();
+        } : null,
         newDoc: () => startCompose(null),
         duplicate: () => {
           app.draft = normaliseDraft({ ...app.draft, rowId: null, number: '', status: 'Draft' });
@@ -1240,8 +1524,9 @@ function renderBody() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && (app.mode === 'settings' || app.mode === 'send' || app.mode === 'data')) {
+  if (e.key === 'Escape' && (app.mode === 'settings' || app.mode === 'send' || app.mode === 'data' || app.mode === 'record')) {
     app.mode = 'view';
+    app.record = null;
     render();
   }
 });
