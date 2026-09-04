@@ -18,6 +18,7 @@
 
 import { clone } from '../core/util.js';
 import { normaliseDraft, computeDraftTotals } from './draft.js';
+import { kindFromCell } from '../doc/kinds.js';
 
 const num = (v) => {
   if (typeof v === 'number') return isFinite(v) ? v : 0;
@@ -46,6 +47,9 @@ export function listInvoices(schema, provider) {
       client: clientNameFor(r, schema, provider),
       issued: str(byRole(r, roles, 'issued')),
       status: str(byRole(r, roles, 'status')),
+      // Null when the document has no Kind column or the cell is empty: the list then says nothing
+      // about the kind, as it always did, rather than guessing.
+      kind: kindFromCell(byRole(r, roles, 'kind')),
       currency: str(byRole(r, roles, 'currency')).toUpperCase(),
       total: isFinite(rawTotal) && byRole(r, roles, 'total') !== '' && byRole(r, roles, 'total') != null ? rawTotal : null,
     };
@@ -205,7 +209,9 @@ export function resolveInvoice(row, schema, provider, settings = {}) {
   // Everything below goes through normaliseDraft so a row and a composed draft arrive at the
   // renderer in exactly the same shape — that is the whole point of ./draft.js.
   const draft = normaliseDraft({
-    kind: settings.kind || 'invoice',
+    // The row's own kind first. A table holds invoices and credit notes and quotes side by side,
+    // and each has to open as itself; the chooser's kind is only for rows that do not say.
+    kind: kindFromCell(byRole(row, roles, 'kind')) || settings.kind || 'invoice',
     layout: settings.layout || 'classic',
     rowId: row.id,
     number: str(byRole(row, roles, 'number')) || `#${row.id}`,

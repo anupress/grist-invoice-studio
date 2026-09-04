@@ -137,6 +137,26 @@ export function documentKind(id) {
   return DOCUMENT_KINDS.find((k) => k.id === id) || DEFAULT_KIND;
 }
 
+/** The words a Kind column offers — what a person reads in the table. */
+export const KIND_WORDS = DOCUMENT_KINDS.map((k) => k.word);
+
+const fold = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z]+/g, '');
+
+/**
+ * A stored kind, read back from a cell — or null when the cell says nothing usable.
+ *
+ * The column holds the kind's word, "Credit note", because that is what a person reads in the
+ * table; the id, the word and the label are all accepted, blind to case and punctuation, so a
+ * column typed by hand ("credit_note", "CREDIT NOTE") still resolves. Null sends the caller back
+ * to the chooser's kind, which is what every row meant before there was a column to say otherwise.
+ */
+export function kindFromCell(value) {
+  const key = fold(value);
+  if (!key) return null;
+  const hit = DOCUMENT_KINDS.find((k) => [k.id, k.word, k.label].some((s) => fold(s) === key));
+  return hit ? hit.id : null;
+}
+
 /** What this document can be turned into, as kinds rather than ids. */
 export function conversionsFor(id) {
   return documentKind(id).becomes.map(documentKind);

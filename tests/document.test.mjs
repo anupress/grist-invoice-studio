@@ -47,6 +47,16 @@ eq('a quote becomes an invoice', kinds.conversionsFor('quote').map((k) => k.id),
 eq('an invoice becomes a receipt or a credit note', kinds.conversionsFor('invoice').map((k) => k.id), ['receipt', 'credit_note']);
 eq('a receipt becomes nothing', kinds.conversionsFor('receipt'), []);
 
+// A paid document shows the payment only where a balance means something. A receipt for £384
+// paid in full used to show "Paid −£384" and then "Amount paid £0.00".
+{
+  const paidTotals = { subtotal: 320, taxTotal: 64, total: 384, amountPaid: 384, balance: 0, taxLines: [{ name: 'VAT', rate: 20, amount: 64 }], discounts: [] };
+  eq('an invoice with money on it shows the payment and the balance', f.fieldsFor(baseDraft({ totals: paidTotals }), {}).showPaid, true);
+  eq('a receipt does not — its total is what was paid', f.fieldsFor(baseDraft({ kind: 'receipt', totals: paidTotals }), {}).showPaid, false);
+  eq('nor a credit note', f.fieldsFor(baseDraft({ kind: 'credit_note', totals: paidTotals }), {}).showPaid, false);
+  eq('nor a quote', f.fieldsFor(baseDraft({ kind: 'quote', totals: paidTotals }), {}).showPaid, false);
+}
+
 // Every kind has to be complete, or the renderer prints undefined at the top of a document.
 for (const k of kinds.DOCUMENT_KINDS) {
   ok(`${k.id} has a word`, typeof k.word === 'string' && k.word.length > 0);

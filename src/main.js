@@ -37,7 +37,7 @@ import { ensureFullAccess } from './grist/access.js';
 import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
 import { renderDocument } from './doc/render.js';
-import { DOCUMENT_KINDS, documentKind } from './doc/kinds.js';
+import { DOCUMENT_KINDS, documentKind, kindFromCell } from './doc/kinds.js';
 import { languageOf, localiseKind } from './doc/lang.js';
 import { LAYOUTS } from './doc/layouts.js';
 import { renderComposer } from './compose/composer.js';
@@ -718,6 +718,9 @@ function renderSidebar() {
           ]),
           el('span', { class: 'studio-side__line' }, [
             el('span', { class: 'studio-side__client', text: i.client || '—' }),
+            // The kind, only where it is stored and is not the plain invoice — a list of forty
+            // rows each labelled "Invoice" says nothing; one "Credit note" among them says a lot.
+            i.kind && i.kind !== 'invoice' ? el('span', { class: 'studio-side__kind', text: documentKind(i.kind).word }) : null,
             i.status ? statusChip(i.status) : null,
           ]),
         ]);
@@ -796,6 +799,12 @@ function imageSrcFor(cell) {
   if (typeof cell === 'string') return /^(https:\/\/|data:image\/)/i.test(cell.trim()) ? cell.trim() : null;
   const id = bridge.firstAttachmentId(cell);
   return id != null ? resolveImage(id) : null;
+}
+
+/** The kind a row stores, or null when the document has no Kind column or the cell is empty. */
+function storedKindOf(row) {
+  const col = app.schema?.invoice?.roles?.kind;
+  return row && col ? kindFromCell(row[col]) : null;
 }
 
 /** A status as a dot plus the word — the colour is reinforcement, never the message. */
@@ -905,7 +914,16 @@ function renderBar() {
       ]),
     ]),
     invoices.length ? picker : null,
-    chooser('Document kind', DOCUMENT_KINDS, app.kind, (v) => { app.kind = v; if (app.draft) app.draft.kind = v; }),
+    // A row's stored kind outranks the chooser, so in view mode the chooser reports the row's
+    // kind and is disabled: changing it there would change nothing on the page. In the composer it
+    // edits the draft, which saves into the Kind column; for new documents it is the default.
+    (() => {
+      const stored = app.mode === 'view' ? storedKindOf(currentRow()) : null;
+      const current = app.mode === 'compose' && app.draft ? app.draft.kind : (stored || app.kind);
+      const sel = chooser('Document kind', DOCUMENT_KINDS, current, (v) => { app.kind = v; if (app.draft) app.draft.kind = v; });
+      if (stored) { sel.disabled = true; sel.title = 'This document\u2019s kind is stored in its Kind column. Edit it to change it.'; }
+      return sel;
+    })(),
     // Before setup the preview follows the trade's layout, so the chooser shows that one rather
     // than a stored default the preview is not using.
     chooser('Layout', LAYOUTS, app.layout || (gated ? setupPreviewSettings().layout : app.stored.document.layout), (v) => { app.layout = v; if (app.draft) app.draft.layout = v; }),
@@ -1534,7 +1552,7 @@ function renderHintStrip() {
   }
   const setup = app.stored.setup || {};
   if (app.live && setup.sampleBusiness && app.stored.business.name === setup.sampleBusiness) {
-    return hintStrip(`The business on these documents is the sample, ${setup.sampleBusiness}. Replace it with yours in Settings → Business.`, 'Open settings', () => { app.mode = 'settings'; render(); });
+    return hintStrip(`The business on these documents is the sample, ${setup.sampleBusiness} — its address, bank details and payment link too. Replace them with yours in Settings.`, 'Open settings', () => { app.mode = 'settings'; render(); });
   }
   if (app.live && sampleRowCount(setup) > 0) {
     return hintStrip(`Your tables still hold the ${sampleRowCount(setup)} sample rows setup created. Remove them when you are ready to enter your own.`, 'Review in Data', () => { app.mode = 'data'; render(); });

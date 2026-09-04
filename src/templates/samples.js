@@ -39,6 +39,10 @@ export const PICS = {
 const HQ = (over) => ({
   street1: '4 Quarry Street', street2: '', city: 'Bristol', state: 'Somerset', postcode: 'BS1 5TF', country: 'GB',
   email: 'accounts@anupress.example', phone: '+44 117 496 0139', website: 'anupress.com', taxNumber: 'GB 481 2739 55',
+  // A payment page, so every sample invoice carries the pay-online QR code the public demo shows
+  // — a starter without one looked like a starter without the feature. On a reserved domain, so
+  // a code left in by mistake scans to nothing rather than to somebody.
+  paymentLink: 'https://pay.anupress.example/invoice',
   ...over,
 });
 
@@ -51,6 +55,9 @@ const C = (Name, Email, Street1, City, Zip, extra = {}) => ({ Name, Email, Phone
  *   age        days since it was issued
  *   terms      days until due
  *   status     Overdue | Paid | Part paid | Sent | Draft
+ *   kind       (in extra) the document kind where it differs from the trade's default. The
+ *              receipt trades need it: a till receipt is only ever paid, so their overdue, part
+ *              paid, sent and draft documents are the invoices of a trade account.
  */
 const I = (client, status, age, terms, lines, extra = {}) => ({ client, status, age, terms, lines, ...extra });
 
@@ -145,11 +152,11 @@ export const SAMPLES = {
       { SKU: 'WRAP', Name: 'Gift wrapping', Price: 2.5, Unit: '', Image: PICS.gift },
     ],
     invoices: [
-      I(2, 'Overdue', 40, 14, [[0, 12], [1, 12]], { reference: 'Trade order', note: 'Trade account, 12 of each for the bakery counter.' }),
+      I(2, 'Overdue', 40, 14, [[0, 12], [1, 12]], { kind: 'invoice', reference: 'Trade order', note: 'Trade account, 12 of each for the bakery counter.' }),
       I(1, 'Paid', 2, 0, [[0, 2], [2, 3], [4, 1]]),
-      I(3, 'Part paid', 10, 14, [[3, 6], [1, 6]], { reference: 'Reception gifts' }),
-      I(1, 'Sent', 1, 0, [[3, 1], [4, 1]]),
-      I(1, 'Draft', 0, 0, [[1, 1], [2, 1]]),
+      I(3, 'Part paid', 10, 14, [[3, 6], [1, 6]], { kind: 'invoice', reference: 'Reception gifts' }),
+      I(3, 'Sent', 1, 14, [[3, 1], [4, 1]], { kind: 'invoice', reference: 'Reception gifts, extras' }),
+      I(2, 'Draft', 0, 14, [[1, 1], [2, 1]], { kind: 'invoice' }),
     ],
   },
 
@@ -169,11 +176,11 @@ export const SAMPLES = {
       { SKU: 'CATER', Name: 'Catering, per head', Price: 22, Unit: 'head' },
     ],
     invoices: [
-      I(2, 'Overdue', 36, 14, [[4, 30], [2, 30]], { reference: 'Staff lunch, 14 Aug', note: 'Catering account. Reminder sent.' }),
+      I(2, 'Overdue', 36, 14, [[4, 30], [2, 30]], { kind: 'invoice', reference: 'Staff lunch, 14 Aug', note: 'Catering account. Reminder sent.' }),
       I(1, 'Paid', 1, 0, [[0, 2], [2, 2]]),
-      I(3, 'Part paid', 12, 14, [[4, 45], [3, 45]], { reference: 'Launch evening', note: 'Half paid on booking.' }),
-      I(1, 'Sent', 0, 0, [[1, 1], [3, 1], [2, 1]]),
-      I(2, 'Draft', 0, 14, [[4, 20]]),
+      I(3, 'Part paid', 12, 14, [[4, 45], [3, 45]], { kind: 'invoice', reference: 'Launch evening', note: 'Half paid on booking.' }),
+      I(3, 'Sent', 0, 14, [[4, 12], [3, 12]], { kind: 'invoice', reference: 'Board lunch' }),
+      I(2, 'Draft', 0, 14, [[4, 20]], { kind: 'invoice' }),
     ],
   },
 
@@ -345,11 +352,11 @@ export const SAMPLES = {
       { SKU: 'MEMORY', Name: 'Gift in memory', Price: 250, Unit: '' },
     ],
     invoices: [
-      I(2, 'Overdue', 33, 30, [[2, 1]], { reference: 'Summer fair 2026', note: 'Sponsorship pledged at the fair; invoice sent for their records.' }),
+      I(2, 'Overdue', 33, 30, [[2, 1]], { kind: 'invoice', reference: 'Summer fair 2026', note: 'Sponsorship pledged at the fair; invoice sent for their records.' }),
       I(1, 'Paid', 10, 0, [[0, 2]], { note: 'No goods or services were provided in exchange for this donation.' }),
-      I(4, 'Part paid', 20, 30, [[3, 8]], { reference: 'Dinner table', note: 'Four of eight tickets paid.' }),
-      I(3, 'Sent', 2, 0, [[4, 1]]),
-      I(1, 'Draft', 0, 0, [[1, 12]]),
+      I(4, 'Part paid', 20, 30, [[3, 8]], { kind: 'invoice', reference: 'Dinner table', note: 'Four of eight tickets paid.' }),
+      I(3, 'Sent', 2, 30, [[4, 1]], { kind: 'invoice', reference: 'Gift in memory' }),
+      I(1, 'Draft', 0, 30, [[1, 12]], { kind: 'invoice' }),
     ],
   },
 

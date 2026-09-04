@@ -83,6 +83,8 @@ export function toCell(value, col) {
   return value == null ? '' : String(value);
 }
 
+import { documentKind } from '../doc/kinds.js';
+
 /**
  * The values a draft wants to put in the invoice row, by role.
  *
@@ -93,6 +95,9 @@ function invoiceValues(draft) {
   const t = draft.totals || {};
   return {
     number: draft.number,
+    // The word, not the id — it is what a person reads in the table, and kindFromCell reads
+    // either back.
+    kind: documentKind(draft.kind).word,
     client: draft.clientRef != null ? draft.clientRef : draft.client?.name,
     issued: draft.issued,
     due: draft.due,
@@ -149,13 +154,22 @@ function lineValues(line) {
  */
 const COMPUTED_ROLES = new Set(['subtotal', 'tax', 'discount', 'shipping', 'total']);
 
+/**
+ * Roles worth writing where a column exists and not worth a warning where none does.
+ *
+ * The kind is one: a document without a Kind column shows every row as the chooser's kind, which
+ * is exactly what it did before the column existed, and the Data drawer already offers the column
+ * by name. A warning on every save would say the same thing in a worse place.
+ */
+const QUIET_ROLES = new Set(['kind']);
+
 function fieldsFor(values, roles, columnIndex, skipped, where) {
   const fields = {};
   for (const [role, raw] of Object.entries(values)) {
     if (raw === undefined || raw === '') continue;
     const colId = roles[role];
     if (!colId) {
-      if (!COMPUTED_ROLES.has(role)) skipped.push({ where, role, reason: 'no column in this document holds it' });
+      if (!COMPUTED_ROLES.has(role) && !QUIET_ROLES.has(role)) skipped.push({ where, role, reason: 'no column in this document holds it' });
       continue;
     }
     const col = columnIndex.get(colId);

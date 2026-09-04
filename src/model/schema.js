@@ -24,8 +24,10 @@
 // ---------------------------------------------------------------------------------------------
 
 /** Roles on the invoice header row. */
+import { KIND_WORDS } from '../doc/kinds.js';
+
 export const INVOICE_ROLES = [
-  'number', 'client', 'issued', 'due', 'status', 'paidDate', 'amountPaid',
+  'number', 'client', 'issued', 'due', 'status', 'kind', 'paidDate', 'amountPaid',
   'currency', 'note', 'reference', 'terms', 'subtotal', 'tax', 'discount',
   'shipping', 'total', 'attachment', 'sentAt', 'sentTo', 'language', 'relatedTo',
 ];
@@ -101,6 +103,8 @@ export const UPGRADE_PLAN = {
     { id: 'Status', type: 'Choice', role: 'status',
       options: ['Draft', 'Sent', 'Part paid', 'Paid', 'Overdue', 'Cancelled'],
       why: 'Nothing can be chased, aged or automated without it. This is the column the whole product turns on.' },
+    { id: 'Kind', type: 'Choice', role: 'kind', options: KIND_WORDS,
+      why: 'Which kind of document each row is — invoice, quote, credit note, receipt — so one table holds them all and each opens as itself. Without it every row shows as whatever the bar says, and a saved credit note reopens as an invoice.' },
     { id: 'PaidDate', type: 'Date', role: 'paidDate',
       why: 'When it was settled — the other half of knowing what is outstanding.' },
     { id: 'AmountPaid', type: 'Numeric', role: 'amountPaid',
@@ -172,6 +176,7 @@ const INVOICE_PATTERNS = {
   sentTo:     [/^sent_?to$/i, /^emailed_?to$/i, /^recipient$/i],
   language:   [/^lang(uage)?$/i, /^locale$/i, /^sprache$/i, /^langue$/i],
   relatedTo:  [/^related(_?to)?$/i, /^against$/i, /^original(_?invoice)?$/i, /^corrects$/i, /^credits$/i, /^ref_?doc(ument)?$/i],
+  kind:       [/^kind$/i, /^(doc(ument)?_?)?type$/i, /^doc(ument)?_?kind$/i, /^belegart$/i],
 };
 
 const LINE_PATTERNS = {

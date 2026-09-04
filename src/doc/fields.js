@@ -68,7 +68,10 @@ export function fieldsFor(draft, settings = {}, overrides = {}) {
     showImages: itemised && lines.some((l) => l.image != null && l.image !== ''),
     showLineDiscount: money_ && itemised && anyLineDiscount,
     showSecondDate: !!kind.dateLabels.second,
-    showPaid: money_ && Number(totals.amountPaid) > 0,
+    // A "Paid −" line and a balance are the arithmetic of a document that is still owed. On one
+    // that is not — a receipt, a quote, a credit note — they turned a paid receipt into "Amount
+    // paid £0.00", which is the one number a receipt must never show.
+    showPaid: money_ && kind.demandsPayment && Number(totals.amountPaid) > 0,
     showSenderTaxNumber,
     showClientTaxNumber,
     showReference: !!String(draft?.reference || '').trim(),

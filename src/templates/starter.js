@@ -16,6 +16,7 @@
 
 import { findTemplate } from './index.js';
 import { SAMPLES, sampleFor, sampleLinesFor } from './samples.js';
+import { documentKind, KIND_WORDS } from '../doc/kinds.js';
 
 const iso = (d) => d.toISOString().slice(0, 10);
 const day = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return iso(d); };
@@ -59,6 +60,11 @@ const INVOICE_COLUMNS = [
   { id: 'Due', label: 'Due', type: 'Date' },
   { id: 'Status', label: 'Status', type: 'Choice',
     widgetOptions: JSON.stringify({ choices: ['Draft', 'Sent', 'Part paid', 'Paid', 'Overdue', 'Cancelled'], choiceOptions: {} }) },
+  // Which kind of document the row is, so one table holds invoices, quotes, credit notes and
+  // receipts and each opens as itself. A café's table has till receipts and a catering account
+  // in it; before this column, both showed as whatever the bar said.
+  { id: 'Kind', label: 'Kind', type: 'Choice',
+    widgetOptions: JSON.stringify({ choices: KIND_WORDS, choiceOptions: {} }) },
   { id: 'PaidDate', label: 'Paid', type: 'Date' },
   { id: 'AmountPaid', label: 'Amount paid', type: 'Numeric' },
   { id: 'Currency', label: 'Currency', type: 'Text' },
@@ -156,6 +162,9 @@ export function starterTablesFor(templateId, { numberPrefix = 'INV-', grossOf = 
       Issued: issued,
       Due: due,
       Status: inv.status,
+      // The document's own kind where the sample says so — a till receipt for the paid sale, an
+      // invoice for the trade account — and the trade's default kind otherwise.
+      Kind: documentKind(inv.kind || template?.kind || 'invoice').word,
       Terms: inv.status === 'Draft' && !inv.terms ? terms : terms,
       Reference: inv.reference || '',
       Note: inv.note || '',

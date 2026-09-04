@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.21.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.22.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -259,6 +259,14 @@ who can edit it, so credentials belong in whatever you run at the far end. Endpo
 unless they are on localhost.
 
 ## Documents
+
+One table holds every kind. The starter's Invoices table has a **Kind** column — Invoice, Quote,
+Credit note, Receipt, and the rest, as words — and a document with one opens each row as what it
+is: a café's table holds till receipts beside the catering account's invoices, and a credit note
+saved from an invoice reopens as a credit note. The Data drawer offers the column to a document
+that lacks one; until it has one, every row shows as whatever the bar's kind chooser says, which
+is what every row meant before there was a column to say otherwise. A column called Type or
+DocumentType is recognised as the same thing.
 
 Eight document kinds and eight layouts — Classic, Banded, Letterhead, Minimal, Slate, Headline, Rail and Centred. Layouts differ in the masthead and share one body, so every layout benefits from every future fix. A delivery note and a packing slip show no prices; a quote
 carries an expiry rather than a due date; a receipt shows no payment details.

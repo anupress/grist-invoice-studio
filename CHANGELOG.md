@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.22.0 — each document is what it says it is
+
+- **A stored Kind.** The document kind — invoice, quote, credit note, receipt — was the bar's
+  chooser and nothing else: every row in a table showed as the same kind, and a credit note
+  saved from an invoice reopened as an invoice. The starter's Invoices table now carries a Kind
+  column holding the kind's word, the resolver opens each row as the kind it stores, saving
+  writes it, and the Data drawer offers the column to a document that lacks one (Type and
+  DocumentType are recognised too). Rows without one still follow the chooser, which in view mode
+  now reports a stored kind and is disabled — changing it there would change nothing on the page.
+- **Receipts are only ever paid.** The three receipt trades — retail, café, charity — built five
+  receipts in five states, so the first document a person saw was a receipt marked overdue. Their
+  overdue, part-paid, sent and draft documents are the invoices of a trade account now, and the
+  till sale and the donation are the receipts; the sidebar names the kind on any row that is not
+  a plain invoice.
+- **A paid receipt no longer reads "Amount paid £0.00".** The "Paid −" line and the balance are
+  the arithmetic of a document still owed; on a receipt, a quote or a credit note they are gone,
+  and the total is what was paid. Screen, PDF, email and plain text all read the same flag.
+- **Every trade's sample business now carries a payment link**, so the pay-online QR code the
+  public demo shows appears on the invoices a starter builds too. It did not: the public demo's
+  bundled business had a link and the fourteen trade businesses had none, so a document set up
+  from a trade looked like one without the feature. The link is on a reserved domain — a code
+  left in by mistake scans to nothing rather than to somebody. The code appears only on documents
+  that ask for money with something still owed: invoices, proformas and statements, never a
+  receipt, quote or credit note.
+- The hint that the business is still the sample now says its bank details and payment link are
+  too, since those are the fields a person is most likely to leave behind.
+
 ## 1.21.0 — the trade chooser explains itself
 
 A review of everything built so far, screen by screen. What it found and fixed:

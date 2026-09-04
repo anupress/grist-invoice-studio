@@ -30,6 +30,9 @@ for (const t of T.TEMPLATES) {
   ok(`${t.id}: with an address`, s.business.street1 && s.business.city && s.business.postcode && s.business.country === 'GB');
   ok(`${t.id}: an email on a reserved domain`, /@anupress\.example$/.test(s.business.email));
   ok(`${t.id}: a fictional phone number`, /^\+44 (117 496|20 7946) /.test(s.business.phone));
+  // So the pay-online code shows on every starter's invoices, as it does in the public demo; on a
+  // reserved domain, so a code left in by mistake scans to nothing.
+  ok(`${t.id}: a payment link on a reserved domain`, /^https:\/\/pay\.anupress\.example\//.test(s.business.paymentLink));
   ok(`${t.id}: at least three clients`, s.clients.length >= 3);
   ok(`${t.id}: client names are distinct`, new Set(s.clients.map((c) => c.Name)).size === s.clients.length);
   ok(`${t.id}: every client has a two-letter country`, s.clients.every((c) => /^[A-Z]{2}$/.test(c.Country)));
