@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.19.2-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.19.3-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -74,6 +74,12 @@ Every column the table has appears on the form, not only the ones the widget use
 with Colour, Size or Supplier gets those boxes too, with the right control for each. Where a field
 has no column at all — a catalogue with nowhere to put a picture, a client table with no email —
 one press adds it, and nothing else in the table changes.
+
+Choosing something the document already bills adds to that line rather than starting a second one
+— the quantity column is what a repeated item is for. The price has to agree: the same product at
+two prices is a real document, so those stay apart and the widget says why. A document that
+already carries duplicates, typed in the table next door, is offered a single press to combine
+them.
 
 Two shortcuts keep you on the invoice: the client picker ends with "+ New client…", which opens
 the same form inline and selects the new client on save; and every line carries a star that adds

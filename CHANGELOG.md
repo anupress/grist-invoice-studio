@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.19.3
+
+- **The same product cannot land on a document twice.** Choosing something already on the invoice
+  adds to its line — "Wool throw, sage x2" and "x1" is a document that gets queried, and the
+  quantity column exists precisely so it never has to happen. Typed descriptions merge too, on
+  leaving the field rather than mid-keystroke.
+- The price has to agree before anything merges. The same product at two prices is a real
+  document — a second unit at a discount, an hour at a different rate — so those lines stay apart
+  and the widget says why rather than quietly changing what is charged.
+- A document that already carries duplicates (saved before this rule, or typed in the table next
+  door) is offered one press to combine them. The first line is the one kept, so saving updates
+  that row and removes the other.
+
 ## 1.19.2
 
 - The three lists now have one header, not three. Refresh, Edit and New sit in the same places in

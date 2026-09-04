@@ -9,11 +9,11 @@
 // grist/writer.js carries it out, so the part that can damage somebody's document stays testable
 // and stays somewhere a person can be shown it before it happens.
 
-import { el } from '../core/util.js';
+import { el, toast } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
 import { documentKind, DOCUMENT_KINDS, conversionsFor } from '../doc/kinds.js';
 import { fieldsFor } from '../doc/fields.js';
-import { renderLinesGrid, blankLine } from './lines-grid.js';
+import { renderLinesGrid, blankLine, duplicateLines, combineDuplicates } from './lines-grid.js';
 import { field, textInput, numberInput, textArea, selectInput, suggestInput, button, section } from './ui.js';
 import { asOptions, CURRENCIES, PAYMENT_TERMS } from '../model/suggest.js';
 import { LANGUAGES, normaliseLanguage } from '../doc/lang.js';
@@ -152,6 +152,23 @@ export function renderComposer(ctx) {
   ], { grid: true });
 
   // ---- lines -----------------------------------------------------------------------------------
+  // A document that arrived with the same thing on two lines — saved before choosing a product
+  // merged into its own line, or built in the table next door. Offered, never done unasked: it is
+  // their document, and combining changes what it says.
+  const dupes = duplicateLines(draft);
+  const dupeNotice = dupes.length ? el('div', { class: 'cmp-dupes' }, [
+    el('span', {
+      text: dupes.length === 1
+        ? 'One line bills something an earlier line already bills, at the same price.'
+        : `${dupes.length} lines bill something an earlier line already bills, at the same price.`,
+    }),
+    button('Combine them', () => {
+      const merged = combineDuplicates(draft);
+      onRebuild();
+      toast(`Combined ${merged} line${merged === 1 ? '' : 's'} into the quantities above.`, 'ok');
+    }, { variant: 'ghost' }),
+  ]) : null;
+
   const gridHost = el('div');
   const buildGrid = () => gridHost.replaceChildren(renderLinesGrid(draft, {
     products, fields, onEdit: edited, onStructure: onRebuild,
@@ -193,7 +210,7 @@ export function renderComposer(ctx) {
   const form = el('div', { class: 'cmp-form' + (locked ? ' is-locked' : '') }, [
     details,
     newClientHost,
-    section(kind.showsMoney ? 'Lines' : 'Items', [gridHost]),
+    section(kind.showsMoney ? 'Lines' : 'Items', [dupeNotice, gridHost]),
     kind.showsMoney ? el('div', { class: 'cmp-moneyrow' }, [moneyBits, totalsBox]) : null,
     words,
   ]);

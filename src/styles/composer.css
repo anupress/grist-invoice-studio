@@ -124,6 +124,12 @@
 /* An issued document: the notice carries the actions, and the form beneath it is greyed rather
  * than hidden — a person can still read what they are not editing. */
 .cmp-notice--lock { background: var(--accent-soft); }
+/* Two lines billing the same thing, and the one press that folds them together. */
+.cmp-dupes {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 10px; padding: 8px 11px;
+  background: var(--warn-soft); color: var(--ink); border-radius: var(--radius); font-size: 12.5px;
+}
 .cmp-notice__row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
 .cmp-form.is-locked { opacity: .62; }
 .cmp-form.is-locked .cmp-totals { opacity: 1; }

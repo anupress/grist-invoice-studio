@@ -9,7 +9,7 @@
 // fills the description, the unit price and the tax class in one action; the fields stay editable
 // afterwards, because the price on a particular job is not always the price in the catalogue.
 
-import { el } from '../core/util.js';
+import { el, toast } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
 import { textInput, numberInput, button } from './ui.js';
 
@@ -77,11 +77,36 @@ export function renderLinesGrid(draft, { products, fields, onEdit, onStructure, 
     });
     if (dlId) description.setAttribute('list', dlId);
 
+    // Typed rather than picked. The merge waits for the field to be left — rebuilding the grid
+    // under a cursor that is still in it would be worse than the duplicate.
+    description.addEventListener('change', () => {
+      const typed = description.value.trim();
+      if (!typed) return;
+      const res = mergeIntoExisting(draft, index, typed, line.unitPrice);
+      if (res && res.merged) {
+        toast(`${typed} was already on this document \u2014 now ${res.quantity}.`, 'ok');
+        onStructure();
+      } else if (res && res.blocked) {
+        toast(`${typed} is already on this document at ${formatMoney(res.price, fmt)}. This line keeps its own price.`, 'warn');
+      }
+    });
+
     return el('div', { class: 'cmp-grid__row' + (showHsn ? ' has-hsn' : '') }, [
       products && products.length
         ? el('div', { class: 'cmp-grid__desc' }, [description, productPicker(products, (p) => {
-            line.description = p.description || p.name || line.description;
-            description.value = line.description;
+            const name = p.description || p.name || line.description;
+            // Already on the document? Then this is one more of it, not another line.
+            const res = mergeIntoExisting(draft, index, name, p.unitPrice != null ? p.unitPrice : line.unitPrice);
+            if (res && res.merged) {
+              toast(`${name} was already on this document \u2014 now ${res.quantity}.`, 'ok');
+              onStructure();
+              return;
+            }
+            if (res && res.blocked) {
+              toast(`${name} is already on this document at ${formatMoney(res.price, fmt)}. This line keeps its own price.`, 'warn');
+            }
+            line.description = name;
+            description.value = name;
             fill(p);
           })])
         : description,
@@ -118,6 +143,82 @@ export function renderLinesGrid(draft, { products, fields, onEdit, onStructure, 
 }
 
 export const blankLine = () => ({ description: '', quantity: 1, unitPrice: 0, amount: 0, taxClass: '', hsn: '', unit: '' });
+
+const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+const pence = (l) => Math.round((Number(l.unitPrice) || 0) * 100);
+
+/**
+ * The same thing, twice, on one document.
+ *
+ * A grid with a quantity column should never produce "Wool throw, sage x2" above "Wool throw,
+ * sage x1": it reads as a mistake, whoever receives it queries it, and the second line exists
+ * only because the first was not noticed. So choosing something already on the document adds to
+ * its line instead of starting another.
+ *
+ * The price has to agree. The same product at two prices is a real document — a second unit at a
+ * discount, an hour billed at a different rate — and folding those together would quietly change
+ * what is being charged. When they differ the line stays, and the reason is said out loud.
+ *
+ * Returns null when there is nothing to merge with, `{ blocked, price }` when the prices disagree,
+ * or `{ merged, line, quantity }` when the two lines became one.
+ */
+export function mergeIntoExisting(draft, index, name, unitPrice) {
+  const lines = draft.lines || [];
+  const at = lines.findIndex((l, i) => i !== index && same(l.description, name));
+  if (at === -1) return null;
+
+  const target = lines[at];
+  const price = Math.round((Number(unitPrice) || 0) * 100);
+  if (pence(target) !== price) return { blocked: true, price: Number(target.unitPrice) || 0 };
+
+  target.quantity = (Number(target.quantity) || 0) + (Number(lines[index].quantity) || 1);
+  target.amount = target.quantity * (Number(target.unitPrice) || 0);
+  lines.splice(index, 1);
+  if (!lines.length) lines.push(blankLine());
+  return { merged: true, line: target, quantity: target.quantity };
+}
+
+/** Which lines bill something an earlier line already bills, at the same price. */
+export function duplicateLines(draft) {
+  const seen = new Set();
+  const out = [];
+  (draft.lines || []).forEach((l, i) => {
+    const name = String(l.description || '').trim().toLowerCase();
+    if (!name) return;
+    const key = name + '|' + pence(l);
+    if (seen.has(key)) out.push(i); else seen.add(key);
+  });
+  return out;
+}
+
+/**
+ * Fold every duplicate into the first line that bills it, adding the quantities.
+ *
+ * For a document that already has them — one saved before this rule existed, or one built in the
+ * table next door. The FIRST line is the one kept, so saving updates that row and removes the
+ * other rather than rewriting both.
+ */
+export function combineDuplicates(draft) {
+  const first = new Map();
+  const kept = [];
+  let merged = 0;
+  for (const line of draft.lines || []) {
+    const name = String(line.description || '').trim().toLowerCase();
+    if (!name) { kept.push(line); continue; }
+    const key = name + '|' + pence(line);
+    const target = first.get(key);
+    if (target) {
+      target.quantity = (Number(target.quantity) || 0) + (Number(line.quantity) || 0);
+      target.amount = target.quantity * (Number(target.unitPrice) || 0);
+      merged++;
+      continue;
+    }
+    first.set(key, line);
+    kept.push(line);
+  }
+  draft.lines = kept.length ? kept : [blankLine()];
+  return merged;
+}
 
 function move(list, from, delta) {
   const to = from + delta;
