@@ -703,7 +703,7 @@ function renderSidebar() {
   // Edit and New live here, with the list they act on. On narrow screens the sidebar is hidden
   // and the bar's copies take over — one set or the other, never both.
   const editing = which === 'invoices' ? app.mode === 'compose' : app.mode === 'record';
-  const editBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: editing ? 'Close' : 'Edit' });
+  const editBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--edit', type: 'button', text: editing ? 'Close' : 'Edit' });
   editBtn.addEventListener('click', () => {
     if (editing) { app.mode = 'view'; app.draft = null; app.record = null; render(); return; }
     if (which === 'invoices') startCompose(currentRow());

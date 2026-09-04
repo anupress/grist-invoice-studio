@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.19.2
+
+- The three lists now have one header, not three. Refresh, Edit and New sit in the same places in
+  Invoices, Clients and Catalogue, and stay there when Edit becomes Close — a wider word used to
+  push New onto a second row, so opening a record changed the shape of the header. The buttons no
+  longer wrap; Edit and Close reserve the same width; a long count clips before anything moves.
+- A client or a catalogue row is laid out like an invoice row: left-aligned, the picture beside
+  the name rather than above it. The list rows inherited a stacking direction meant for an
+  invoice's two lines, which centred the catalogue and made it look like a different product.
+
 ## 1.19.1
 
 - **A picture now actually reaches the table.** Two faults, both fixed: on a document whose
