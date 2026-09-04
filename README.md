@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.20.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.20.1-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -106,7 +106,14 @@ That template has limits worth knowing about before you rely on it:
 
 **Upgrade this document** adds the missing columns. It only adds: nothing is renamed, retyped or
 removed. Existing invoice numbers are copied into the new stored column, and running it again does
-nothing.
+nothing. Columns are added the way Grist's own "+" button adds them, so they appear on the page
+that shows the table, not only in its raw data.
+
+Versions before 1.20.1 added them to the raw data only, which left the catalogue's Image column
+holding every picture and rendering them on every invoice while the Products page showed no such
+column. The Data drawer now lists any of the widget's columns that are in a table but hidden on
+its page, with one button that puts them there — a field at the right-hand end of the page, and
+nothing changed in the table.
 
 ## Your business, once
 

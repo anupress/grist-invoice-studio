@@ -9,6 +9,7 @@
 import * as bridge from '../core/grist/bridge.js';
 import { ensureFullAccess } from './access.js';
 import { withChoice } from '../model/schema.js';
+import { readViewMeta, forgetViewMeta, revealActions } from './views.js';
 
 const g = () => (typeof window !== 'undefined' ? window.grist : undefined);
 
@@ -343,12 +344,33 @@ async function dressColumns(table) {
   const choices = table.columns.filter((c) => c.widgetOptions);
   if (!extra.length && !choices.length) return;
 
-  const actions = [
-    ...extra.map((c) => ['AddColumn', table.id, c.id, { type: c.type, label: c.label }]),
-    ...choices.map((c) => ['ModifyColumn', table.id, c.id, { widgetOptions: c.widgetOptions }]),
-  ];
-  const res = await apply(actions);
+  const res = await addColumns(
+    extra.map((c) => [table.id, c.id, { type: c.type, label: c.label }]),
+    choices.map((c) => ['ModifyColumn', table.id, c.id, { widgetOptions: c.widgetOptions }]),
+  );
   if (!res.ok) console.warn(`[Invoice Studio] ${table.id} was created, but its choice list and attachments column were not`, res.error);
+}
+
+/**
+ * Add columns a person can see.
+ *
+ * AddVisibleColumn puts the column on every page that shows the table — what Grist's own "+"
+ * button does. AddColumn puts it in the raw data only, which is what this widget did for years:
+ * the Image column it added to a catalogue held every picture and rendered them on every invoice,
+ * and the Products page showed no such column. The fallback is for a Grist old enough not to know
+ * the newer action; on one of those the column still arrives, in the raw data, as before.
+ *
+ * `cols` is `[[table, id, def], ...]`; `also` is any other actions to send in the same bundle.
+ */
+async function addColumns(cols, also = []) {
+  const bundle = (action) => [...cols.map(([t, id, def]) => [action, t, id, def]), ...also];
+  if (!cols.length) return apply(also);
+  const res = await apply(bundle('AddVisibleColumn'));
+  if (res.ok) { forgetViewMeta(); return res; }
+  console.warn('[Invoice Studio] AddVisibleColumn was refused; adding to the raw data instead', res.error);
+  const again = await apply(bundle('AddColumn'));
+  if (again.ok) forgetViewMeta();
+  return again;
 }
 
 /**
@@ -706,7 +728,7 @@ export async function applyUpgrade(plan, provider, { live }) {
 
   const denied = await requireFullAccess('Adding columns');
   if (denied) return denied;
-  const res = await apply(actions);
+  const res = await addColumns(plan.columns.map((c) => [c.table, c.id, c.def]));
   if (!res.ok) return { ok: false, error: res.error };
 
   // A failed backfill is not a failed upgrade: the columns are there and usable, and the only loss
@@ -722,4 +744,26 @@ export async function applyUpgrade(plan, provider, { live }) {
   await provider.refreshTables();
   await refetch(provider, [...new Set(plan.columns.map((c) => c.table))]);
   return { ok: true, added: actions.length, backfilled };
+}
+
+/**
+ * Put columns that are already in a table onto the pages that show it.
+ *
+ * `hidden` is what views.js reported: each column with the page sections lacking it. Nothing in
+ * the table changes — no column is added, renamed or retyped — only the page layout gains a
+ * field at its right-hand end, which is the one thing AddVisibleColumn would have done that
+ * AddColumn did not. The demo has no pages, so there it is a no-op that reports success.
+ */
+export async function revealColumns(hidden, { live }) {
+  if (!hidden?.length) return { ok: true, revealed: 0 };
+  if (!live) return { ok: true, revealed: hidden.length };
+  const denied = await requireFullAccess('Showing columns on their pages');
+  if (denied) return denied;
+  const meta = await readViewMeta();
+  if (!meta) return { ok: false, error: 'The page layout could not be read.' };
+  const actions = revealActions(meta, hidden);
+  const res = await apply(actions);
+  forgetViewMeta();
+  if (!res.ok) return { ok: false, error: res.error };
+  return { ok: true, revealed: hidden.length };
 }

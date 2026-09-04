@@ -639,6 +639,28 @@ export function withChoice(widgetOptions, value) {
   return { changed: true, widgetOptions: JSON.stringify({ ...wo, choices: [...choices, v] }) };
 }
 
+/**
+ * The columns this widget has a stake in that the document already has: `[{table, id}]`.
+ *
+ * The same roles the upgrade adds, resolved to the column actually serving each — so a catalogue
+ * whose picture column is called Photo reports Photo. This is the list views.js checks for
+ * columns present in the table but missing from its page, which is the state every column this
+ * widget added before 1.20.1 was left in.
+ */
+export function widgetColumns(schema, products = null) {
+  const out = [];
+  if (!schema || !schema.invoice) return out;
+  for (const [part, items] of Object.entries(UPGRADE_PLAN)) {
+    const source = part === 'product' ? products : schema[part];
+    if (!source?.table) continue;
+    const mapped = source.roles || {};
+    for (const item of items) {
+      if (mapped[item.role]) out.push({ table: source.table, id: mapped[item.role] });
+    }
+  }
+  return out;
+}
+
 export function upgradeChecklist(schema, products = null) {
   const out = { invoice: [], client: [], line: [], product: [] };
   if (!schema || !schema.invoice) return out;

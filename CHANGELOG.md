@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.20.1 — columns you can see
+
+- **Every column this widget adds is now on the page**, not only in the raw data. Grist has two
+  actions that make a column: one puts it in the table and its raw data view, the other also
+  gives it a place on every page that shows the table, which is what Grist's own "+" button does.
+  This widget used the first for the catalogue's Image column and for every upgrade column, so
+  the pictures uploaded, rendered on every invoice — and the Products page showed no Image column
+  at all. Setup and the upgrade now use the second; a Grist old enough not to know it falls back
+  to the first, as before.
+- **A repair for documents already in that state.** The Data drawer reads the page layout and
+  lists any of the widget's columns that are in their tables but hidden on their pages, with one
+  button to put them there. It adds a field at the right-hand end of the page and changes
+  nothing in the table. It is kept apart from "Add these columns", because a column somebody hid
+  on purpose is theirs, and the hint above the document says when there is something to show.
+
 ## 1.20.0 — the email, dressed
 
 - **The covering email has a shell now**, in four styles: Card (a white card on a tinted ground

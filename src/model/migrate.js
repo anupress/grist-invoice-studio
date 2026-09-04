@@ -90,9 +90,17 @@ export function buildUpgradePlan(schema, columnsByTable = {}, only = null, produ
   };
 }
 
-/** The plan as Grist user actions, ready for applyUserActions. */
-export function upgradeActions(plan) {
-  return (plan?.columns || []).map((c) => ['AddColumn', c.table, c.id, c.def]);
+/**
+ * The plan as Grist user actions, ready for applyUserActions.
+ *
+ * AddVisibleColumn, not AddColumn. The two make the same column; only the first also puts it on
+ * every page that shows the table, which is what Grist's own "+" button does and what a person
+ * pressing "Add these columns" is looking at. AddColumn left every column this widget ever added
+ * in the raw data only — present, working, and invisible from the page. `visible: false` is the
+ * fallback for a Grist old enough not to know the newer action.
+ */
+export function upgradeActions(plan, { visible = true } = {}) {
+  return (plan?.columns || []).map((c) => [visible ? 'AddVisibleColumn' : 'AddColumn', c.table, c.id, c.def]);
 }
 
 /**

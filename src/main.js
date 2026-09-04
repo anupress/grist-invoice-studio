@@ -13,12 +13,13 @@ import { ANUPRESS_LOGO } from './core/assets/brand-logo.js';
 import * as bridge from './core/grist/bridge.js';
 import { DummyProvider, GristProvider } from './core/data/provider.js';
 import { SAMPLE_DATA, SAMPLE_SENDER, SAMPLE_MONEY } from './data/sample.js';
-import { detectSchema, upgradeChecklist, detectProducts, productOptions, statusOptions } from './model/schema.js';
+import { detectSchema, upgradeChecklist, widgetColumns, detectProducts, productOptions, statusOptions } from './model/schema.js';
 import { listInvoices, listClients, resolveInvoice, borrowCatalogueImages } from './model/resolve.js';
 import { emptyDraft, normaliseDraft, recalc, convertDraft } from './model/draft.js';
 import { buildWritePlan, describePlan, existingNumbers } from './model/write.js';
 import { buildUpgradePlan } from './model/migrate.js';
-import { savePlan, applyUpgrade, queueToOutbox, releaseOutbox, createStarterTables } from './grist/writer.js';
+import { savePlan, applyUpgrade, queueToOutbox, releaseOutbox, createStarterTables, revealColumns } from './grist/writer.js';
+import { readViewMeta, hiddenColumns, forgetViewMeta } from './grist/views.js';
 import { renderSendPanel } from './compose/send-panel.js';
 import { loadSettings, saveSettings, sanitise } from './settings/store.js';
 import { numberFormatFor } from './settings/defaults.js';
@@ -106,6 +107,9 @@ const app = {
   list: 'invoices',
   // The record open in the body when the mode is 'record': { kind: 'client'|'product', rowId }.
   record: null,
+  // Columns that are in their tables but not on their pages — see grist/views.js. Read after every
+  // rescan of a live document; always empty in the demo, which has no pages.
+  hidden: [],
 };
 
 const root = () => document.getElementById('studio-root');
@@ -177,6 +181,32 @@ function rescan() {
   app.products = detectProducts(tables, app.schema, { force: force.product, columns: (force.columns || {}).product });
 }
 
+/**
+ * Which of the widget's columns are hidden from their pages, on a live document.
+ *
+ * Separate from rescan() because it is a network read, and rescan() is called from places that
+ * cannot wait. Best-effort: a document whose page layout cannot be read simply gets no advice
+ * about it. Callers redraw after it resolves.
+ */
+async function probeHidden() {
+  app.hidden = [];
+  if (!app.live || app.access !== 'full' || !app.schema?.invoice) return;
+  const meta = await readViewMeta();
+  if (meta) app.hidden = hiddenColumns(meta, widgetColumns(app.schema, app.products));
+}
+
+/** Put the hidden columns on their pages, then say so. */
+async function runReveal() {
+  if (app.busy || !app.hidden.length) return;
+  app.busy = true;
+  const res = await revealColumns(app.hidden, { live: app.live });
+  app.busy = false;
+  if (!res.ok) { toast(res.error || 'Could not change the pages.', 'err'); return; }
+  await probeHidden();
+  toast(`${res.revealed === 1 ? 'The column is' : `${res.revealed} columns are`} now on ${res.revealed === 1 ? 'its page' : 'their pages'}.`, 'ok');
+  render();
+}
+
 async function boot() {
   console.info('[Invoice Studio] v' + APP_VERSION);
   const connected = await bridge.connect();
@@ -205,6 +235,7 @@ async function boot() {
     rescan();
     const wanted = [app.schema.invoice?.table, app.schema.line?.table, app.schema.client?.table, app.products?.table].filter(Boolean);
     if (wanted.length) await gp.prime(wanted);
+    await probeHidden();
   } else {
     // ?empty exercises the setup path, which is otherwise unreachable in the demo because the
     // bundled document already has tables in it. ?trade=<id> goes one step further and builds
@@ -412,6 +443,7 @@ async function runUpgrade() {
   app.busy = false;
   if (!res.ok) { toast(res.error || 'Could not add the columns.', 'err'); return; }
   rescan();
+  await probeHidden();
   toast(`Added ${res.added} column${res.added === 1 ? '' : 's'}.`, 'ok');
   render();
 }
@@ -442,6 +474,8 @@ async function doRefresh() {
     const { reloaded } = await app.provider.reload(wanted);
     app.stored = await loadSettings();
     rescan();
+    forgetViewMeta();
+    await probeHidden();
     toast(`Refreshed ${reloaded} table${reloaded === 1 ? '' : 's'} from your document.`, 'ok');
   } catch (e) {
     console.warn('[Invoice Studio] refresh failed', e);
@@ -461,6 +495,7 @@ async function enableEditing() {
   await app.provider.refreshTables();
   rescan();
   app.stored = await loadSettings();
+  await probeHidden();
   toast('Editing enabled.', 'ok');
   render();
 }
@@ -1028,6 +1063,7 @@ async function runSetup(templateId, { empty = false } = {}) {
   app.kind = kind;
   app.layout = null;                 // let the template's layout through rather than the bar's
   rescan();
+  await probeHidden();
   app.currentRowId = null;
   toast(empty ? `Created ${res.created.join(', ')}, empty. Add clients and catalogue items from the lists on the left.` : `Created ${res.created.join(', ')}.`, 'ok');
   render();
@@ -1155,6 +1191,7 @@ async function addColumnForRole(kind, role) {
   app.busy = false;
   if (!res.ok) { toast(res.error || 'Could not add the column.', 'err'); return; }
   rescan();
+  await probeHidden();
   toast(`Added the ${id} column to ${plan.columns[0].table}.`, 'ok');
   render();
 }
@@ -1393,6 +1430,26 @@ function renderDataPanel() {
     ]));
   }
 
+  // Columns that are there and cannot be seen. Every column this widget added before 1.20.1 was
+  // left this way — in the raw data, working, and absent from the page — so this is the repair
+  // for it, kept separate from the upgrade because a column somebody hid on purpose belongs to
+  // them, and the button that adds columns should not also be the one that un-hides them.
+  const hidden = app.hidden || [];
+  if (hidden.length) {
+    const show = el('button', {
+      class: 'studio-btn studio-btn--primary studio-btn--sm', type: 'button',
+      text: hidden.length === 1 ? 'Show it on the page' : `Show these ${hidden.length} on their pages`,
+    });
+    show.addEventListener('click', runReveal);
+    bits.push(el('details', { class: 'studio-upgrade', open: true }, [
+      el('summary', { text: `${hidden.length === 1 ? 'A column is' : `${hidden.length} columns are`} in your tables but hidden on their pages` }),
+      el('ul', {}, hidden.map((h) =>
+        el('li', {}, [el('code', { text: h.id }), el('span', { text: ` in ${h.table} — the column is there and its values are read, but the ${h.table} page does not show it.` })]))),
+      el('p', { class: 'studio-upgrade__note', text: 'Adds the column to the right-hand end of the page. Nothing in the table changes. If you hid it yourself, leave this alone.' }),
+      show,
+    ]));
+  }
+
   return shell([
     section('How this document was read', bits),
     tablesSection,
@@ -1439,8 +1496,13 @@ function renderHintStrip() {
   }
   const todo = upgradeChecklist(s, app.products);
   const count = todo.invoice.length + todo.client.length + todo.line.length + todo.product.length;
+  const hidden = (app.hidden || []).length;
   if (count) {
-    return hintStrip(`${count} column${count === 1 ? '' : 's'} would make this document a full billing system.`, 'Review in Data', () => { app.mode = 'data'; render(); });
+    return hintStrip(`${count} column${count === 1 ? '' : 's'} would make this document a full billing system${hidden ? `, and ${hidden === 1 ? 'one is' : `${hidden} are`} hidden on ${hidden === 1 ? 'its page' : 'their pages'}` : ''}.`, 'Review in Data', () => { app.mode = 'data'; render(); });
+  }
+  if (hidden) {
+    const h = app.hidden[0];
+    return hintStrip(hidden === 1 ? `The ${h.id} column is in ${h.table} but hidden on its page.` : `${hidden} columns are in your tables but hidden on their pages.`, 'Review in Data', () => { app.mode = 'data'; render(); });
   }
   if ((s.warnings || []).length) {
     return hintStrip(s.warnings[0].text, 'Details in Data', () => { app.mode = 'data'; render(); });

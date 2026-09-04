@@ -200,7 +200,7 @@ ok('a status column is added to the invoice table', added.includes('Prepare_Invo
 ok('an email column to the clients', added.includes('Businesses.Email'));
 ok('and a stored invoice number, because the existing one is a formula', added.includes('Prepare_Invoices.InvoiceNumber'));
 ok('every column carries the reason it is there', up.columns.every((c) => typeof c.why === 'string' && c.why.length > 10));
-eq('nothing is renamed, retyped or removed', mig.upgradeActions(up).every((a) => a[0] === 'AddColumn'), true);
+eq('nothing is renamed, retyped or removed', mig.upgradeActions(up).every((a) => a[0] === 'AddVisibleColumn'), true);
 
 // Choice options must be a JSON STRING; passing the object leaves a Choice column with no choices,
 // which looks like it worked and then refuses every value.
