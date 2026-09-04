@@ -167,7 +167,11 @@ eq('absent means work it out', store.sanitise({}).tables.invoice, '');
 // What goes with the message: two independent answers, both defaulting to the safe one.
 eq('a PDF by default', store.sanitise({}).delivery.attachFormat, 'pdf');
 eq('and the invoice in the body', store.sanitise({}).delivery.includeInBody, true);
-eq('an HTML file is a real choice', store.sanitise({ delivery: { attachFormat: 'html' } }).delivery.attachFormat, 'html');
+// An HTML file used to be an attachment choice, answering the same question as "show the invoice
+// under your message" and answering it worse. A document still set that way is moved across.
+eq('an HTML attachment becomes a PDF', store.sanitise({ delivery: { attachFormat: 'html' } }).delivery.attachFormat, 'pdf');
+eq('and the invoice is shown in the message instead', store.sanitise({ delivery: { attachFormat: 'html', includeInBody: false } }).delivery.includeInBody, true);
+eq('an e-invoice format survives', store.sanitise({ einvoice: { profile: 'xrechnung' }, delivery: { attachFormat: 'facturx' } }).delivery.attachFormat, 'facturx');
 eq('so is nothing', store.sanitise({ delivery: { attachFormat: 'none' } }).delivery.attachFormat, 'none');
 eq('nonsense falls back to the PDF', store.sanitise({ delivery: { attachFormat: 'zip' } }).delivery.attachFormat, 'pdf');
 eq('the body can be turned off', store.sanitise({ delivery: { includeInBody: false } }).delivery.includeInBody, false);

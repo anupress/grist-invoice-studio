@@ -429,14 +429,13 @@ export function renderSettingsPanel(ctx) {
     field('Attach by default', selectInput([
       opt('pdf', 'PDF — the usual'),
       ...(ei.profile ? EINVOICE_FORMATS.map((f) => opt(f.id, f.label)) : []),
-      opt('html', 'HTML file — opens in any browser'),
-      opt('none', 'Nothing — the email only'),
-    ], del.attachFormat, (v) => { del.attachFormat = v; }),
-      'What travels with the message. Changeable for one send in the Send panel.'),
-    field('Show the invoice in the email', selectInput([
-      opt('yes', 'Yes — laid out in the body'), opt('no', 'No — a covering note only'),
+      opt('none', 'Nothing — the invoice in the message only'),
+    ], del.attachFormat === 'html' ? 'pdf' : del.attachFormat, (v) => { del.attachFormat = v; }),
+      'The file that travels with the message. Changeable for one send in the Send panel.'),
+    field('Show the invoice under your message', selectInput([
+      opt('yes', 'Yes — the invoice follows your text'), opt('no', 'No — a covering note only'),
     ], del.includeInBody === false ? 'no' : 'yes', (v) => { del.includeInBody = v === 'yes'; }),
-      'A client who will not open an attachment can still read it.'),
+      'The invoice laid out in the email itself, below what you wrote. A client who will not open an attachment can still read it.'),
     field('Reply-to address', textInput(del.replyTo, (v) => { del.replyTo = v; }, { type: 'email' })),
     field('Always Cc', textInput(del.cc, (v) => { del.cc = v; }, { type: 'email' })),
     field('Always Bcc', textInput(del.bcc, (v) => { del.bcc = v; }, { type: 'email' }),

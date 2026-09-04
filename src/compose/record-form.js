@@ -11,27 +11,34 @@
 
 import { el } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
-import { field, textInput, numberInput, selectInput, button, section } from './ui.js';
-import { formFields, recordName, LANGUAGE_OPTIONS } from '../model/records.js';
+import { field, textInput, numberInput, selectInput, suggestInput, button, section } from './ui.js';
+import { formFields, extraFields, recordName, LANGUAGE_OPTIONS } from '../model/records.js';
 import { imageSrc } from '../doc/render.js';
 
 /**
  * Build the form.
  *
- *   kind        'client' | 'product'
- *   roles       the table's role map; columns its column list — the form resolves itself against them
- *   values      by role; edited in place
- *   rowId       null for a new record
- *   onSave      async (values) => { ok, error?, rowId? }
- *   onRemove    async () => { ok, error? }   (omitted for a new record)
- *   onCancel    () => void
+ *   kind          'client' | 'product'
+ *   roles         the table's role map; columns its column list — the form resolves itself against them
+ *   values        by role; edited in place
+ *   rowId         null for a new record
+ *   onSave        async (values) => { ok, error?, rowId? }
+ *   onRemove      async () => { ok, error? }   (omitted for a new record)
+ *   onCancel      () => void
+ *   onAddColumn   async (role) => void — offered where a field has no column and the upgrade knows one
  *   resolveImage  attachment id → URL, for the picture preview
- *   money       the money format, for the price preview
- *   compact     inline inside the composer: no bar of its own, a smaller title
+ *   suggestions   { country, unit, taxClass } lists for the type-ahead
+ *   money         the money format, for the price preview
+ *   compact       inline inside the composer: no bar of its own, a smaller title
  */
 export function renderRecordForm(ctx) {
-  const { kind, roles = {}, columns = [], values, rowId = null, onSave, onRemove, onCancel, resolveImage, money, compact = false, canWrite = true } = ctx;
-  const fields = formFields(kind, roles, columns);
+  const {
+    kind, roles = {}, columns = [], values, rowId = null,
+    onSave, onRemove, onCancel, onAddColumn, resolveImage, money, suggestions = {},
+    compact = false, canWrite = true,
+  } = ctx;
+  const known = formFields(kind, roles, columns);
+  const extras = compact ? [] : extraFields(kind, roles, columns);
   const isNew = rowId == null;
 
   const status = el('div', { class: 'snd-status' });
@@ -56,35 +63,59 @@ export function renderRecordForm(ctx) {
       return;
     }
     const src = imageSrc(values.image, resolveImage);
-    preview.append(
-      el('div', { class: 'rec-preview__product' }, [
-        src ? el('img', { class: 'rec-preview__img', src, alt: '' }) : el('div', { class: 'rec-preview__img is-empty', text: 'No picture' }),
-        el('div', {}, [
-          el('div', { class: 'inv-party__name', text: recordName(values, kind) }),
-          el('div', { class: 'inv-party__line inv-party__line--meta', text: [values.sku, values.unit].filter(Boolean).join(' · ') }),
-          el('div', { class: 'rec-preview__price', text: values.unitPrice === '' || values.unitPrice == null ? '—' : formatMoney(Number(values.unitPrice) || 0, money || {}) }),
-        ]),
+    preview.append(el('div', { class: 'rec-preview__product' }, [
+      src ? el('img', { class: 'rec-preview__img', src, alt: '' }) : el('div', { class: 'rec-preview__img is-empty', text: 'No picture' }),
+      el('div', { class: 'rec-preview__meta' }, [
+        el('div', { class: 'inv-party__name', text: recordName(values, kind) }),
+        el('div', { class: 'inv-party__line inv-party__line--meta', text: [values.sku, values.unit].filter(Boolean).join(' · ') }),
+        el('div', { class: 'rec-preview__price', text: values.unitPrice === '' || values.unitPrice == null ? '—' : formatMoney(Number(values.unitPrice) || 0, money || {}) }),
       ]),
-    );
+    ]));
   };
 
-  // ---- the fields -----------------------------------------------------------------------------
-  const controls = fields.map((f) => {
+  // ---- one field ------------------------------------------------------------------------------
+  const controlFor = (f) => {
     const set = (v) => { values[f.role] = v; paintPreview(); };
-    let control;
-    if (f.type === 'image') control = imageControl(f, values, set, resolveImage, say);
-    else if (f.type === 'language') control = selectInput(LANGUAGE_OPTIONS, values[f.role] || '', set, { ariaLabel: f.label });
-    else if (f.type === 'number') control = numberInput(values[f.role], (v) => set(v), { ariaLabel: f.label });
-    else control = textInput(values[f.role], (v) => set(f.code ? v.toUpperCase() : v), { type: f.type || 'text', placeholder: f.placeholder || '', class: f.code ? 'cmp-input--code' : '', ariaLabel: f.label });
-
-    // A field without a column is shown, disabled, with the reason: the person can see what the
-    // widget could keep if the column existed, and Data is where it can be added.
-    if (!f.writable) {
-      control.disabled = true;
-      return field(f.label, control, f.present ? 'This column is a formula, so it cannot be written.' : 'No column in this table holds it. Data → columns can add one.');
+    if (f.type === 'image') return imageControl(f, values, set, resolveImage, say);
+    if (f.type === 'language') return selectInput(LANGUAGE_OPTIONS, values[f.role] || '', set, { ariaLabel: f.label });
+    if (f.type === 'choice') {
+      return selectInput([{ value: '', label: '—' }, ...(f.choices || []).map((c) => ({ value: c, label: c }))], values[f.role] || '', set, { ariaLabel: f.label });
     }
-    return field(f.label + (f.required ? ' *' : ''), control, f.hint || null);
-  });
+    if (f.type === 'bool') {
+      const box = el('input', { type: 'checkbox', class: 'rec-check', checked: values[f.role] ? true : null, 'aria-label': f.label });
+      box.addEventListener('change', () => set(box.checked));
+      return box;
+    }
+    if (f.type === 'number') return numberInput(values[f.role], set, { ariaLabel: f.label });
+    if (f.type === 'date') return textInput(values[f.role], set, { type: 'date', ariaLabel: f.label });
+    if (f.suggest && (suggestions[f.suggest] || []).length) {
+      return suggestInput(values[f.role], (v) => set(f.code ? v.toUpperCase() : v), {
+        options: suggestions[f.suggest], placeholder: f.placeholder || '', class: f.code ? 'cmp-input--code' : '', ariaLabel: f.label,
+      });
+    }
+    return textInput(values[f.role], (v) => set(f.code ? v.toUpperCase() : v), {
+      type: f.type || 'text', placeholder: f.placeholder || '', class: f.code ? 'cmp-input--code' : '', ariaLabel: f.label,
+    });
+  };
+
+  const renderField = (f) => {
+    // A field without a column is shown, disabled, with the reason — and, where the widget knows
+    // how to add that column, a button that does it. Hiding it would leave a person hunting for
+    // a picture box that is simply not there.
+    if (!f.writable) {
+      const dead = textInput('', () => {}, { ariaLabel: f.label });
+      dead.disabled = true;
+      const why = f.present ? 'This column is a formula, so it cannot be written.' : 'No column in this table holds it.';
+      const wrap = el('div', { class: 'rec-missing' }, [
+        dead,
+        f.addable && onAddColumn
+          ? button(`Add ${f.label.toLowerCase()} column`, () => onAddColumn(f.role), { variant: 'ghost' })
+          : null,
+      ]);
+      return field(f.label, wrap, why + (f.addable && onAddColumn ? ' One press adds it — nothing else in the table changes.' : ' Data → columns can point this at one.'));
+    }
+    return field(f.label + (f.required ? ' *' : ''), controlFor(f), f.hint || null, { wide: f.wide });
+  };
 
   // ---- the buttons ----------------------------------------------------------------------------
   const saveBtn = button(isNew ? (kind === 'client' ? 'Add client' : 'Add to catalogue') : 'Save', async () => {
@@ -136,7 +167,17 @@ export function renderRecordForm(ctx) {
     bar,
     !canWrite ? el('div', { class: 'cmp-notice' }, [el('strong', { text: 'Editing is not enabled, so this cannot be saved yet.' })]) : null,
     el('div', { class: 'rec-body' }, [
-      section(compact ? title : 'Details', controls, { grid: true }),
+      el('div', { class: 'rec-fields' }, [
+        section(compact ? title : 'Details', known.map(renderField), { grid: true, class: 'cmp-section--rec' }),
+        // The table's own columns, under their own heading, so the widget's fields stay first and
+        // a business's extra ones are plainly theirs.
+        extras.length
+          ? section(`Also in ${kind === 'client' ? 'this client table' : 'this catalogue'}`, [
+            el('p', { class: 'set-lead', text: 'Columns this table has that the widget does not use itself. Fill them in here rather than opening the table.' }),
+            ...extras.map(renderField),
+          ], { grid: true, class: 'cmp-section--rec' })
+          : null,
+      ]),
       el('div', { class: 'rec-side' }, [
         el('h3', { class: 'cmp-section__title', text: kind === 'client' ? 'On the document' : 'In the catalogue' }),
         preview,

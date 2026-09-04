@@ -14,7 +14,8 @@ import { formatMoney } from '../money/currency.js';
 import { documentKind, DOCUMENT_KINDS, conversionsFor } from '../doc/kinds.js';
 import { fieldsFor } from '../doc/fields.js';
 import { renderLinesGrid, blankLine } from './lines-grid.js';
-import { field, textInput, numberInput, textArea, selectInput, button, section } from './ui.js';
+import { field, textInput, numberInput, textArea, selectInput, suggestInput, button, section } from './ui.js';
+import { asOptions, CURRENCIES, PAYMENT_TERMS } from '../model/suggest.js';
 import { LANGUAGES, normaliseLanguage } from '../doc/lang.js';
 import { renderRecordForm } from './record-form.js';
 
@@ -163,13 +164,13 @@ export function renderComposer(ctx) {
     field('Discount', numberInput(draft.discountAmount, (v) => { draft.discountAmount = v; edited(); }, { ariaLabel: 'Order discount' })),
     field('Shipping', numberInput(draft.shippingAmount, (v) => { draft.shippingAmount = v; edited(); }, { ariaLabel: 'Shipping charge' })),
     field('Already paid', numberInput(draft.amountPaid, (v) => { draft.amountPaid = v; edited(); }, { ariaLabel: 'Amount already paid' })),
-    field('Currency', textInput(draft.currency, (v) => {
+    field('Currency', suggestInput(draft.currency, (v) => {
       draft.currency = v.toUpperCase();
       // Empty falls back to the business currency, so clearing this field is how a document
       // stops overriding it.
       draft.format = { ...draft.format, currency: draft.currency || settings.money?.currency || 'USD' };
       edited();
-    }, { placeholder: settings.money?.currency || 'USD', class: 'cmp-input--code' }),
+    }, { options: asOptions(CURRENCIES), placeholder: settings.money?.currency || 'USD', class: 'cmp-input--code' }),
       'Empty follows your business currency. Type one only when this document is billed in another.'),
     // The escape hatch. Most documents want the rate table; occasionally the answer is simply a
     // figure — an accountant has given one, or an old invoice is being reproduced — and fighting
@@ -182,7 +183,7 @@ export function renderComposer(ctx) {
   ], { grid: true }) : null;
 
   const words = section('Wording', [
-    field('Payment terms', textInput(draft.terms, (v) => { draft.terms = v; onEdit(); }, { placeholder: 'Net 30' })),
+    field('Payment terms', suggestInput(draft.terms, (v) => { draft.terms = v; onEdit(); }, { options: PAYMENT_TERMS, placeholder: 'Net 30' })),
     field('Note on the document', textArea(draft.note, (v) => { draft.note = v; onEdit(); }, { rows: 2 })),
   ], { grid: true });
 

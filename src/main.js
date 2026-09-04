@@ -26,7 +26,8 @@ import { renderSettingsPanel } from './settings/panel.js';
 import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate } from './templates/index.js';
 import { starterTablesFor, SAMPLE_LINES, sampleBusinessFor } from './templates/starter.js';
 import { removeSampleRows, saveRecord, removeRecord, uploadAttachment } from './grist/writer.js';
-import { formFields, readRecord, recordPlan, recordName } from './model/records.js';
+import { formFields, readRecord, recordPlan, recordName, ADDABLE } from './model/records.js';
+import { asOptions, COUNTRIES, UNITS, taxClassesFor } from './model/suggest.js';
 import { renderRecordForm } from './compose/record-form.js';
 import { ROLES_BY_PART } from './model/schema.js';
 import { missingFrom } from './templates/starter.js';
@@ -1094,21 +1095,25 @@ async function saveRecordValues(kind, rowId, values) {
   const src = recordSource(kind);
   if (!src) return { ok: false, error: `This document has no ${kind === 'client' ? 'client' : 'catalogue'} table.` };
   const columns = recordColumns(kind);
-  const fields = formFields(kind, src.roles, columns);
-  const picture = fields.find((f) => f.type === 'image');
+  const picture = formFields(kind, src.roles, columns).find((f) => f.type === 'image');
 
-  // A picture typed in as a data URI goes up as an attachment on a live document with an
-  // Attachments column. In the demo, or into a Text column, the data URI itself is stored.
+  // A picture chosen in the form arrives as a data URI. On a live document with an Attachments
+  // column it has to become a real attachment first — the cell holds ids, not pictures — and a
+  // failed upload is reported rather than swallowed, because the alternative is a saved record
+  // that quietly has no picture. The demo has no attachment store, so it keeps the data URI, and
+  // so does a Text picture column.
   const toSave = { ...values };
-  if (picture && picture.attachments && typeof toSave.image === 'string' && toSave.image.startsWith('data:image/')) {
-    if (app.live) {
-      const up = await uploadAttachment(toSave.image, `${recordName(values, kind).replace(/[^\w-]+/g, '-').toLowerCase() || 'picture'}.jpg`);
-      if (!up.ok) return up;
-      toSave.image = up.value;
-    }
+  const isNewPicture = typeof toSave.image === 'string' && toSave.image.startsWith('data:image/');
+  if (picture && picture.attachments && isNewPicture && app.live) {
+    const up = await uploadAttachment(toSave.image, `${recordName(values, kind).replace(/[^\w-]+/g, '-').toLowerCase() || 'picture'}.jpg`);
+    if (!up.ok) return { ok: false, error: up.error || 'The picture could not be uploaded.' };
+    toSave.image = up.value;
   }
 
-  const plan = recordPlan({ kind, table: src.table, roles: src.roles, columns, rowId, values: toSave });
+  const plan = recordPlan({
+    kind, table: src.table, roles: src.roles, columns, rowId, values: toSave,
+    imageMode: app.live ? 'attachment' : 'inline',
+  });
   if (!plan.ok) return { ok: false, error: plan.problems[0] };
   const res = await saveRecord(plan, app.provider, { live: app.live });
   if (!res.ok) return res;
@@ -1118,6 +1123,40 @@ async function saveRecordValues(kind, rowId, values) {
     ok: true, rowId: res.rowId,
     note: dropped.length ? `Saved — but ${dropped.join(', ')} could not be kept: no column for ${dropped.length === 1 ? 'it' : 'them'} in this table.` : undefined,
   };
+}
+
+/** The type-ahead lists the record forms offer. Tax classes come from this document's own table. */
+function recordSuggestions() {
+  return {
+    country: asOptions(COUNTRIES),
+    unit: asOptions(UNITS),
+    taxClass: asOptions(taxClassesFor(settingsNow().money)),
+  };
+}
+
+/**
+ * Add the column a form field has nowhere to go into.
+ *
+ * The same machinery as "Upgrade this document", asked for one column at a time: a catalogue with
+ * no Image column gets one, a client table with no Email gets one. Only adds — nothing is
+ * renamed, retyped or removed.
+ */
+async function addColumnForRole(kind, role) {
+  const part = kind === 'client' ? 'client' : 'product';
+  const id = ADDABLE[part]?.[role];
+  if (!id || app.busy) return;
+  const columnsByTable = {};
+  for (const t of app.provider.tables() || []) columnsByTable[t.id] = app.provider.columns(t.id) || [];
+  const plan = buildUpgradePlan(app.schema, columnsByTable, [id], app.products);
+  if (!plan.ok) { toast('That column is already in the table.', 'ok'); rescan(); render(); return; }
+
+  app.busy = true;
+  const res = await applyUpgrade(plan, app.provider, { live: app.live });
+  app.busy = false;
+  if (!res.ok) { toast(res.error || 'Could not add the column.', 'err'); return; }
+  rescan();
+  toast(`Added the ${id} column to ${plan.columns[0].table}.`, 'ok');
+  render();
 }
 
 /** Open a record in the body. `rowId` null starts a new one. */
@@ -1136,13 +1175,15 @@ function renderRecordEditor() {
   const columns = recordColumns(kind);
   const row = rowId != null ? (app.provider.records(src.table) || []).find((r) => r.id === rowId) : null;
   if (rowId != null && !row) { app.mode = 'view'; app.record = null; return null; }
-  const values = row ? readRecord(row, kind, src.roles) : readRecord(null, kind, src.roles);
+  const values = readRecord(row || null, kind, src.roles, columns);
   if (!row && kind === 'client') values.country = app.stored.money.defaultCustomerCountry || '';
   const money = settingsNow().money;
 
   return renderRecordForm({
     kind, rowId, values, resolveImage, canWrite: canWrite(),
     roles: src.roles, columns,
+    suggestions: recordSuggestions(),
+    onAddColumn: (role) => addColumnForRole(kind, role),
     money: { ...money.format, currency: money.currency },
     onSave: async (v) => {
       const res = await saveRecordValues(kind, rowId, v);

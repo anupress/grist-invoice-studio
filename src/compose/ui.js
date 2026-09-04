@@ -6,8 +6,8 @@
 
 import { el } from '../core/util.js';
 
-export function field(label, control, hint) {
-  return el('label', { class: 'cmp-field' }, [
+export function field(label, control, hint, opts = {}) {
+  return el('label', { class: 'cmp-field' + (opts.wide ? ' cmp-field--wide' : '') }, [
     el('span', { class: 'cmp-field__label', text: label }),
     control,
     hint ? el('span', { class: 'cmp-field__hint', text: hint }) : null,
@@ -22,10 +22,30 @@ export function textInput(value, onInput, opts = {}) {
     placeholder: opts.placeholder || '',
     readOnly: opts.readOnly || null,
     inputmode: opts.inputmode || null,
+    list: opts.list || null,
     'aria-label': opts.ariaLabel || null,
   });
   input.addEventListener('input', () => onInput(input.value));
   return input;
+}
+
+/**
+ * A text box that suggests, without constraining.
+ *
+ * A datalist is the right control for a country code, a unit or a currency: the answer is known
+ * but its spelling is not, and a select would refuse the one country we forgot. `options` takes
+ * `{ value, label }` — the label is what the browser shows beside the value, so "GB" reads as
+ * "GB — United Kingdom" while what lands in the box is still "GB".
+ */
+export function suggestInput(value, onInput, opts = {}) {
+  const id = 'sug-' + Math.random().toString(36).slice(2, 8);
+  const input = textInput(value, onInput, { ...opts, list: id });
+  return el('div', { class: 'cmp-suggest' }, [
+    input,
+    el('datalist', { id }, (opts.options || []).map((o) => (typeof o === 'string'
+      ? el('option', { value: o })
+      : el('option', { value: o.value, label: o.label || null })))),
+  ]);
 }
 
 /**

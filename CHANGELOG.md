@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.19.1
+
+- **A picture now actually reaches the table.** Two faults, both fixed: on a document whose
+  catalogue has no Image column the picture had nowhere to go, and the form said so without
+  offering a way out — it now adds the column in one press; and in the demo the data URI was
+  refused by an attachments column that, being in memory, could have held it perfectly well.
+- **A new client or catalogue item appears the moment it is saved.** The provider's `prime()`
+  deliberately skips a table whose rows it already holds, so priming after a write returned the
+  rows as they were before it and the list only caught up on Refresh. Every write path now
+  invalidates before it primes.
+- **Every column the table has is on the form.** Colour, Size, Supplier, a checkbox, a date, a
+  choice list of its own — the columns the widget does not use itself now appear under "Also in
+  this catalogue", with the right control for each. Formulas, references and attachment columns
+  beyond the picture are left out rather than given a box that would write the wrong shape.
+- **Type-ahead where the answer is known but the spelling is not**: country codes with their
+  names, currencies, units an e-invoice will accept, tax classes taken from your own rate table,
+  and the usual payment terms. Suggestions, never constraints — a country we forgot still goes in.
+- **An HTML file is no longer an attachment choice.** It answered the same question as "show the
+  invoice under your message" and answered it worse: a second file to open rather than something
+  to read. The body option is now named for what it does, and a document still set to the old
+  choice is moved across to a PDF with the invoice in the message. The HTML file remains a
+  download, for automations that want to read one.
+- Line items are nested under Invoices in Grist's own page list when a document is set up here —
+  they belong to an invoice, and nothing navigates to them alone. Best-effort: a document whose
+  pages could not be rearranged is a document that works.
+- The client form is laid out properly: full-width name and address lines, three columns for the
+  town line, and the preview stays beside the fields on a wide pane rather than being squeezed.
+
 ## 1.19.0 — Clients and the catalogue, without leaving the widget
 
 - **Three lists in the sidebar: Invoices, Clients, Catalogue.** Clients and catalogue items are

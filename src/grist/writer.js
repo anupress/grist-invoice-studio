@@ -50,6 +50,21 @@ async function apply(actions) {
   }
 }
 
+/**
+ * Read tables back from Grist after writing to them.
+ *
+ * prime() deliberately SKIPS a table whose rows it already holds — that is what makes the first
+ * paint cheap — so priming after a write returns the rows as they were before it. Invalidating
+ * first is the difference between a new client appearing in the list and appearing only after
+ * somebody presses Refresh. (It appeared only after Refresh. That was this.)
+ */
+async function refetch(provider, tableIds) {
+  const ids = [...new Set((tableIds || []).filter(Boolean))];
+  if (!ids.length) return;
+  if (typeof provider.invalidate === 'function') for (const id of ids) provider.invalidate(id);
+  await provider.prime(ids);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Live
 // ---------------------------------------------------------------------------------------------
@@ -195,9 +210,7 @@ export async function savePlan(plan, provider, { live }) {
     // Read back what landed, rather than assuming. A formula column, a Choice that rejected a
     // value, or a trigger elsewhere in the document can all make the stored row differ from the
     // one we sent, and the person looking at the screen should see the stored one.
-    provider.invalidate(plan.invoice.table);
-    if (plan.lines) provider.invalidate(plan.lines.table);
-    await provider.prime([plan.invoice.table, plan.lines?.table].filter(Boolean));
+    await refetch(provider, [plan.invoice.table, plan.lines?.table]);
   }
   return res;
 }
@@ -465,9 +478,59 @@ export async function createStarterTables(tables, provider, { live }) {
   // Rows, not just columns. refreshTables loads both for tables it has not seen, and these are all
   // new — but priming again is cheap and makes the dependency explicit rather than incidental.
   await provider.prime(created);
+  // Line items belong to an invoice, so their page belongs under the invoices page. Decorative,
+  // and best-effort: a document whose pages could not be rearranged is a document that works.
+  if (created.includes('InvoiceItems') && created.includes('Invoices')) await nestPage('Invoices', 'InvoiceItems');
   // A table that did not exist a moment ago holds nothing but what was just written.
   for (const id of created) rows[id] = (provider.records(id) || []).map((r) => r.id);
   return { ok: true, created, skipped: tables.length - todo.length ? tables.filter((t) => existing.has(t.id)).map((t) => t.id) : [], rows };
+}
+
+/**
+ * Put one page under another in Grist's own page list.
+ *
+ * Grist gives every new table a top-level page, so a document set up here arrives with Clients,
+ * Products, Invoices and InvoiceItems all in a row — and line items are not a thing anybody
+ * navigates to on their own, they are part of an invoice. Nesting is one field on `_grist_Pages`:
+ * an indentation, and a position that puts the child directly after its parent.
+ *
+ * Every step is guarded. This is tidying, not data: if the metadata is not what we expect, or the
+ * document refuses the write, the pages stay as Grist made them and nothing else is affected.
+ */
+async function nestPage(parentTable, childTable) {
+  try {
+    const [pages, views] = await Promise.all([
+      g().docApi.fetchTable('_grist_Pages'),
+      g().docApi.fetchTable('_grist_Views'),
+    ]);
+    if (!pages?.id?.length || !views?.id?.length) return;
+    const nameOf = new Map(views.id.map((id, i) => [id, views.name[i]]));
+    const rows = pages.id.map((id, i) => ({
+      id,
+      name: nameOf.get(pages.viewRef[i]) || '',
+      indentation: Number(pages.indentation[i]) || 0,
+      pagePos: Number(pages.pagePos[i]),
+    })).filter((r) => isFinite(r.pagePos)).sort((a, b) => a.pagePos - b.pagePos);
+
+    const parent = rows.filter((r) => r.name === parentTable);
+    const child = rows.filter((r) => r.name === childTable);
+    // Exactly one of each, or leave it alone: guessing which of two pages was meant is how a
+    // person's own arrangement gets rearranged underneath them.
+    if (parent.length !== 1 || child.length !== 1) return;
+    const at = rows.findIndex((r) => r.id === parent[0].id);
+    const next = rows[at + 1];
+    if (next && next.id === child[0].id && child[0].indentation === parent[0].indentation + 1) return;   // already nested
+
+    const pos = next && next.id !== child[0].id
+      ? (parent[0].pagePos + next.pagePos) / 2
+      : parent[0].pagePos + 1;
+    await apply([['UpdateRecord', '_grist_Pages', child[0].id, {
+      indentation: parent[0].indentation + 1,
+      pagePos: pos,
+    }]]);
+  } catch (e) {
+    console.warn('[Invoice Studio] the pages could not be rearranged — the document is unaffected', e);
+  }
 }
 
 /** Tables in the order their rows can be removed: a referenced row goes after the row pointing at it. */
@@ -521,7 +584,7 @@ export async function removeSampleRows(sampleRows, provider, { live }) {
   const res = await apply(todo.map(({ table, ids }) => ['BulkRemoveRecord', table, ids]));
   if (!res.ok) return { ok: false, error: res.error };
   bridge.invalidateMetaCache();
-  await provider.prime(todo.map((t) => t.table));
+  await refetch(provider, todo.map((t) => t.table));
   return { ok: true, removed };
 }
 
@@ -562,7 +625,7 @@ export async function saveRecord(plan, provider, { live }) {
     : ['UpdateRecord', plan.table, plan.rowId, plan.fields]]);
   if (!res.ok) return { ok: false, error: res.error };
   const rowId = plan.rowId == null ? res.retValues[0] : plan.rowId;
-  await provider.prime([plan.table]);
+  await refetch(provider, [plan.table]);
   return { ok: true, rowId };
 }
 
@@ -580,7 +643,7 @@ export async function removeRecord(table, rowId, provider, { live }) {
   if (denied) return denied;
   const res = await apply([['RemoveRecord', table, rowId]]);
   if (!res.ok) return { ok: false, error: res.error };
-  await provider.prime([table]);
+  await refetch(provider, [table]);
   return { ok: true };
 }
 
@@ -657,6 +720,6 @@ export async function applyUpgrade(plan, provider, { live }) {
 
   bridge.invalidateMetaCache();
   await provider.refreshTables();
-  await provider.prime([...new Set(plan.columns.map((c) => c.table))]);
+  await refetch(provider, [...new Set(plan.columns.map((c) => c.table))]);
   return { ok: true, added: actions.length, backfilled };
 }

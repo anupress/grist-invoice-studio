@@ -150,6 +150,11 @@ export function sanitise(settings) {
 
   s.delivery.endpoint = String(s.delivery.endpoint || '').trim();
   if (!['pdf', 'html', 'none', 'facturx', 'ubl', 'cii'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';
+  // An HTML file was once an attachment choice. It answered the same question as "show the
+  // invoice under your message" and answered it worse — a second file to open rather than
+  // something to read — so a document still set that way is moved across rather than left on a
+  // choice the panel no longer offers.
+  if (s.delivery.attachFormat === 'html') { s.delivery.attachFormat = 'pdf'; s.delivery.includeInBody = true; }
   if (!['', 'en16931', 'xrechnung', 'peppol'].includes(s.einvoice.profile)) s.einvoice.profile = '';
   // An e-invoice format as the default attachment only makes sense with a profile to write it under.
   if (!s.einvoice.profile && ['facturx', 'ubl', 'cii'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';

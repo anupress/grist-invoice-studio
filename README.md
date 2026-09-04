@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.19.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.19.1-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -69,6 +69,11 @@ are added and edited there, in the body, with a live preview of how the client's
 the item's thumbnail and price will print. A catalogue item takes a picture by drag-and-drop; on a
 live document it is uploaded as a Grist attachment, in the demo it is kept in memory. Fields the
 table has no column for are shown greyed with the reason, never hidden.
+
+Every column the table has appears on the form, not only the ones the widget uses: a catalogue
+with Colour, Size or Supplier gets those boxes too, with the right control for each. Where a field
+has no column at all — a catalogue with nowhere to put a picture, a client table with no email —
+one press adds it, and nothing else in the table changes.
 
 Two shortcuts keep you on the invoice: the client picker ends with "+ New client…", which opens
 the same form inline and selects the new client on save; and every line carries a star that adds
@@ -188,6 +193,11 @@ table.
 
 A browser cannot send email, and Grist's own email action only reaches people with access to the
 document, so it cannot email a client. The four routes reflect that:
+
+What travels with a message is two separate questions. **Attach** is the file the client keeps —
+a PDF, or one of the e-invoice formats. **Show the invoice under your message** puts the whole
+invoice in the email itself, below your text, laid out with tables so it survives Gmail and
+Outlook. A client who will not open an attachment can still read it.
 
 | Route | Setup | Leaves the browser | Runs unattended |
 |---|---|---|---|

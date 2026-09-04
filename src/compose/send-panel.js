@@ -90,18 +90,20 @@ export function renderSendPanel(ctx) {
     }, { ariaLabel: 'Which message' });
 
   const includeToggle = selectInput(
-    [{ value: 'yes', label: 'Yes — show the invoice in the email' }, { value: 'no', label: 'No — a covering note only' }],
+    [{ value: 'yes', label: 'Yes — the invoice follows your message' }, { value: 'no', label: 'No — a covering note only' }],
     state.includeDocument ? 'yes' : 'no',
-    (v) => { state.includeDocument = v === 'yes'; }, { ariaLabel: 'Include the document in the body' });
+    (v) => { state.includeDocument = v === 'yes'; }, { ariaLabel: 'Show the invoice under the message' });
 
   // The attachment is a separate question from the body, and both have a real answer. Changing it
   // repaints the notes that name the file, so what the buttons promise stays true.
+  // No HTML file here. A client who cannot open a PDF is not helped by a second file they also
+  // have to open — what helps is the invoice being IN the message, which is the next control
+  // down. The HTML file remains a download, for automations that want to read one.
   const attachToggle = selectInput(
     [
       { value: 'pdf', label: 'PDF — the usual' },
       ...(einvoiceOn ? EINVOICE_FORMATS.map((f) => ({ value: f.id, label: f.label })) : []),
-      { value: 'html', label: 'HTML file — opens in any browser' },
-      { value: 'none', label: 'Nothing — the email only' },
+      { value: 'none', label: 'Nothing — the invoice in the message only' },
     ],
     state.attachFormat,
     (v) => { state.attachFormat = v; paintCheck(); }, { ariaLabel: 'What to attach' });
@@ -153,7 +155,6 @@ export function renderSendPanel(ctx) {
   const attachedFile = () => {
     if (state.attachFormat === 'none') return null;
     const name = fileNameFor(draft);
-    if (state.attachFormat === 'html') return name;
     if (state.attachFormat === 'ubl' || state.attachFormat === 'cii') return name.replace(/\.html$/, '.xml');
     return name.replace(/\.html$/, '.pdf');
   };
@@ -180,7 +181,6 @@ export function renderSendPanel(ctx) {
     // client opens puts it in the downloads bar under the name the body just quoted.
     let saved = null;
     if (state.attachFormat === 'pdf') saved = await downloadPdf(draft, settings);
-    else if (state.attachFormat === 'html') saved = downloadHtml(draft, settings);
     else if (isEInvoiceFormat(state.attachFormat)) saved = await downloadEInvoice(draft, settings, state.attachFormat);
 
     openMailClient(m, opts);
@@ -313,11 +313,11 @@ export function renderSendPanel(ctx) {
       field('Body', bodyInput),
       field('Attach', attachToggle,
         einvoiceOn
-          ? 'What the client can file. Factur-X is a PDF with the invoice inside as XML, which German and French systems read automatically; UBL and CII are the bare XML for Peppol and XRechnung. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'
-          : 'What the client can file. The PDF is what a bookkeeper expects; an HTML file opens in any browser without a reader. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'),
+          ? 'The file the client keeps. Factur-X is a PDF with the invoice inside as XML, which German and French systems read automatically; UBL and CII are the bare XML for Peppol and XRechnung. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'
+          : 'The file the client keeps — a PDF is what a bookkeeper expects. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'),
       checkBox,
-      field('Show the invoice in the email', includeToggle,
-        'Laid out with tables so it survives Gmail and Outlook. A client who will not open an attachment can still read it, which is also what saves a message whose attachment a filter has stripped.'),
+      field('Show the invoice under your message', includeToggle,
+        'The whole invoice, laid out in the email itself, below your text — tables and inline styles, so it survives Gmail and Outlook. A client who will not open an attachment can still read it, and a message whose attachment a filter stripped still says what is owed.'),
     ]),
 
     section('Send it yourself', [
