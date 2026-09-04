@@ -171,14 +171,32 @@ html, body {
   overflow: hidden;
 }
 
+/* ---- the printing frame ---------------------------------------------------------------------
+ * A one-cell table around the page whose header and footer rows are the printed margins — see
+ * print.js for why the sheet's own margin is zero. On screen it is plain blocks, and the two
+ * margin rows are not shown. */
+.studio-printframe, .studio-printframe > thead, .studio-printframe > tbody, .studio-printframe > tfoot,
+.studio-printframe > * > tr, .studio-printframe__cell { display: block; width: 100%; }
+.studio-printframe { max-width: 820px; border-collapse: collapse; border-spacing: 0; }
+.studio-printframe__cell { padding: 0; }
+.studio-printframe__gap { display: none; }
+
 /* ---- print ---------------------------------------------------------------------------------
- * Printing an invoice should produce the invoice, not the application it was drawn in. */
+ * Printing an invoice should produce the invoice, not the application it was drawn in: no bar,
+ * no notices, no hint strip, no toast — and none of the browser's own furniture, which is what
+ * the zero page margin in print.js is for. The frame's margin rows repeat on every page. */
 @media print {
   html, body { background: #fff; }
-  .studio-bar, .studio-notice { display: none !important; }
-  .studio-body { padding: 0; }
-  .studio-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; }
-  @page { margin: 14mm; }
+  .studio-bar, .studio-notice, .studio-hintbar, .studio-sample-note, .ap-toast { display: none !important; }
+  .studio-body { padding: 0 var(--print-inset, 14mm); display: block; }
+  .studio-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  .studio-printframe { display: table; width: 100%; max-width: none; }
+  .studio-printframe > thead { display: table-header-group; }
+  .studio-printframe > tbody { display: table-row-group; }
+  .studio-printframe > tfoot { display: table-footer-group; }
+  .studio-printframe > * > tr { display: table-row; }
+  .studio-printframe__cell { display: table-cell; vertical-align: top; }
+  .studio-printframe__gap { display: table-cell; height: var(--print-inset, 14mm); padding: 0; }
 }
 
 /* The empty-document setup offer. */

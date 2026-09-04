@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.20.1-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.20.2-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -257,6 +257,13 @@ carries an expiry rather than a due date; a receipt shows no payment details.
 
 Paper: A4, US Letter, US Legal, A5, and 80mm or 58mm till rolls, which switch to a single-column
 layout. Three densities. The choice applies to the PDF and to browser printing.
+
+**Print** prints the invoice and nothing else: no bar, no sidebar, no hint strip, and none of the
+browser's own furniture — the date, the page title, the URL and the page count it normally puts in
+the page margin. There is no switch a page can flip to stop that, so the sheet's margin is zero
+and the document makes its own 14mm inside it, on every page, by sitting in a table whose header
+and footer rows repeat wherever the page breaks. A PDF saved from the print dialog is named after
+the document, the same name the Download button gives it.
 
 The PDF writer is part of this repository rather than a dependency. A document that stays within
 Latin-1 uses the standard PDF fonts, embeds no font data and is around 6KB. A document that needs

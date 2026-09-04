@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.20.2 — print prints the invoice
+
+- **Print produces the invoice and nothing else.** The browser used to add its own furniture —
+  the date and the page title across the top, the document's URL and a page count across the
+  bottom — and printed the hint strip that happened to be on screen above the invoice. Chrome
+  draws that furniture in the page margin and offers a page no way to stop it, so the sheet's
+  margin is now zero and the white space is made inside it: the document sits in a one-cell table
+  whose header and footer rows are each one margin tall, and a browser repeats those on every
+  page, which is the one way CSS has of giving page two a margin. Measured through headless
+  Chrome: 14mm held on every page of a three-page invoice, and no header or footer object in the
+  file even with them switched on.
+- The hint strip, the sample note and any toast are hidden in print, along with the bar and the
+  sidebar that already were.
+- **The saved PDF is named after the document.** Chrome names a file saved from the print dialog
+  after the page title, so every invoice used to arrive as "Invoice Studio — by ANUPRESS.pdf". For
+  the duration of a print the title is the same name the Download button gives the file —
+  `invoice_INV-2026-0014_Harbour-Lane-Bakery` — and goes back afterwards.
+- Page breaks no longer run through a line, an address block, the totals or a footer item; the
+  column headings repeat when the lines run onto a second page; the accent band and status pill
+  print even on a printer set to drop backgrounds.
+
 ## 1.20.1 — columns you can see
 
 - **Every column this widget adds is now on the page**, not only in the raw data. Grist has two

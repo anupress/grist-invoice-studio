@@ -260,6 +260,15 @@
      the blocks their own modest inset instead. */
   .inv-doc { padding: 0; --bleed-x: 0px; --bleed-y: 0px; }
   .inv-band, .inv-strip, .inv-slate { padding-left: 20px; padding-right: 20px; }
+  /* The accent band, the status pill and the rules are the design; a printer that drops
+     backgrounds to save ink would print a different document. */
+  .inv-doc, .inv-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* What a page break may not run through: a line, the totals, an address block, a footer
+     item. The column headings repeat when the lines run onto a second page. */
+  .inv-lines thead { display: table-header-group; }
+  .inv-lines tr, .inv-head, .inv-parties, .inv-totals, .inv-foot__item, .inv-pay, .inv-legend {
+    break-inside: avoid; page-break-inside: avoid;
+  }
 }
 
 /* ---- narrow paper -------------------------------------------------------------------------------

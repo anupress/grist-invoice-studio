@@ -20,6 +20,7 @@ import { buildWritePlan, describePlan, existingNumbers } from './model/write.js'
 import { buildUpgradePlan } from './model/migrate.js';
 import { savePlan, applyUpgrade, queueToOutbox, releaseOutbox, createStarterTables, revealColumns } from './grist/writer.js';
 import { readViewMeta, hiddenColumns, forgetViewMeta } from './grist/views.js';
+import { pageRuleFor, printFrame, printTitleFor, installPrintTitle } from './print.js';
 import { renderSendPanel } from './compose/send-panel.js';
 import { loadSettings, saveSettings, sanitise } from './settings/store.js';
 import { numberFormatFor } from './settings/defaults.js';
@@ -110,6 +111,8 @@ const app = {
   // Columns that are in their tables but not on their pages — see grist/views.js. Read after every
   // rescan of a live document; always empty in the demo, which has no pages.
   hidden: [],
+  // The draft most recently drawn on the page, whatever mode drew it — what Print prints.
+  painted: null,
 };
 
 const root = () => document.getElementById('studio-root');
@@ -209,6 +212,7 @@ async function runReveal() {
 
 async function boot() {
   console.info('[Invoice Studio] v' + APP_VERSION);
+  installPrintTitle(() => (app.painted ? printTitleFor(app.painted) : ''));
   const connected = await bridge.connect();
 
   // Before anything is read. The core connects at "read table", and at that level Grist refuses to
@@ -537,27 +541,21 @@ function resolveImage(id) {
 /**
  * Tell the printer what paper this is.
  *
- * `@page` cannot be scoped by a selector — it is a page-level at-rule, so there is no way to write
- * one rule per paper size in a stylesheet and pick between them with a class. A managed style
- * element is the way to change it at runtime, and it keeps the printed output honest: choosing a
- * till roll and then pressing Print should produce a till roll, not an A4 sheet with a receipt in
- * the corner of it.
+ * A managed style element, because `@page` cannot be scoped by a selector, and it keeps the
+ * printed output honest: choosing a till roll and then pressing Print should produce a till roll,
+ * not an A4 sheet with a receipt in the corner of it. The rule itself, and why its margin is
+ * zero, is print.js's business; the inset it hands back is what the frame draws instead.
  */
-const PAGE_CSS = {
-  a4: 'A4', letter: 'letter', legal: 'legal', a5: 'A5',
-  receipt80: '72mm auto', receipt58: '48mm auto',
-};
-
 function applyPaperSize(size) {
-  const css = PAGE_CSS[size] || 'A4';
-  const narrow = size === 'receipt80' || size === 'receipt58';
+  const rule = pageRuleFor(size);
   let tag = document.getElementById('ap-page-rule');
   if (!tag) {
     tag = document.createElement('style');
     tag.id = 'ap-page-rule';
     document.head.appendChild(tag);
   }
-  tag.textContent = `@media print { @page { size: ${css}; margin: ${narrow ? '3mm' : '14mm'}; } }`;
+  tag.textContent = rule.css;
+  document.documentElement.style.setProperty('--print-inset', rule.inset);
   document.documentElement.setAttribute('data-paper', size);
   document.documentElement.setAttribute('data-density', app.stored.document.density || 'normal');
 }
@@ -572,6 +570,7 @@ function paintPreview() {
   // Lines without pictures borrow the catalogue's, matched by name — the catalogue is where a
   // business keeps its product photos, and an invoice line for that product should show it.
   if (app.products) draft = { ...draft, lines: borrowCatalogueImages(draft.lines, app.products, app.provider) };
+  app.painted = draft;
   previewHost.replaceChildren(renderDocument(draft, settings, { resolveImage }));
 }
 
@@ -1622,7 +1621,7 @@ function renderBody() {
     }));
   }
 
-  parts.push(previewHost);
+  parts.push(printFrame(previewHost));
   return el('div', { class: 'studio-body' }, parts);
 }
 
