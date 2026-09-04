@@ -27,14 +27,14 @@
 export const INVOICE_ROLES = [
   'number', 'client', 'issued', 'due', 'status', 'paidDate', 'amountPaid',
   'currency', 'note', 'reference', 'terms', 'subtotal', 'tax', 'discount',
-  'shipping', 'total', 'attachment', 'sentAt', 'sentTo',
+  'shipping', 'total', 'attachment', 'sentAt', 'sentTo', 'language', 'relatedTo',
 ];
 
 /** Roles on a line-item row. */
 export const LINE_ROLES = ['invoiceLink', 'description', 'quantity', 'unitPrice', 'lineTotal', 'product', 'taxClass', 'lineDiscount', 'hsn', 'unit'];
 
 /** Roles on a client row. */
-export const CLIENT_ROLES = ['name', 'email', 'phone', 'taxNumber', 'street1', 'street2', 'city', 'state', 'postcode', 'country'];
+export const CLIENT_ROLES = ['name', 'email', 'phone', 'taxNumber', 'street1', 'street2', 'city', 'state', 'postcode', 'country', 'language'];
 
 /**
  * The roles without which there is no invoice at all.
@@ -119,6 +119,8 @@ export const UPGRADE_PLAN = {
       why: 'When it went out. An invoice that does not remember being sent is how a client gets chased for something they were never asked to pay.' },
     { id: 'SentTo', type: 'Text', role: 'sentTo',
       why: 'The address it went to — which is not always the address on the client record today.' },
+    { id: 'RelatedTo', type: 'Text', role: 'relatedTo',
+      why: 'Which document this one corrects or follows: the invoice a credit note reverses, the quote an invoice came from.' },
   ],
   product: [
     { id: 'Image', type: 'Attachments', role: 'image',
@@ -132,6 +134,8 @@ export const UPGRADE_PLAN = {
       why: 'VAT, GST or TRN. Required on the face of the document in most of the world.' },
     { id: 'Country', type: 'Text', role: 'country',
       why: 'Decides which tax rates apply — and, in India, whether tax splits into CGST plus SGST or stays as IGST.' },
+    { id: 'Language', type: 'Text', role: 'language',
+      why: 'The language their documents are written in — de, fr, es, it, nl, pl, pt — so a French client gets a Facture without anyone choosing per invoice.' },
   ],
   line: [
     { id: 'TaxClass', type: 'Text', role: 'taxClass',
@@ -166,6 +170,8 @@ const INVOICE_PATTERNS = {
   attachment: [/^document$/i, /^pdf$/i, /^invoice_?file$/i, /attachment/i],
   sentAt:     [/^sent_?at$/i, /^sent_?date$/i, /^date_?sent$/i, /^sent$/i],
   sentTo:     [/^sent_?to$/i, /^emailed_?to$/i, /^recipient$/i],
+  language:   [/^lang(uage)?$/i, /^locale$/i, /^sprache$/i, /^langue$/i],
+  relatedTo:  [/^related(_?to)?$/i, /^against$/i, /^original(_?invoice)?$/i, /^corrects$/i, /^credits$/i, /^ref_?doc(ument)?$/i],
 };
 
 const LINE_PATTERNS = {
@@ -196,6 +202,7 @@ const CLIENT_PATTERNS = {
   state:     [/^state$/i, /^province$/i, /^region$/i, /^county$/i],
   postcode:  [/^zip$/i, /^postcode$/i, /^post_?code$/i, /^zip_?code$/i, /^pin_?code$/i],
   country:   [/^country$/i, /^nation$/i],
+  language:  [/^lang(uage)?$/i, /^locale$/i, /^sprache$/i, /^langue$/i],
 };
 
 const PRODUCT_PATTERNS = {

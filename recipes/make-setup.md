@@ -36,6 +36,11 @@ array). Send once from the widget, press *Redetermine data structure*, then map:
 | Attachments → File name | `attachment.fileName` |
 | Attachments → Data | `toBinary(attachment.content; base64)` |
 
+When the attachment is an e-invoice XML (UBL or CII), `attachment.encoding` is `utf8` and
+`attachment.content` is the XML itself — map it as plain text, or `toBinary(attachment.content)`
+without the base64 flag. A Factur-X PDF arrives exactly like an ordinary PDF: base64. Check
+`attachment.encoding` rather than assuming, and both cases work.
+
 `toBinary(…; base64)` is the important half: `attachment.content` is base64 text and
 `attachment.contentType` says `application/pdf`; decoding it in the mapping is what turns it
 back into the file. Without it the client receives a text file full of letters.

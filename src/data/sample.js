@@ -93,6 +93,9 @@ export const SAMPLE_SENDER = {
   phone: '+44 117 496 0139',
   website: 'thornburyworks.example',
   taxNumber: 'GB 481 2739 55',
+  // A payment page, so the demo shows the code a client scans. The domain is a reserved example.
+  paymentLink: 'https://pay.thornburyworks.example/invoice',
+  legalText: 'Thornbury Works Ltd · Registered in England and Wales no. 01234567 · Registered office: 4 Quarry Street, Bristol BS1 5TF',
 };
 
 /**

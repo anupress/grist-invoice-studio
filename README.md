@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.16.1-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.17.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -12,8 +12,12 @@ It runs entirely in the viewer's browser. There is no server and no third-party 
   template needs no configuration at all.
 - Creates and edits invoices, quotes, proformas, receipts, credit notes, statements, delivery notes
   and packing slips, and writes them back as rows.
-- Calculates tax from a rate table, or from a single rate you enter.
-- Produces a PDF, a self-contained HTML file, or an email body.
+- Calculates tax from a rate table, or from a single rate you enter; works out the EU reverse
+  charge and prints the small-business exemption sentence your country expects.
+- Writes the document in English, German, French, Spanish, Italian, Dutch, Polish or Portuguese,
+  per client.
+- Produces a PDF, a self-contained HTML file, or an email body, with a SEPA, UPI or payment-link
+  QR code the client scans to pay.
 - Sends through your mail client, the clipboard, a Grist webhook, or a POST to an endpoint of yours.
 
 ## Use it in Grist
@@ -79,6 +83,56 @@ The logo is uploaded in Settings and stored inside the document as a scaled-down
 nothing is hosted anywhere. It appears on every layout, in the email body, and in the downloaded
 PDF. Only PNG and JPEG survive storage; anything else is dropped rather than rendered.
 
+## Languages
+
+The document's own words — Invoice, Due, Subtotal, the legends, the reverse-charge sentence — are
+written in the client's language: English, German, French, Spanish, Italian, Dutch, Polish or
+Portuguese. The language comes from the document itself if one was chosen for it, else from a
+`Language` column on the client record, else from Settings → Document. Dates follow the language
+("28. Aug. 2026", "28 août 2026"). What you type — notes, terms, payment details, the covering
+email — is never translated; Settings → Messages is where a German-speaking business writes its
+German.
+
+## Getting paid
+
+Settings → Money & tax → Getting paid takes an IBAN and BIC, a UPI id, or a payment link. A euro
+document with an IBAN then carries the EPC "GiroCode" that European banking apps scan to pre-fill a
+SEPA transfer with the amount and the invoice number; a rupee document with a UPI id carries a UPI
+code; a payment link serves any currency. The code is drawn on screen and in the PDF, and the
+account lines are printed beside it, in the email and in the plain text. It appears only on
+documents that ask for money, and only while something is owed.
+
+## Issued documents
+
+Once a saved document's status has moved past Draft it opens read-only, because in most of Europe
+an issued invoice may not be altered. The composer says so and offers the three things to do
+instead: make a credit note, which names the invoice it reverses; duplicate as a new document; or
+edit anyway. Settings → Document turns the lock off.
+
+## Electronic invoices
+
+Germany, France, Belgium, Poland and the Nordics are moving to structured invoices that a
+receiving system reads without a person. Settings → Sending → Electronic invoices chooses the
+rulebook your clients expect — EN 16931 (the European standard), XRechnung 3.0 (Germany) or Peppol
+BIS Billing 3.0 — and the Send panel then offers three formats alongside the ordinary PDF:
+
+| Format | What it is | Who reads it |
+|---|---|---|
+| Factur-X / ZUGFeRD | A PDF/A-3 with the invoice embedded as CII XML. One file, readable by a person and a machine. | German and French accounting systems, and anyone with a PDF reader |
+| UBL 2.1 XML | The bare structured invoice, Peppol's syntax | Peppol access points, XRechnung (UBL), the Nordics, Belgium, the Netherlands |
+| CII XML | The bare structured invoice, UN/CEFACT syntax | XRechnung (CII), ZUGFeRD tooling |
+
+Before each send a check lists what a receiver's validator would reject, in words, with the
+setting that fixes it: a country spelled out instead of a two-letter code, a VAT number without
+its country prefix, a missing buyer reference (the Leitweg-ID a German public body requires). The
+output follows EN 16931's arithmetic to the cent — VAT categories, the reverse charge as `AE`,
+allowances and charges — and is built to the published schema order; validate a first file with
+your receiver's own validator before relying on it, as every sender does.
+
+The widget transmits nothing itself. An e-invoice goes out by whichever route you use today, and
+the Direct route's payload carries XML as `utf8` and Factur-X as `base64`, exactly as it carries
+a PDF. Transmission over the Peppol network needs an access point; hand the UBL file to one.
+
 ## Tax
 
 Tax works one of three ways: a single rate you type in, a table of rates matched to the customer, or
@@ -91,6 +145,13 @@ and SGST within your state, IGST outside it), Canada including Quebec's compound
 Australia, the UAE, Singapore and South Africa.
 
 A single document can override the calculation with a fixed tax amount.
+
+The EU reverse charge is worked out rather than ticked: a sale to a client in another EU state who
+has produced a VAT number charges no VAT and says so, citing Article 196 of the VAT Directive, in
+the document's language. A business trading under the small-business scheme sets Settings → Money
+& tax → VAT exemption and the document carries the sentence its country expects (§ 19 UStG, art.
+293 B du CGI, and so on), or its own wording. A legal line — registration number, court, managing
+director — goes in Settings → Business and prints at the foot of every document.
 
 Presets are a starting point, dated in `src/money/tax/rates.js`. They are not tax advice, and rates
 change. Brazil and US sales tax are deliberately not included, since neither reduces to a small
@@ -129,10 +190,15 @@ carries an expiry rather than a due date; a receipt shows no payment details.
 Paper: A4, US Letter, US Legal, A5, and 80mm or 58mm till rolls, which switch to a single-column
 layout. Three densities. The choice applies to the PDF and to browser printing.
 
-The PDF writer is part of this repository rather than a dependency. It uses the standard PDF fonts,
-so files embed no font data and an invoice is around 6KB. Those fonts are WinAnsi, which means
-non-Latin scripts cannot be drawn; symbols such as `₹` are transliterated (`Rs.`) rather than
-dropped.
+The PDF writer is part of this repository rather than a dependency. A document that stays within
+Latin-1 uses the standard PDF fonts, embeds no font data and is around 6KB. A document that needs
+more — a Polish name, a Czech street, Greek, Cyrillic, Vietnamese, `₹` — embeds a subset of DejaVu
+Sans holding only the glyphs on the page (about 20KB), as a Type 0 font with a ToUnicode map so the
+text still searches and copies. The font is fetched once, from `fonts/`, only by documents that need
+it; Settings → Document can force it for every PDF. `scripts/subset-fonts.mjs` rebuilds the shipped
+faces from the full DejaVu files (Bitstream Vera licence, in `fonts/LICENSE_DEJAVU`). Scripts DejaVu
+does not cover — CJK, Arabic, Devanagari — are still out of reach, and their characters draw as the
+missing-glyph box.
 
 ## Development
 
@@ -187,6 +253,7 @@ src/send/       message templating and each delivery route
 src/export/     HTML file and PDF writer
 src/templates/  fourteen trades
 src/settings/   settings and their storage
+fonts/          the embedded PDF faces, subset from DejaVu Sans
 src/grist/      the only code that writes to Grist
 recipes/        Worker, SMTP relay, n8n, Make, Zapier, Grist setup
 tests/          plain ES modules, one verdict per file

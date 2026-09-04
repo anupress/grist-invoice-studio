@@ -121,6 +121,12 @@
   font-size: 13px;
 }
 .cmp-notice p { margin: 3px 0 0; color: var(--ink-2); }
+/* An issued document: the notice carries the actions, and the form beneath it is greyed rather
+ * than hidden — a person can still read what they are not editing. */
+.cmp-notice--lock { background: var(--accent-soft); }
+.cmp-notice__row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.cmp-form.is-locked { opacity: .62; }
+.cmp-form.is-locked .cmp-totals { opacity: 1; }
 
 .cmp-skipped {
   padding: 9px 14px; font-size: 12.5px;

@@ -10,6 +10,7 @@
 // own. That is duplication with a reason, and the reason is that the two have different lifetimes.
 
 import { renderDocument } from '../doc/render.js';
+import { languageOf } from '../doc/lang.js';
 
 const FILE_CSS = `
   :root { color-scheme: light; }
@@ -102,6 +103,10 @@ const FILE_CSS = `
   .inv-head.is-centred { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 5px; padding-bottom: 20px; border-bottom: 1px solid #dfe5ec; }
   .inv-head.is-centred .inv-title__number { justify-content: center; }
   .inv-cent__rule { width: 56px; border-top: 2px solid var(--doc-accent, #14509b); margin: 10px 0 6px; }
+  .inv-pay { display: flex; align-items: flex-start; gap: 14px; }
+  .inv-pay svg { width: 96px; height: 96px; flex: none; border: 1px solid #dfe5ec; border-radius: 4px; background: #fff; }
+  .inv-pay__line { font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .inv-legal { margin: 0; text-align: center; font-size: 11px; line-height: 1.45; color: #5f7285; }
   @media print {
     body { padding: 0; background: #fff; }
     .sheet { max-width: none; border: 0; border-radius: 0; }
@@ -140,7 +145,7 @@ export function documentToHtml(draft, settings = {}) {
   const node = renderDocument(draft, settings);
   const title = [draft.number, draft.client?.name].filter(Boolean).join(' — ') || 'Document';
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${languageOf(draft, settings)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

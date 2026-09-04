@@ -86,6 +86,7 @@ export function clientParty(row, roles) {
     email: str(row[roles.email]),
     phone: str(row[roles.phone]),
     taxNumber: str(row[roles.taxNumber]),
+    language: str(row[roles.language]),
     found: true,
   };
 }
@@ -217,6 +218,8 @@ export function resolveInvoice(row, schema, provider, settings = {}) {
     reference: str(byRole(row, roles, 'reference')),
     terms: str(byRole(row, roles, 'terms')),
     note: str(byRole(row, roles, 'note')),
+    language: str(byRole(row, roles, 'language')),
+    relatedTo: str(byRole(row, roles, 'relatedTo')),
     currency: str(byRole(row, roles, 'currency')) || settings.money?.currency || settings.currency || 'USD',
     client,
     sender: clone(settings.sender || {}),

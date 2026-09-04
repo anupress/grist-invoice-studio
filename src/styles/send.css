@@ -53,6 +53,19 @@
   border-top: 1px solid var(--rule); color: var(--muted); min-height: 1px;
 }
 .snd-status:empty { display: none; }
+
+/* The e-invoice check: what a receiver's validator would say, said before the send. */
+.snd-check { margin: 4px 0 0; padding: 10px 12px; border-radius: 6px; font-size: 12.5px; background: var(--sunk); color: var(--ink-2); }
+.snd-check:empty { display: none; }
+.snd-check.is-ok { background: var(--ok-soft); color: var(--ok); }
+.snd-check.is-warn { background: var(--warn-soft); color: var(--ink); }
+.snd-check__head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.snd-check__count { color: var(--muted); }
+.snd-check ul { margin: 8px 0 0; padding-left: 16px; }
+.snd-check li { margin: 3px 0; line-height: 1.4; }
+.snd-check li.is-error { color: var(--risk); }
+.snd-check li.is-warning { color: var(--warn); }
+.snd-check code { font-family: var(--font-mono); font-size: 11px; opacity: .8; }
 .snd-status.is-ok { background: var(--ok-soft); color: var(--ok); }
 .snd-status.is-warn { background: var(--warn-soft); color: var(--warn); }
 

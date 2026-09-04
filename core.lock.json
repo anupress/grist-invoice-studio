@@ -1,6 +1,6 @@
 {
   "source": "grist-advanced-charts",
-  "syncedAt": "2026-08-27T13:32:27.502Z",
+  "syncedAt": "2026-09-04T13:39:55.795Z",
   "files": {
     "src/util.js": {
       "target": "src/core/util.js",
@@ -46,6 +46,11 @@
       "target": "src/core/assets/icons.js",
       "sha256": "03c3b76db3e029d2",
       "bytes": 13381
+    },
+    "src/qr/encoder.js": {
+      "target": "src/core/qr/encoder.js",
+      "sha256": "ed13c1a029eeda8e",
+      "bytes": 12409
     },
     "src/theme/palettes.js": {
       "target": "src/core/theme/palettes.js",

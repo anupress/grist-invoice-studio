@@ -29,12 +29,15 @@ import { ensureFullAccess } from './grist/access.js';
 import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
 import { renderDocument } from './doc/render.js';
-import { DOCUMENT_KINDS } from './doc/kinds.js';
+import { DOCUMENT_KINDS, documentKind } from './doc/kinds.js';
+import { languageOf, localiseKind } from './doc/lang.js';
 import { LAYOUTS } from './doc/layouts.js';
 import { renderComposer } from './compose/composer.js';
 import { field, section } from './compose/ui.js';
 import { buildPreset, findPreset, simpleRate, RATES_UPDATED } from './money/tax/rates.js';
+import { exemptionFor } from './money/tax/exemptions.js';
 import { formatMoney } from './money/currency.js';
+import { APP_VERSION } from './version.js';
 
 
 /**
@@ -67,10 +70,6 @@ function moneySettings(money) {
   };
 }
 
-// Bumped with every release. Shown on the mode pill and logged at boot, because "is my iframe
-// running the new bundle or a cached one" was undiagnosable without it.
-const APP_VERSION = '1.16.1';
-
 const app = {
   provider: null,
   schema: null,
@@ -93,6 +92,9 @@ const app = {
   mode: 'view',      // view | compose | send | settings
   draft: null,
   busy: false,
+  // Set when a person chooses to edit an issued document anyway. Reset every time the composer
+  // opens, so the choice is made per document rather than once and forgotten.
+  unlocked: false,
 };
 
 const root = () => document.getElementById('studio-root');
@@ -116,6 +118,10 @@ function settingsNow() {
     ...st.delivery,
     sender: st.business,
     money: moneySettings(st.money),
+    // A standing exemption — the small-business scheme — reaches the totals engine as the reason
+    // no tax is charged, so it is printed rather than merely absent.
+    exempt: exemptionFor(st.money),
+    einvoice: st.einvoice,
     // The saved message wordings ride along whole — buildMessage layers them under whatever is
     // typed for one send.
     messages: st.messages,
@@ -212,6 +218,7 @@ function currentRow() {
 /** Build the draft the composer edits, from a row or from nothing. */
 function startCompose(row) {
   const settings = settingsNow();
+  app.unlocked = false;
   if (row) {
     app.draft = resolveInvoice(row, app.schema, app.provider, settings);
     // The same borrow the view applies, or a line's picture would vanish the moment Edit opened.
@@ -256,6 +263,24 @@ function existingLineRowsFor(rowId) {
   if (!s.line || rowId == null) return [];
   const R = s.line.roles;
   return (app.provider.records(s.line.table) || []).filter((r) => R.invoiceLink && r[R.invoiceLink] === rowId);
+}
+
+/**
+ * Is the document being composed one that has already gone out?
+ *
+ * A saved document whose status has moved past Draft has, in most of Europe, become a legal
+ * record that must not be altered; corrections are a credit note. The composer opens it
+ * read-only and says so, with the credit note one click away — and with an "edit anyway" for the
+ * business that knows better about this one document.
+ */
+function composeLocked() {
+  const d = app.draft;
+  if (!d || app.unlocked) return false;
+  if (app.stored.document.lockIssued === false) return false;
+  // A document with no status at all — Grist's own template has no Status column — cannot be
+  // told apart from a draft, so it is not locked: locking on ignorance would lock everything.
+  const status = String(d.status || '').trim().toLowerCase();
+  return d.rowId != null && status !== '' && status !== 'draft';
 }
 
 function buildPlan() {
@@ -1096,19 +1121,31 @@ function renderBody() {
       settings: settingsNow(),
       live: app.live,
       canWrite: canWrite(),
+      locked: composeLocked(),
       planSummary: plan ? describePlan(plan) : '',
       skipped: plan ? plan.skipped : [],
       onEdit: paintPreview,
       onRebuild: () => render(),
       actions: {
         save,
+        unlock: () => { app.unlocked = true; render(); },
         newDoc: () => startCompose(null),
         duplicate: () => {
           app.draft = normaliseDraft({ ...app.draft, rowId: null, number: '', status: 'Draft' });
           app.draft.lines = app.draft.lines.map((l) => ({ ...l, rowId: undefined }));
           render();
         },
-        convert: (kindId) => { app.draft = convertDraft(app.draft, kindId); app.kind = kindId; render(); },
+        convert: (kindId) => {
+          // The new document names the one it came from, in that document's own language, so a
+          // credit note reads "Refers to: Rechnung RE-2026-0007" on a German invoice.
+          const settings = settingsNow();
+          const from = app.draft.number
+            ? `${localiseKind(documentKind(app.draft.kind), languageOf(app.draft, settings)).word} ${app.draft.number}`
+            : '';
+          app.draft = convertDraft(app.draft, kindId, { relatedTo: from });
+          app.kind = kindId;
+          render();
+        },
       },
     }));
   }

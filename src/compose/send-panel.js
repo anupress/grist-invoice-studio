@@ -19,7 +19,9 @@ import { documentToPlainText } from '../send/document-text.js';
 import { buildOutboxRow, setupInstructions } from '../send/outbox.js';
 import { buildPayload, postToEndpoint, checkEndpoint, destinationHost } from '../send/endpoint.js';
 import { fileNameFor } from '../export/html-file.js';
-import { downloadPdf, downloadHtml, attachmentFor } from '../export/download.js';
+import { downloadPdf, downloadHtml, downloadEInvoice, attachmentFor, wantsEmbeddedFonts } from '../export/download.js';
+import { einvoiceModel, checkEInvoice, profileOf, EINVOICE_FORMATS, isEInvoiceFormat } from '../einvoice/index.js';
+import { warmEmbeddedFonts } from '../export/pdf/font-loader.js';
 import { field, textInput, textArea, selectInput, button, section } from './ui.js';
 
 /**
@@ -46,6 +48,13 @@ export function renderSendPanel(ctx) {
     includeDocument: settings.includeInBody !== false,
     lastQueuedRow: null,
   };
+
+  // If this document's PDF will need the embedded fonts, start fetching them now, while the
+  // person is still reading the panel — so the download that follows their click is immediate
+  // rather than waiting on a file the click could have started earlier.
+  // An e-invoice profile means a Factur-X may be asked for, and Factur-X always embeds its fonts.
+  const einvoiceOn = !!settings.einvoice?.profile;
+  try { if (einvoiceOn || wantsEmbeddedFonts(draft, settings)) warmEmbeddedFonts(); } catch { /* the download path has its own fallback */ }
 
   const statusLine = el('div', { class: 'snd-status' });
   const say = (text, kind = '') => {
@@ -90,11 +99,52 @@ export function renderSendPanel(ctx) {
   const attachToggle = selectInput(
     [
       { value: 'pdf', label: 'PDF — the usual' },
+      ...(einvoiceOn ? EINVOICE_FORMATS.map((f) => ({ value: f.id, label: f.label })) : []),
       { value: 'html', label: 'HTML file — opens in any browser' },
       { value: 'none', label: 'Nothing — the email only' },
     ],
     state.attachFormat,
-    (v) => { state.attachFormat = v; }, { ariaLabel: 'What to attach' });
+    (v) => { state.attachFormat = v; paintCheck(); }, { ariaLabel: 'What to attach' });
+
+  // ---- the e-invoice check -----------------------------------------------------------------------
+  // What a receiver's validator would say, said here first. Shown whenever a profile is set, so a
+  // business that sends e-invoices sees the state of every document; louder when the format about
+  // to be attached IS an e-invoice, because then an error means a rejection.
+  const checkBox = el('div', { class: 'snd-check' });
+  let checkResult = null;
+  function paintCheck() {
+    checkBox.replaceChildren();
+    if (!einvoiceOn) return;
+    const model = einvoiceModel(draft, settings);
+    checkResult = checkEInvoice(model);
+    const items = [...checkResult.errors, ...checkResult.warnings];
+    const profile = profileOf(settings.einvoice.profile);
+    const heading = el('div', { class: 'snd-check__head' }, [
+      el('strong', { text: checkResult.ok ? `Ready as an e-invoice (${profile.label.split(' — ')[0]}).` : `Not yet a valid e-invoice (${profile.label.split(' — ')[0]}).` }),
+      el('span', { class: 'snd-check__count', text: items.length ? `${checkResult.errors.length} to fix, ${checkResult.warnings.length} to consider` : 'Nothing to fix.' }),
+    ]);
+    checkBox.className = 'snd-check' + (checkResult.ok ? ' is-ok' : ' is-warn');
+    checkBox.appendChild(heading);
+    if (items.length) {
+      checkBox.appendChild(el('ul', {}, items.map((i) => el('li', { class: 'is-' + i.level }, [
+        el('code', { text: i.code }), el('span', { text: ' ' + i.text }),
+      ]))));
+    }
+  }
+  paintCheck();
+
+  const einvoiceBtn = einvoiceOn ? button('Download e-invoice', async () => {
+    const format = isEInvoiceFormat(state.attachFormat) ? state.attachFormat : 'facturx';
+    if (checkResult && !checkResult.ok) { say('Fix the e-invoice errors listed above first — a receiver would reject this file.', 'warn'); return; }
+    einvoiceBtn.disabled = true;
+    try {
+      const res = await downloadEInvoice(draft, settings, format);
+      say(`Saved ${res.fileName} — ${Math.round(res.bytes / 1024)}KB, ${EINVOICE_FORMATS.find((f) => f.id === format).label.split(' — ')[0]}.`, 'ok');
+    } catch (e) {
+      say('The e-invoice could not be made: ' + (e?.message || e), 'warn');
+    }
+    einvoiceBtn.disabled = false;
+  }) : null;
 
   // ---- routes ----------------------------------------------------------------------------------
   // A mailto: cannot carry a file, so the body says one is coming and the person attaches the file
@@ -103,14 +153,16 @@ export function renderSendPanel(ctx) {
   const attachedFile = () => {
     if (state.attachFormat === 'none') return null;
     const name = fileNameFor(draft);
-    return state.attachFormat === 'html' ? name : name.replace(/\.html$/, '.pdf');
+    if (state.attachFormat === 'html') return name;
+    if (state.attachFormat === 'ubl' || state.attachFormat === 'cii') return name.replace(/\.html$/, '.xml');
+    return name.replace(/\.html$/, '.pdf');
   };
   const fileNoteNow = () => {
     const name = attachedFile();
     return name ? `The ${draft.kind === 'quote' ? 'quote' : 'invoice'} is attached as ${name}.` : '';
   };
 
-  const mailBtn = button('Open in mail client', () => {
+  const mailBtn = button('Open in mail client', async () => {
     const m = message();
     if (!m.to) { say('There is no address to send it to.', 'warn'); return; }
 
@@ -127,8 +179,9 @@ export function renderSendPanel(ctx) {
     // attach anything, so the next thing anybody does is go looking for the file; saving it as the
     // client opens puts it in the downloads bar under the name the body just quoted.
     let saved = null;
-    if (state.attachFormat === 'pdf') saved = downloadPdf(draft, settings);
+    if (state.attachFormat === 'pdf') saved = await downloadPdf(draft, settings);
     else if (state.attachFormat === 'html') saved = downloadHtml(draft, settings);
+    else if (isEInvoiceFormat(state.attachFormat)) saved = await downloadEInvoice(draft, settings, state.attachFormat);
 
     openMailClient(m, opts);
     const savedNote = saved ? saved.fileName + ' is in your downloads — attach it before you send.' : '';
@@ -147,9 +200,15 @@ export function renderSendPanel(ctx) {
     if (res.ok) record(m, 'clipboard');
   });
 
-  const pdfBtn = button('Download PDF', () => {
-    const res = downloadPdf(draft, settings);
-    say(`Saved ${res.fileName} — ${Math.round(res.bytes / 1024)}KB. Attach it to your email.`, 'ok');
+  const pdfBtn = button('Download PDF', async () => {
+    pdfBtn.disabled = true;
+    try {
+      const res = await downloadPdf(draft, settings);
+      say(`Saved ${res.fileName} — ${Math.round(res.bytes / 1024)}KB. Attach it to your email.`, 'ok');
+    } catch (e) {
+      say('The PDF could not be made: ' + (e?.message || e), 'warn');
+    }
+    pdfBtn.disabled = false;
   });
 
   // Kept alongside the PDF because it is genuinely more useful in an automation: anything on the
@@ -195,11 +254,16 @@ export function renderSendPanel(ctx) {
     if (!m.to) { say('There is no address to send it to.', 'warn'); return; }
     postBtn.disabled = true;
     say(`Posting to ${destinationHost(state.endpoint)}…`);
+    if (isEInvoiceFormat(state.attachFormat) && checkResult && !checkResult.ok) {
+      say('The e-invoice has errors a receiver would reject. Fix them, or attach the ordinary PDF.', 'warn');
+      postBtn.disabled = false;
+      return;
+    }
     const payload = buildPayload(m, {
       html: messageToHtml(m, settings, { document: state.includeDocument ? documentToEmailHtml(draft, settings) : '' }),
       // Nothing attached means no attachment key at all, rather than an empty one the far end
       // has to know to ignore.
-      attachment: state.attachFormat === 'none' ? null : attachmentFor(draft, settings, state.attachFormat),
+      attachment: state.attachFormat === 'none' ? null : await attachmentFor(draft, settings, state.attachFormat),
     });
     const res = await postToEndpoint(state.endpoint, payload);
     postBtn.disabled = false;
@@ -248,14 +312,17 @@ export function renderSendPanel(ctx) {
       field('Subject', subjectInput),
       field('Body', bodyInput),
       field('Attach', attachToggle,
-        'What the client can file. The PDF is what a bookkeeper expects; an HTML file opens in any browser without a reader. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'),
+        einvoiceOn
+          ? 'What the client can file. Factur-X is a PDF with the invoice inside as XML, which German and French systems read automatically; UBL and CII are the bare XML for Peppol and XRechnung. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'
+          : 'What the client can file. The PDF is what a bookkeeper expects; an HTML file opens in any browser without a reader. Carried by the Outbox and Direct routes; a mailto: link cannot attach a file, so there you attach the download yourself.'),
+      checkBox,
       field('Show the invoice in the email', includeToggle,
         'Laid out with tables so it survives Gmail and Outlook. A client who will not open an attachment can still read it, which is also what saves a message whose attachment a filter has stripped.'),
     ]),
 
     section('Send it yourself', [
       el('p', { class: 'snd-lead', text: 'Nothing leaves this browser. Your own mail client does the sending, from the address your client already recognises.' }),
-      el('div', { class: 'snd-routes' }, [mailBtn, copyBtn, pdfBtn, htmlBtn]),
+      el('div', { class: 'snd-routes' }, [mailBtn, copyBtn, pdfBtn, einvoiceBtn, htmlBtn]),
     ]),
 
     section('Send it automatically', [

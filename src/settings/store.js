@@ -20,6 +20,7 @@
 
 import * as bridge from '../core/grist/bridge.js';
 import { DEFAULT_SETTINGS } from './defaults.js';
+import { normaliseLanguage } from '../doc/lang.js';
 
 export const CONFIG_TABLE = 'ANUPRESS_Config';
 export const CONFIG_KEY = 'invoiceStudio';         // NOT 'site' — see the note above
@@ -118,6 +119,10 @@ export function sanitise(settings) {
   const doc = s.document;
   if (!['a4', 'letter', 'legal', 'a5', 'receipt80', 'receipt58'].includes(doc.paperSize)) doc.paperSize = 'a4';
   if (!['compact', 'normal', 'roomy'].includes(doc.density)) doc.density = 'normal';
+  doc.language = normaliseLanguage(doc.language) || 'en';
+  if (!['auto', 'embed'].includes(doc.pdfFont)) doc.pdfFont = 'auto';
+  doc.lockIssued = doc.lockIssued !== false;
+  doc.showPayQr = doc.showPayQr !== false;
 
   // The logo ends up in an <img src>, in an email body, and spliced into a PDF, so nothing but a
   // well-formed image data URI is kept — a javascript: URL or an external address stored here would
@@ -130,8 +135,24 @@ export function sanitise(settings) {
   }
   if (s.business.logoJpeg && !s.business.logoJpeg.startsWith('data:image/jpeg')) s.business.logoJpeg = null;
 
+  // Ways of being paid. An IBAN is stored the way the standard wants it; a payment link has to be
+  // https, because it is printed on a document and encoded into a code a client scans.
+  const b = s.business;
+  b.iban = String(b.iban || '').replace(/\s+/g, '').toUpperCase().slice(0, 34);
+  b.bic = String(b.bic || '').replace(/\s+/g, '').toUpperCase().slice(0, 11);
+  b.accountHolder = String(b.accountHolder || '').trim().slice(0, 70);
+  b.upiId = String(b.upiId || '').trim().slice(0, 64);
+  b.paymentLink = /^https:\/\/\S+$/i.test(String(b.paymentLink || '').trim()) ? String(b.paymentLink).trim().slice(0, 500) : '';
+  b.legalText = String(b.legalText || '').trim().slice(0, 600);
+
+  if (!['', 'small_business'].includes(m.exemption)) m.exemption = '';
+  m.exemptionText = String(m.exemptionText || '').trim().slice(0, 300);
+
   s.delivery.endpoint = String(s.delivery.endpoint || '').trim();
-  if (!['pdf', 'html', 'none'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';
+  if (!['pdf', 'html', 'none', 'facturx', 'ubl', 'cii'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';
+  if (!['', 'en16931', 'xrechnung', 'peppol'].includes(s.einvoice.profile)) s.einvoice.profile = '';
+  // An e-invoice format as the default attachment only makes sense with a profile to write it under.
+  if (!s.einvoice.profile && ['facturx', 'ubl', 'cii'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';
   s.delivery.includeInBody = s.delivery.includeInBody !== false;
 
   // Table overrides are ids, and an id is a short string. Anything else stored there is noise.

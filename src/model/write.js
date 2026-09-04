@@ -107,6 +107,8 @@ function invoiceValues(draft) {
     currency: draft.currency || (draft.rowId != null ? null : undefined),
     sentAt: draft.sentAt,
     sentTo: draft.sentTo,
+    language: draft.language,
+    relatedTo: draft.relatedTo,
     amountPaid: t.amountPaid,
     subtotal: t.subtotal,
     tax: t.taxTotal,

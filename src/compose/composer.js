@@ -15,6 +15,7 @@ import { documentKind, DOCUMENT_KINDS, conversionsFor } from '../doc/kinds.js';
 import { fieldsFor } from '../doc/fields.js';
 import { renderLinesGrid, blankLine } from './lines-grid.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from './ui.js';
+import { LANGUAGES, normaliseLanguage } from '../doc/lang.js';
 
 
 /**
@@ -32,6 +33,7 @@ import { field, textInput, numberInput, textArea, selectInput, button, section }
  */
 export function renderComposer(ctx) {
   const { draft, clients, products, settings, onEdit, onRebuild, actions, live, canWrite, planSummary } = ctx;
+  const locked = !!ctx.locked;
   const kind = documentKind(draft.kind);
   const fields = fieldsFor(draft, settings);
   const fmt = draft.format || { currency: draft.currency };
@@ -64,7 +66,7 @@ export function renderComposer(ctx) {
     button('New', () => actions.newDoc(), { icon: '+' }),
     draft.rowId != null ? button('Duplicate', () => actions.duplicate()) : null,
     ...conversions.map((k) => button(`Make ${k.label.toLowerCase()}`, () => actions.convert(k.id))),
-    button('Save', () => actions.save(), { variant: 'primary', disabled: !canWrite }),
+    button('Save', () => actions.save(), { variant: 'primary', disabled: !canWrite || locked }),
   ]);
 
   // ---- who and when ---------------------------------------------------------------------------
@@ -106,6 +108,19 @@ export function renderComposer(ctx) {
       return el('div', { class: 'cmp-grid__desc' }, [input, el('datalist', { id: dlId }, options.map((s) => el('option', { value: s })))]);
     })(), 'Pick one or type your own — a new status joins the document\u2019s choices when you save.'),
     field('Their reference', textInput(draft.reference, (v) => { draft.reference = v; onEdit(); }, { placeholder: 'PO number' })),
+    // The words on the document — Invoice or Rechnung, Due or Fällig am. Empty follows the client
+    // record's language, then the business default in Settings → Document.
+    field('Language', selectInput(
+      [{ value: '', label: followLabel(draft, settings) }, ...LANGUAGES.map((l) => ({ value: l.id, label: l.label }))],
+      normaliseLanguage(draft.language),
+      (v) => { draft.language = v; onEdit(); }, { ariaLabel: 'Document language' }),
+      'Only the document’s own words change; what you type stays as you typed it.'),
+    // The document this one corrects or follows. Filled in automatically when a credit note is
+    // raised from an invoice; editable because a correction can also refer to something older.
+    (draft.kind === 'credit_note' || draft.relatedTo)
+      ? field('Refers to', textInput(draft.relatedTo, (v) => { draft.relatedTo = v; onEdit(); }, { placeholder: 'Invoice INV-2026-0007' }),
+        draft.kind === 'credit_note' ? 'The invoice this credit note reverses. Named on the document, so both sides can match them.' : null)
+      : null,
   ], { grid: true });
 
   // ---- lines -----------------------------------------------------------------------------------
@@ -145,14 +160,21 @@ export function renderComposer(ctx) {
 
   paintTotals();
 
-  return el('div', { class: 'cmp' }, [
-    toolbar,
-    !canWrite ? accessNotice(live) : null,
-    skippedNotice(ctx.skipped),
+  // Everything a person types into, in one box, so the lock can hold all of it at once.
+  const form = el('div', { class: 'cmp-form' + (locked ? ' is-locked' : '') }, [
     details,
     section(kind.showsMoney ? 'Lines' : 'Items', [gridHost]),
     kind.showsMoney ? el('div', { class: 'cmp-moneyrow' }, [moneyBits, totalsBox]) : null,
     words,
+  ]);
+  if (locked) for (const n of form.querySelectorAll('input, select, textarea, button')) n.disabled = true;
+
+  return el('div', { class: 'cmp' }, [
+    toolbar,
+    !canWrite ? accessNotice(live) : null,
+    locked ? lockNotice(draft, kind, conversions, actions) : null,
+    skippedNotice(ctx.skipped),
+    form,
   ]);
 
   function row(label, value, cls) {
@@ -171,6 +193,15 @@ export function renderComposer(ctx) {
  * go" tells somebody they have a problem without telling them which of their work is about to be
  * lost. Shown before saving, not after.
  */
+/** What "follow" means for this document, said in the dropdown rather than left to be guessed. */
+function followLabel(draft, settings) {
+  const client = normaliseLanguage(draft.client?.language);
+  const name = (id) => (LANGUAGES.find((l) => l.id === id) || {}).label || id;
+  if (client) return `Client’s language (${name(client)})`;
+  const def = normaliseLanguage(settings.language) || 'en';
+  return `Your default (${name(def)})`;
+}
+
 function skippedNotice(skipped) {
   const items = (skipped || []).filter((s) => s.where === 'invoice');
   if (!items.length) return null;
@@ -181,6 +212,26 @@ function skippedNotice(skipped) {
       el('span', { text: ` — ${s.reason}` }),
     ]))),
     el('p', { text: 'Upgrade this document, above, adds columns for most of these.' }),
+  ]);
+}
+
+/**
+ * An issued document, and what to do instead of editing it.
+ *
+ * The buttons ARE the advice: a credit note is the correction the law expects, a duplicate is how
+ * a similar document starts, and editing anyway is a choice a person makes knowingly rather than
+ * a default they fall into.
+ */
+function lockNotice(draft, kind, conversions, actions) {
+  const canCredit = conversions.some((k) => k.id === 'credit_note');
+  return el('div', { class: 'cmp-notice cmp-notice--lock' }, [
+    el('strong', { text: `This ${kind.label.toLowerCase()} has been issued, so it opens read-only.` }),
+    el('p', { text: 'Once a document has gone out, most jurisdictions require that it not be altered: a change is made with a credit note that refers to it, or a fresh document. Settings → Document can turn this off.' }),
+    el('div', { class: 'cmp-notice__row' }, [
+      canCredit ? button('Make a credit note', () => actions.convert('credit_note'), { variant: 'primary' }) : null,
+      draft.rowId != null ? button('Duplicate as new', () => actions.duplicate()) : null,
+      button('Edit anyway', () => actions.unlock(), { variant: 'ghost' }),
+    ]),
   ]);
 }
 

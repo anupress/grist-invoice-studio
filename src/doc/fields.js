@@ -11,6 +11,7 @@
 // taste is a setting.
 
 import { documentKind } from './kinds.js';
+import { languageOf, labels, localiseKind, fillLabel } from './lang.js';
 
 /**
  * Work out what to show, from the draft and the settings together.
@@ -19,7 +20,11 @@ import { documentKind } from './kinds.js';
  * nothing is hidden by default that a document is legally required to carry.
  */
 export function fieldsFor(draft, settings = {}, overrides = {}) {
-  const kind = documentKind(draft?.kind);
+  // The document's language decides every word below, and the kind is localised HERE so that the
+  // screen, the PDF, the email and the plain text all read the same vocabulary from one place.
+  const lang = languageOf(draft, settings);
+  const L = labels(lang);
+  const kind = localiseKind(documentKind(draft?.kind), lang);
   const totals = draft?.totals || {};
   const lines = draft?.lines || [];
   const money = settings.money || {};
@@ -73,8 +78,18 @@ export function fieldsFor(draft, settings = {}, overrides = {}) {
     // details on a receipt invites a second payment.
     showPaymentDetails: kind.demandsPayment && !!String(settings.paymentDetails || '').trim(),
     showSignature: !!overrides.showSignature,
-    legend: kind.legend,
+    // The document this one refers to — the invoice a credit note corrects, the quote an invoice
+    // was raised from. Shown whenever it is known, because that is the link an accounts department
+    // matches on.
+    showRelated: !!String(draft?.relatedTo || '').trim(),
+    // A credit note that names the invoice it reverses says so in its legend; one that does not
+    // keeps the general wording.
+    legend: kind.id === 'credit_note' && String(draft?.relatedTo || '').trim()
+      ? fillLabel(L.creditAgainst, { ref: String(draft.relatedTo).trim() })
+      : kind.legend,
     kind,
+    lang,
+    L,
   };
 
   // Overrides last, so a deliberate choice always wins.
@@ -96,22 +111,36 @@ function stripUndefined(o) {
  */
 export function lineColumns(fields) {
   const kind = fields.kind;
-  const cols = [{ id: 'description', label: 'Description', numeric: false }];
+  const C = (fields.L || labels('en')).columns;
+  const cols = [{ id: 'description', label: C.description, numeric: false }];
 
-  if (fields.showHsn) cols.push({ id: 'hsn', label: 'HSN/SAC', numeric: false });
+  if (fields.showHsn) cols.push({ id: 'hsn', label: C.hsn, numeric: false });
   if (kind.lineMode === 'documents') {
-    cols.push({ id: 'date', label: 'Date', numeric: false });
-    cols.push({ id: 'reference', label: 'Reference', numeric: false });
-    cols.push({ id: 'charge', label: 'Charge', numeric: true });
-    cols.push({ id: 'paid', label: 'Paid', numeric: true });
-    cols.push({ id: 'balance', label: 'Balance', numeric: true });
+    cols.push({ id: 'date', label: C.date, numeric: false });
+    cols.push({ id: 'reference', label: C.reference, numeric: false });
+    cols.push({ id: 'charge', label: C.charge, numeric: true });
+    cols.push({ id: 'paid', label: C.paid, numeric: true });
+    cols.push({ id: 'balance', label: C.balance, numeric: true });
     return cols;
   }
 
-  if (fields.showQuantity) cols.push({ id: 'quantity', label: 'Qty', numeric: true });
-  if (fields.showUnit) cols.push({ id: 'unit', label: 'Unit', numeric: false });
-  if (fields.showUnitPrice) cols.push({ id: 'unitPrice', label: 'Unit price', numeric: true });
-  if (fields.showLineDiscount) cols.push({ id: 'discount', label: 'Discount', numeric: true });
-  if (fields.showAmount) cols.push({ id: 'amount', label: 'Amount', numeric: true });
+  if (fields.showQuantity) cols.push({ id: 'quantity', label: C.quantity, numeric: true });
+  if (fields.showUnit) cols.push({ id: 'unit', label: C.unit, numeric: false });
+  if (fields.showUnitPrice) cols.push({ id: 'unitPrice', label: C.unitPrice, numeric: true });
+  if (fields.showLineDiscount) cols.push({ id: 'discount', label: C.discount, numeric: true });
+  if (fields.showAmount) cols.push({ id: 'amount', label: C.amount, numeric: true });
   return cols;
+}
+
+/** The label for a total's row: the stored one if it was changed, else the language's word. */
+export function totalLabels(fields, totals = {}) {
+  const L = fields.L || labels('en');
+  const stock = (v, english, word) => (v && v !== english ? v : word);
+  return {
+    subtotal: L.subtotal,
+    discount: stock(totals.discounts?.[0]?.label, 'Discount', L.discount),
+    shipping: stock(totals.shipping?.label, 'Shipping', L.shipping),
+    total: fields.kind.id === 'credit_note' ? L.totalCredit : L.total,
+    paid: L.paid,
+  };
 }

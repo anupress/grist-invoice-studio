@@ -11,6 +11,8 @@
 import { documentKind } from '../doc/kinds.js';
 import { isLayout } from '../doc/layouts.js';
 import { computeTotals } from '../money/totals.js';
+import { reverseChargeApplies } from '../money/tax/rates.js';
+import { labels, languageOf } from '../doc/lang.js';
 
 const text = (v) => String(v == null ? '' : v).trim();
 const num = (v, fallback = 0) => {
@@ -32,8 +34,18 @@ export function normaliseParty(p = {}) {
     phone: text(p.phone),
     taxNumber: text(p.taxNumber),
     website: text(p.website),
+    // The language this party reads. On a client it decides the document's words; see doc/lang.js.
+    language: text(p.language),
     logoData: p.logoData || null,
     logoJpeg: p.logoJpeg || null,   // the flattened copy the PDF embeds; see settings/defaults.js
+    // The sender's ways of being paid and its legal footer, carried on the party so a document
+    // resolved from a row and one composed from scratch print the same foot.
+    iban: text(p.iban),
+    bic: text(p.bic),
+    accountHolder: text(p.accountHolder),
+    upiId: text(p.upiId),
+    paymentLink: text(p.paymentLink),
+    legalText: text(p.legalText),
     // Kept so a resolver can report that it could not find the client at all, which is different
     // from finding one with an empty name.
     found: p.found !== false,
@@ -93,6 +105,11 @@ export function normaliseDraft(d = {}) {
     reference: text(d.reference),
     terms: text(d.terms),
     note: text(d.note),
+    // The document's own language, when one was chosen for it; empty follows the client, then
+    // the business default.
+    language: text(d.language),
+    // The document this one corrects or follows — "Invoice INV-2026-0007" on a credit note.
+    relatedTo: text(d.relatedTo),
     // Money the document carries in its own right, rather than on a line: an order-level discount,
     // a delivery charge, and whatever has already been paid against it.
     discountAmount: num(d.discountAmount, 0),
@@ -197,6 +214,21 @@ export function computeDraftTotals(draft, settings = {}) {
     }
   }
 
+  // The EU reverse charge, worked out rather than ticked: a cross-border sale inside the EU to a
+  // client who has produced a VAT number is one where the CLIENT accounts for the tax, and the
+  // document must say so in as many words. The rates module knows the rule; the sentence comes
+  // in the document's language. A business that charges no tax at all, or has an exemption of
+  // its own, is left alone — nothing is being reverse-charged there.
+  let exempt = settings.exempt || null;
+  if (!exempt && money.taxEnabled !== false && money.taxMode !== 'none' && draft.taxAmount == null) {
+    const rc = reverseChargeApplies({
+      homeCountry: money.homeCountry || draft.sender?.country,
+      customerCountry: draft.client?.country,
+      customerTaxNumber: draft.client?.taxNumber,
+    });
+    if (rc) exempt = { reason: labels(languageOf(draft, settings)).reverseCharge };
+  }
+
   return computeTotals({
     lines: (draft.lines || []).map((l, i) => ({
       id: l.id != null ? l.id : i + 1,
@@ -220,7 +252,7 @@ export function computeDraftTotals(draft, settings = {}) {
     amountPaid: draft.amountPaid || 0,
     taxAmount: draft.taxAmount,
     taxName: draft.taxName || money.simpleName,
-    exempt: settings.exempt || null,
+    exempt,
   }, { ...money, currency: draft.currency || money.currency || 'USD' });
 }
 
@@ -242,12 +274,18 @@ export function recalc(draft, settings) {
   return draft;
 }
 
-/** Turn one kind of document into another, keeping everything that still applies. */
-export function convertDraft(draft, toKindId) {
+/**
+ * Turn one kind of document into another, keeping everything that still applies.
+ *
+ * `relatedTo` names the document this one comes from — "Invoice INV-2026-0007" on the credit note
+ * that reverses it — and is worked out by the caller, which knows the document's language.
+ */
+export function convertDraft(draft, toKindId, { relatedTo = '' } = {}) {
   const to = documentKind(toKindId);
   return normaliseDraft({
     ...draft,
     kind: to.id,
+    relatedTo: relatedTo || '',
     // The number belongs to the document it was issued against. A quote becoming an invoice needs
     // its own number from the invoice sequence, so it is cleared here and assigned on save — see
     // money/numbering.js for why one is never reused.

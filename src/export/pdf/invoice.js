@@ -9,12 +9,12 @@
 // text wraps to the space it actually has, and a long invoice breaks onto a second page at a row
 // boundary rather than through the middle of one.
 
-import { PdfWriter, rgb } from './writer.js';
-import { measure, wrap } from './fonts.js';
+import { PdfWriter } from './writer.js';
 import { formatMoney } from '../../money/currency.js';
-import { documentKind } from '../../doc/kinds.js';
-import { fieldsFor, lineColumns } from '../../doc/fields.js';
-import { docDate } from '../../doc/render.js';
+import { fieldsFor, lineColumns, totalLabels } from '../../doc/fields.js';
+import { docDate, taxLabel } from '../../doc/render.js';
+import { labelOr, localiseStatus, fillLabel } from '../../doc/lang.js';
+import { paymentCode } from '../../doc/payment.js';
 
 const INK = '#16212c';
 const MUTED = '#5f7285';
@@ -34,15 +34,15 @@ function sizesFor(density, narrow) {
 }
 
 /** How much room a numeric column needs: its widest possible content, plus breathing space. */
-function columnWidth(col, rows, S, gap) {
+function columnWidth(pdf, col, rows, S, gap) {
   if (!col.numeric) return 0;
-  let widest = measure(col.label, S.label, true);
-  for (const r of rows) widest = Math.max(widest, measure(r[col.id] || '', S.body, false));
+  let widest = pdf.measure(col.label, S.label, true);
+  for (const r of rows) widest = Math.max(widest, pdf.measure(r[col.id] || '', S.body, false));
   return Math.ceil(widest) + gap;
 }
 
 /** Every cell as the string it will print as, so widths are measured on the truth. */
-function cellText(line, col, money) {
+function cellText(line, col, money, lang) {
   switch (col.id) {
     case 'description': return String(line.description || '');
     case 'hsn': return String(line.hsn || '—');
@@ -51,7 +51,7 @@ function cellText(line, col, money) {
     case 'unitPrice': return money(line.unitPrice);
     case 'discount': return line.discountAmount ? '-' + money(line.discountAmount) : '';
     case 'amount': return money(line.amount);
-    case 'date': return docDate(line.date);
+    case 'date': return docDate(line.date, lang);
     case 'reference': return String(line.reference || '');
     case 'charge': return line.charge != null ? money(line.charge) : '';
     case 'paid': return line.paid != null ? money(line.paid) : '';
@@ -89,22 +89,46 @@ function jpegBytes(dataUri) {
  *
  * Returns a Uint8Array. Nothing here touches the DOM, so it also runs under Node — which is what
  * makes the output testable rather than only lookable-at.
+ *
+ * `opts.fonts` is an embedded family (see ./embedded.js). Without one the standard fonts are used,
+ * which draw Latin-1 and transliterate the rest; with one, every character the family has is drawn
+ * as itself. Which to pass is the caller's call — `invoiceNeedsEmbeddedFont` below answers it.
  */
 export function invoiceToPdf(draft, settings = {}, opts = {}) {
-  const kind = documentKind(draft.kind);
+  return layoutInvoice(draft, settings, opts).bytes();
+}
+
+/**
+ * Would the standard fonts lose a character of this document?
+ *
+ * Lays the document out against the standard family and asks the writer whether anything it drew
+ * fell outside WinAnsi. Cheap — a layout is a few milliseconds — and exact, because it sees the
+ * same strings the real render will: the labels, the money with its currency sign, every line.
+ */
+export function invoiceNeedsEmbeddedFont(draft, settings = {}, opts = {}) {
+  return layoutInvoice(draft, settings, { ...opts, fonts: null }).needsEmbedding;
+}
+
+/** The whole layout, onto a fresh writer, which is returned rather than serialised. */
+export function layoutInvoice(draft, settings = {}, opts = {}) {
   const fields = fieldsFor(draft, settings);
+  const { kind, L, lang } = fields;
   const cols = lineColumns(fields);
+  const TL = totalLabels(fields, draft.totals);
   const t = draft.totals || {};
   const sender = draft.sender || {};
   const client = draft.client || {};
   const fmtMoney = draft.format || { currency: draft.currency };
   const money = (v) => formatMoney(v, fmtMoney);
+  const date = (v) => docDate(v, lang);
+  const taxIdLabel = labelOr(settings.taxNumberLabel, 'Tax ID', L.taxId);
   const accent = settings.accent || '#14509b';
 
   const pdf = new PdfWriter({
     size: opts.size || settings.paperSize || 'a4',
     title: [kind.word, draft.number].filter(Boolean).join(' '),
     author: sender.name || '',
+    fonts: opts.fonts || null,
   });
 
   const narrow = pdf.narrow;
@@ -146,7 +170,7 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
     pdf.text(right, y, kind.word.toUpperCase(), { size: S.label, bold: true, color: accent, align: 'right' });
     pdf.text(right, y + 11, draft.number || '—', { size: S.number, color: INK, align: 'right' });
     if (draft.status) {
-      pdf.text(right, y + 28, draft.status.toUpperCase(), { size: S.label, bold: true, color: MUTED, align: 'right' });
+      pdf.text(right, y + 28, localiseStatus(draft.status, lang).toUpperCase(), { size: S.label, bold: true, color: MUTED, align: 'right' });
     }
 
     y += 44;
@@ -162,7 +186,7 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
       pdf.text(M, y, client.name, { size: S.body, bold: true, color: INK });
       y += lead;
     }
-    pdf.text(M, y, `${kind.dateLabels.issued}: ${docDate(draft.issued)}`, { size: S.small, color: MUTED });
+    pdf.text(M, y, `${kind.dateLabels.issued}: ${date(draft.issued)}`, { size: S.small, color: MUTED });
     y += lead + 4;
   } else {
     layoutParties();
@@ -183,13 +207,13 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
     return ly;
   };
 
-  const leftEnd = party(M, 'From', sender.name, addressLines(sender), [
+  const leftEnd = party(M, L.from, sender.name, addressLines(sender), [
     sender.email, sender.phone,
-    fields.showSenderTaxNumber ? `${settings.taxNumberLabel || 'Tax ID'}: ${sender.taxNumber}` : '',
+    fields.showSenderTaxNumber ? `${taxIdLabel}: ${sender.taxNumber}` : '',
   ]);
-  const midEnd = party(M + colW + 10, kind.showsMoney ? 'Bill to' : 'Deliver to', client.name, addressLines(client), [
+  const midEnd = party(M + colW + 10, kind.showsMoney ? L.billTo : L.deliverTo, client.name, addressLines(client), [
     client.email, client.phone,
-    fields.showClientTaxNumber ? `${settings.taxNumberLabel || 'Tax ID'}: ${client.taxNumber}` : '',
+    fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : '',
   ]);
 
   // The meta column is right-aligned against the page edge, which is where a reader's eye goes for
@@ -201,9 +225,10 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
     pdf.text(right, my, value, { size: big ? S.total : S.body, bold: !!big, color: big ? accent : INK, align: 'right' });
     my += big ? 20 : 13;
   };
-  meta(kind.dateLabels.issued, docDate(draft.issued));
-  if (fields.showSecondDate) meta(kind.dateLabels.second, docDate(draft.due));
-  if (fields.showReference) meta(settings.referenceLabel || 'Your reference', draft.reference);
+  meta(kind.dateLabels.issued, date(draft.issued));
+  if (fields.showSecondDate) meta(kind.dateLabels.second, date(draft.due));
+  if (fields.showReference) meta(labelOr(settings.referenceLabel, 'Your reference', L.yourReference), draft.reference);
+  if (fields.showRelated) meta(L.refersTo, draft.relatedTo);
   if (fields.showTotals) meta(kind.totalLabel, money(fields.showPaid ? t.balance : t.total), true);
 
   y = Math.max(leftEnd, midEnd, my) + 16;
@@ -212,7 +237,7 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
   // ---- the lines table ------------------------------------------------------------------------
   const rows = (draft.lines || []).map((line) => {
     const cells = {};
-    for (const c of cols) cells[c.id] = cellText(line, c, money);
+    for (const c of cols) cells[c.id] = cellText(line, c, money, lang);
     return cells;
   });
 
@@ -221,7 +246,7 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
   const fixed = cols.filter((c) => c.id !== 'description');
   const widths = {};
   let used = 0;
-  for (const c of fixed) { widths[c.id] = columnWidth(c, rows, S, narrow ? 6 : 14) || 70; used += widths[c.id]; }
+  for (const c of fixed) { widths[c.id] = columnWidth(pdf, c, rows, S, narrow ? 6 : 14) || 70; used += widths[c.id]; }
   widths.description = Math.max(narrow ? 60 : 120, (right - M) - used);
 
   const xOf = {};
@@ -240,7 +265,7 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
   header();
 
   for (const cells of rows) {
-    const descLines = wrap(cells.description, widths.description - 8, S.body);
+    const descLines = pdf.wrap(cells.description, widths.description - 8, S.body);
     const rowHeight = Math.max(descLines.length * lead, lead) + 8;
 
     // Break at a row boundary, never through one, and repeat the header so the second page is
@@ -248,7 +273,7 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
     if (y + rowHeight > bottom - 40) {
       pdf.addPage();
       y = M;
-      pdf.text(M, y, `${kind.word} ${draft.number} — continued`, { size: S.small, color: MUTED });
+      pdf.text(M, y, fillLabel(L.continued, { word: kind.word, number: draft.number }), { size: S.small, color: MUTED });
       y += 18;
       header();
     }
@@ -267,39 +292,51 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
   if (fields.showTotals) {
     y += 10;
     if (y > bottom - 120) { pdf.addPage(); y = M; }
-    const labelX = narrow ? M : right - 150;
-    const row = (label, value, big) => {
-      pdf.text(labelX, y, label, { size: big ? 11 : S.body, bold: !!big, color: big ? INK : MUTED });
-      pdf.text(right, y, value, { size: big ? 11 : S.body, bold: !!big, color: INK, align: 'right' });
-      y += big ? lead + 4 : lead + 1;
+    // The totals column is as wide as its widest row needs, never narrower than 150pt. A fixed
+    // width was fine for "Total" in Helvetica and not for "Gesamtbetrag" in the embedded face,
+    // where the label ran into its own amount.
+    const planned = [];
+    const row = (label, value, big) => planned.push({ label, value, big: !!big });
+    const drawRows = () => {
+      const need = planned.reduce((w, r) => {
+        const size = r.big ? 11 : S.body;
+        return Math.max(w, pdf.measure(r.label, size, r.big) + pdf.measure(r.value, size, r.big) + 16);
+      }, 150);
+      const labelX = narrow ? M : Math.max(M, right - need);
+      for (const r of planned) {
+        if (r.rule) { pdf.line(labelX, y, right, y, { color: RULE, width: 0.6 }); y += 6; continue; }
+        if (r.note) {
+          for (const l of pdf.wrap(r.note, Math.max(150, need), S.small)) {
+            pdf.text(right, y, l, { size: S.small, italic: true, color: MUTED, align: 'right' });
+            y += 10;
+          }
+          continue;
+        }
+        pdf.text(labelX, y, r.label, { size: r.big ? 11 : S.body, bold: r.big, color: r.big ? INK : MUTED });
+        pdf.text(right, y, r.value, { size: r.big ? 11 : S.body, bold: r.big, color: INK, align: 'right' });
+        y += r.big ? lead + 4 : lead + 1;
+      }
     };
-    row('Subtotal', money(t.subtotal));
-    if (t.discountTotal) row(t.discounts?.[0]?.label || 'Discount', '-' + money(t.discountTotal));
-    if (t.shipping?.amount) row(t.shipping.label || 'Shipping', money(t.shipping.amount));
+    row(TL.subtotal, money(t.subtotal));
+    if (t.discountTotal) row(TL.discount, '-' + money(t.discountTotal));
+    if (t.shipping?.amount) row(TL.shipping, money(t.shipping.amount));
     if (fields.showTax) {
-      for (const l of t.taxLines || []) {
-        row(l.rate != null ? `${l.name} ${Number(l.rate)}%` : l.name, money(l.amount));
-      }
+      for (const l of t.taxLines || []) row(taxLabel(l, L.tax), money(l.amount));
     }
-    if (t.exempt) {
-      for (const l of wrap(t.exempt.reason, 150, S.small)) {
-        pdf.text(right, y, l, { size: S.small, italic: true, color: MUTED, align: 'right' });
-        y += 10;
-      }
-    }
-    pdf.line(labelX, y, right, y, { color: RULE, width: 0.6 });
-    y += 6;
-    row(kind.id === 'credit_note' ? 'Total credit' : 'Total', money(t.total), true);
+    if (t.exempt) planned.push({ note: t.exempt.reason, label: '', value: '' });
+    planned.push({ rule: true, label: '', value: '' });
+    row(TL.total, money(t.total), true);
     if (fields.showPaid) {
-      row('Paid', '-' + money(t.amountPaid));
+      row(TL.paid, '-' + money(t.amountPaid));
       row(kind.totalLabel, money(t.balance), true);
     }
+    drawRows();
   }
 
   // ---- the standing wording ----------------------------------------------------------------------
   y += 14;
   const block = (label, body, italic) => {
-    const lines = wrap(body, right - M, italic ? S.small : S.body, false);
+    const lines = pdf.wrap(body, right - M, italic ? S.small : S.body, false);
     const needed = lines.length * lead + (label ? 14 : 0) + 10;
     if (y + needed > bottom) { pdf.addPage(); y = M; }
     if (label) { pdf.text(M, y, label.toUpperCase(), { size: S.label, bold: true, color: MUTED }); y += 12; }
@@ -308,10 +345,28 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
   };
 
   if (fields.legend) block('', fields.legend, true);
-  if (fields.showNote) block('Note', draft.note);
-  if (fields.showTerms) block('Payment terms', draft.terms);
-  if (fields.showPaymentDetails) block(settings.paymentDetailsLabel || 'How to pay', settings.paymentDetails);
+  if (fields.showNote) block(L.note, draft.note);
+  if (fields.showTerms) block(L.paymentTerms, draft.terms);
+  if (fields.showPaymentDetails) block(labelOr(settings.paymentDetailsLabel, 'How to pay', L.howToPay), settings.paymentDetails);
+
+  // The payment code as vector squares, its caption and account lines beside it.
+  const pay = paymentCode(draft, settings, fields);
+  if (pay) {
+    const side = narrow ? 54 : 64;
+    if (y + side + 12 > bottom) { pdf.addPage(); y = M; }
+    pdf.qr(M, y, side, pay.code);
+    const tx = M + side + 10;
+    let ty = y;
+    pdf.text(tx, ty, pay.caption.toUpperCase(), { size: S.label, bold: true, color: MUTED });
+    ty += 12;
+    for (const l of pay.lines) {
+      for (const piece of pdf.wrap(l, right - tx, S.small)) { pdf.text(tx, ty, piece, { size: S.small, color: INK }); ty += 10; }
+    }
+    y += Math.max(side, ty - y) + 12;
+  }
+
   if (settings.closingText) block('', settings.closingText, true);
+  if (sender.legalText) block('', sender.legalText, true);
 
   // ---- page numbers --------------------------------------------------------------------------------
   // Added last, once the total is known — a footer saying "page 1 of 1" on a document that turned
@@ -320,12 +375,12 @@ export function invoiceToPdf(draft, settings = {}, opts = {}) {
     pdf.pages.forEach((ops, i) => {
       const saved = pdf.ops;
       pdf.ops = ops;
-      pdf.text(pdf.width / 2, pdf.height - 28, `Page ${i + 1} of ${pdf.pageCount}`, {
+      pdf.text(pdf.width / 2, pdf.height - 28, fillLabel(L.pageOf, { n: i + 1, m: pdf.pageCount }), {
         size: S.small, color: MUTED, align: 'center',
       });
       pdf.ops = saved;
     });
   }
 
-  return pdf.bytes();
+  return pdf;
 }

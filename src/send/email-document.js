@@ -13,9 +13,10 @@
 // doc/fields.js — so a delivery note has no prices here for exactly the reason it has none there.
 
 import { formatMoney } from '../money/currency.js';
-import { documentKind } from '../doc/kinds.js';
-import { fieldsFor, lineColumns } from '../doc/fields.js';
-import { docDate, imageSrc } from '../doc/render.js';
+import { fieldsFor, lineColumns, totalLabels } from '../doc/fields.js';
+import { docDate, imageSrc, taxLabel } from '../doc/render.js';
+import { labelOr, localiseStatus } from '../doc/lang.js';
+import { paymentCode } from '../doc/payment.js';
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -63,7 +64,7 @@ ${(extra || []).filter(Boolean).map((l) => `<tr><td style="${F};font-size:12px;c
 }
 
 /** A cell of the lines table, as the string it prints as. */
-function cell(line, col, money) {
+function cell(line, col, money, lang) {
   switch (col.id) {
     case 'description': {
       // Only a stable source — https or a data URI — ever reaches an email. An attachment's token
@@ -78,7 +79,7 @@ function cell(line, col, money) {
     case 'unitPrice': return esc(money(line.unitPrice));
     case 'discount': return line.discountAmount ? '&minus;' + esc(money(line.discountAmount)) : '';
     case 'amount': return esc(money(line.amount));
-    case 'date': return esc(docDate(line.date));
+    case 'date': return esc(docDate(line.date, lang));
     case 'reference': return esc(line.reference || '');
     case 'charge': return line.charge != null ? esc(money(line.charge)) : '';
     case 'paid': return line.paid != null ? esc(money(line.paid)) : '';
@@ -96,14 +97,17 @@ function cell(line, col, money) {
  */
 export function documentToEmailHtml(draft, settings = {}) {
   if (!draft) return '';
-  const kind = documentKind(draft.kind);
   const fields = fieldsFor(draft, settings);
+  const { kind, L, lang } = fields;
   const cols = lineColumns(fields);
+  const TL = totalLabels(fields, draft.totals);
   const t = draft.totals || {};
   const sender = draft.sender || {};
   const client = draft.client || {};
   const fmt = draft.format || { currency: draft.currency };
   const money = (v) => formatMoney(v, fmt);
+  const date = (v) => docDate(v, lang);
+  const taxIdLabel = labelOr(settings.taxNumberLabel, 'Tax ID', L.taxId);
   const accent = settings.accent || '#14509b';
 
   // ---- masthead -------------------------------------------------------------------------------
@@ -113,25 +117,26 @@ export function documentToEmailHtml(draft, settings = {}) {
 <td align="right" valign="top">
 <div style="${F};font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent}">${esc(kind.word)}</div>
 <div style="${F};font-size:16px;color:${INK};padding-top:2px">${esc(draft.number || '—')}</div>
-${draft.status ? `<div style="${F};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding-top:4px">${esc(draft.status)}</div>` : ''}
+${draft.status ? `<div style="${F};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding-top:4px">${esc(localiseStatus(draft.status, lang))}</div>` : ''}
 </td>
 </tr>
 </table>`;
 
   // ---- parties + dates -------------------------------------------------------------------------
   const metaRows = [
-    [kind.dateLabels.issued, docDate(draft.issued)],
-    fields.showSecondDate ? [kind.dateLabels.second, docDate(draft.due)] : null,
-    fields.showReference ? [settings.referenceLabel || 'Your reference', draft.reference] : null,
+    [kind.dateLabels.issued, date(draft.issued)],
+    fields.showSecondDate ? [kind.dateLabels.second, date(draft.due)] : null,
+    fields.showReference ? [labelOr(settings.referenceLabel, 'Your reference', L.yourReference), draft.reference] : null,
+    fields.showRelated ? [L.refersTo, draft.relatedTo] : null,
   ].filter(Boolean);
 
   const parties = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:18px 0 0">
 <tr>
-<td valign="top" width="46%">${party('From', sender, [sender.email, sender.phone,
-    fields.showSenderTaxNumber ? `${settings.taxNumberLabel || 'Tax ID'}: ${sender.taxNumber}` : ''])}</td>
+<td valign="top" width="46%">${party(L.from, sender, [sender.email, sender.phone,
+    fields.showSenderTaxNumber ? `${taxIdLabel}: ${sender.taxNumber}` : ''])}</td>
 <td width="4%"></td>
-<td valign="top" width="50%">${party(kind.showsMoney ? 'Bill to' : 'Deliver to', client, [client.email,
-    fields.showClientTaxNumber ? `${settings.taxNumberLabel || 'Tax ID'}: ${client.taxNumber}` : ''])}</td>
+<td valign="top" width="50%">${party(kind.showsMoney ? L.billTo : L.deliverTo, client, [client.email,
+    fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : ''])}</td>
 </tr>
 </table>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:16px 0 0">
@@ -141,7 +146,7 @@ ${fields.showTotals ? `<td style="${F};font-size:17px;font-weight:700;color:${ac
 </table>`;
 
   // ---- the lines --------------------------------------------------------------------------------
-  const lineRows = (draft.lines || []).map((line) => `<tr>${cols.map((c) => `<td align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:13px;color:${INK};padding:8px 6px;border-bottom:1px solid ${RULE}">${cell(line, c, money)}</td>`).join('')}</tr>`).join('');
+  const lineRows = (draft.lines || []).map((line) => `<tr>${cols.map((c) => `<td align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:13px;color:${INK};padding:8px 6px;border-bottom:1px solid ${RULE}">${cell(line, c, money, lang)}</td>`).join('')}</tr>`).join('');
 
   const table = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:20px 0 0;border-collapse:collapse">
 <tr>${cols.map((c) => `<th align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding:0 6px 6px;border-bottom:1px solid ${RULE}">${esc(c.label)}</th>`).join('')}</tr>
@@ -155,13 +160,13 @@ ${lineRows}
 </tr>`;
 
   const totals = !fields.showTotals ? '' : `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right" style="padding:14px 0 0;border-collapse:collapse">
-${totalRow('Subtotal', money(t.subtotal))}
-${t.discountTotal ? totalRow(t.discounts?.[0]?.label || 'Discount', '−' + money(t.discountTotal)) : ''}
-${t.shipping?.amount ? totalRow(t.shipping.label || 'Shipping', money(t.shipping.amount)) : ''}
-${(fields.showTax ? (t.taxLines || []) : []).map((l) => totalRow(l.rate != null ? `${l.name} ${Number(l.rate)}%` : l.name, money(l.amount))).join('')}
+${totalRow(TL.subtotal, money(t.subtotal))}
+${t.discountTotal ? totalRow(TL.discount, '−' + money(t.discountTotal)) : ''}
+${t.shipping?.amount ? totalRow(TL.shipping, money(t.shipping.amount)) : ''}
+${(fields.showTax ? (t.taxLines || []) : []).map((l) => totalRow(taxLabel(l, L.tax), money(l.amount))).join('')}
 ${t.exempt ? `<tr><td colspan="2" align="right" style="${F};font-size:11px;font-style:italic;color:${MUTED};padding:4px 0">${esc(t.exempt.reason)}</td></tr>` : ''}
-${totalRow(kind.id === 'credit_note' ? 'Total credit' : 'Total', money(t.total), true)}
-${fields.showPaid ? totalRow('Paid', '−' + money(t.amountPaid)) : ''}
+${totalRow(TL.total, money(t.total), true)}
+${fields.showPaid ? totalRow(TL.paid, '−' + money(t.amountPaid)) : ''}
 ${fields.showPaid ? totalRow(kind.totalLabel, money(t.balance), true) : ''}
 </table>
 <div style="clear:both"></div>`;
@@ -174,9 +179,14 @@ ${heading ? `<tr>${label(heading)}</tr>` : ''}
 
   const foot = [
     fields.legend ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:16px 0 0"><tr><td style="${F};font-size:12px;color:${INK};background:#f2f5f8;padding:9px 12px;line-height:1.5">${esc(fields.legend)}</td></tr></table>` : '',
-    fields.showNote ? block('Note', draft.note) : '',
-    fields.showTerms ? block('Payment terms', draft.terms) : '',
-    fields.showPaymentDetails ? block(settings.paymentDetailsLabel || 'How to pay', settings.paymentDetails) : '',
+    fields.showNote ? block(L.note, draft.note) : '',
+    fields.showTerms ? block(L.paymentTerms, draft.terms) : '',
+    fields.showPaymentDetails ? block(labelOr(settings.paymentDetailsLabel, 'How to pay', L.howToPay), settings.paymentDetails) : '',
+    // The account lines and the link, as text. No code in an email: Gmail strips inline images,
+    // and a payment link a client can tap is worth more than a code they cannot scan on the
+    // screen they are reading it on.
+    (() => { const pay = paymentCode(draft, settings, fields); return pay ? block(pay.caption, pay.lines.join('\n')) : ''; })(),
+    sender.legalText ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:14px 0 0"><tr><td style="${F};font-size:11px;color:${MUTED};line-height:1.5">${esc(sender.legalText)}</td></tr></table>` : '',
   ].join('');
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${WIDTH}" style="width:${WIDTH}px;max-width:100%;background:#ffffff;border:1px solid ${RULE};border-radius:4px;border-collapse:separate">

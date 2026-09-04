@@ -16,6 +16,7 @@
 import { formatMoney } from '../money/currency.js';
 import { documentKind } from '../doc/kinds.js';
 import { docDate } from '../doc/render.js';
+import { languageOf, localiseKind } from '../doc/lang.js';
 
 /**
  * The messages, and when each is meant.
@@ -143,7 +144,11 @@ export function daysBetween(from, to) {
  * drifted from the ones that actually work is worse than no list.
  */
 export function placeholdersFor(draft, settings = {}, now = new Date()) {
-  const kind = documentKind(draft.kind);
+  // The placeholders speak the document's language: {kind} is "Rechnung" to a German client, and
+  // the dates read as the invoice writes them. The sentences around them are the business's own
+  // (Settings → Messages), which is where a German-speaking business puts its German.
+  const lang = languageOf(draft, settings);
+  const kind = localiseKind(documentKind(draft.kind), lang);
   const t = draft.totals || {};
   const fmt = draft.format || { currency: draft.currency };
   const money = (v) => formatMoney(v, fmt);
@@ -161,7 +166,7 @@ export function placeholdersFor(draft, settings = {}, now = new Date()) {
   // Dates read the way the document writes them — "19 Aug 2026", never "2026-08-19". A covering
   // email that spells a date differently from the invoice attached to it looks like it came from
   // somewhere else, and the whole point of the message is that it plainly belongs to the document.
-  const dueText = draft.due ? docDate(draft.due) : '';
+  const dueText = draft.due ? docDate(draft.due, lang) : '';
 
   // Only add a full stop if the terms do not already end in one. Somebody who types "Net 30." — and
   // most people do end a sentence — would otherwise get "Net 30.." on every invoice they send.
@@ -175,7 +180,7 @@ export function placeholdersFor(draft, settings = {}, now = new Date()) {
     kind: kind.word,
     kind_lower: kind.word.toLowerCase(),
     status: text(draft.status),
-    issued: draft.issued ? docDate(draft.issued) : '',
+    issued: draft.issued ? docDate(draft.issued, lang) : '',
     due: dueText || '—',
     reference: text(draft.reference),
     client_name: clientName,

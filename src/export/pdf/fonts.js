@@ -1,18 +1,19 @@
 // Font metrics for the standard PDF fonts.
 //
 // A PDF viewer already has Helvetica, Times and Courier — the "standard 14" — so a document using
-// them embeds no font data at all. That is why an invoice from here is 20KB rather than 400KB, and
-// why this file exists instead of a font subsetter.
+// them embeds no font data at all. That is why an invoice from here is 6KB rather than 400KB, and
+// why this file exists instead of only a font subsetter.
 //
 // The catch is that WE have to know how wide the text is. The viewer positions each glyph exactly
 // where the content stream says, so a right-aligned total is right-aligned only if we measured it
 // correctly. These are the published Adobe AFM widths, in 1/1000 em.
 //
 // The other catch is the alphabet. The standard fonts are encoded WinAnsi — Latin-1 plus a handful
-// of extras — so they can write £, € and ü, and cannot write ₹, ₺, ৳ or a single word of Hindi,
-// Arabic or Chinese. That is a real limit of this approach, not a bug to fix later: rendering those
-// means embedding a font. What this file does instead is TRANSLITERATE rather than drop, so an
-// Indian invoice reads "Rs.1,400.00" instead of losing its currency symbol to a blank box.
+// of extras — so they can write £, € and ü, and cannot write ł, č, ő, ₹, ₺, a word of Greek or a
+// word of Hindi. For those the writer switches to the embedded family in ./embedded.js, and
+// `needsEmbedding()` below is how it knows to. What this file still does, for the case where the
+// embedded fonts could not be loaded, is TRANSLITERATE rather than drop: an Indian invoice then
+// reads "Rs.1,400.00" instead of losing its currency symbol to a blank box.
 
 /* eslint-disable */
 // ASCII 32–126, in order. Adobe AFM, Helvetica.
@@ -55,18 +56,27 @@ const HIGH = {
 const CHAR_TO_WINANSI = new Map(Object.entries(HIGH).map(([code, v]) => [v.char, Number(code)]));
 
 /**
+ * The invisible replacements: typographic characters our own templates use that have exact ASCII
+ * equivalents. Swapping them changes nothing a reader would notice, so they never count as a
+ * reason to embed a font.
+ */
+const SOFTEN = {
+  '‘': "'", '’': "'", '“': '"', '”': '"',
+  '–': '-', '—': '-', '…': '...', ' ': ' ', ' ': ' ', ' ': ' ',
+  '−': '-', '•': '-', '‹': '<', '›': '>',
+};
+
+/**
  * Replacements for characters the standard fonts cannot write.
  *
- * Two kinds. The typographic ones — curly quotes, en and em dashes — come from our own templates
- * and have exact ASCII equivalents, so replacing them is invisible. The currency ones do not: a
- * rupee sign becomes "Rs." because that is what the rest of the document would otherwise be missing,
- * and it is far better to be slightly less pretty than to hand a client an invoice with a hole where
- * the amount should be.
+ * Two kinds. The typographic ones above have exact equivalents, so replacing them is invisible.
+ * The currency ones do not: a rupee sign becomes "Rs." because that is what the rest of the
+ * document would otherwise be missing, and it is far better to be slightly less pretty than to
+ * hand a client an invoice with a hole where the amount should be. These are only reached when the
+ * embedded family is unavailable — with it loaded, ₹ is drawn as ₹.
  */
 const TRANSLITERATE = {
-  '‘': "'", '’': "'", '“': '"', '”': '"',
-  '–': '-', '—': '-', '…': '...', ' ': ' ', ' ': ' ',
-  '−': '-', '•': '-', '‹': '<', '›': '>',
+  ...SOFTEN,
   '₹': 'Rs.',   // Indian rupee
   '₨': 'Rs.',   // older rupee sign
   '৳': 'Tk.',   // Bangladeshi taka
@@ -82,6 +92,28 @@ const TRANSLITERATE = {
   '﷼': 'SAR',
 };
 
+/** Can WinAnsi write this character as itself? */
+function winAnsiHas(ch) {
+  const code = ch.codePointAt(0);
+  return (code >= 32 && code <= 126) || CHAR_TO_WINANSI.has(ch) || (code >= 0xA0 && code <= 0xFF);
+}
+
+/**
+ * Would this text lose something in the standard fonts?
+ *
+ * True for any character that is neither WinAnsi nor one of the invisible replacements — a Polish
+ * ł, a Greek Ω, a rupee sign. The PDF writer records the answer for every string it is asked to
+ * draw, and the caller uses it to decide whether the embedded family is worth loading for this
+ * document. A document that never needs it is byte-for-byte the document it always was.
+ */
+export function needsEmbedding(text) {
+  for (const ch of String(text == null ? '' : text)) {
+    if (SOFTEN[ch] != null) continue;
+    if (!winAnsiHas(ch)) return true;
+  }
+  return false;
+}
+
 /**
  * Make a string writable by a standard font.
  *
@@ -93,11 +125,7 @@ export function ascii(text) {
   let out = '';
   for (const ch of String(text == null ? '' : text)) {
     if (TRANSLITERATE[ch] != null) { out += TRANSLITERATE[ch]; continue; }
-    const code = ch.codePointAt(0);
-    if (code >= 32 && code <= 126) { out += ch; continue; }
-    if (CHAR_TO_WINANSI.has(ch)) { out += ch; continue; }
-    // Latin-1 letters (é, ü, ñ, …) are in WinAnsi at their Unicode code point.
-    if (code >= 0xA0 && code <= 0xFF) { out += ch; continue; }
+    if (winAnsiHas(ch)) { out += ch; continue; }
     out += '?';
   }
   return out;
@@ -148,12 +176,12 @@ export function encodeString(text) {
 }
 
 /**
- * Break text into lines that fit a width.
+ * Break text into lines that fit a width, measuring with whatever font is in use.
  *
  * Wraps on spaces, and hard-breaks a single word that is longer than the line — a URL or an account
  * number with no spaces in it would otherwise run off the edge of the page and be lost.
  */
-export function wrap(text, width, size, bold = false) {
+export function wrapWith(measureFn, text, width, size, bold = false) {
   const paragraphs = String(text == null ? '' : text).split('\n');
   const lines = [];
 
@@ -162,12 +190,12 @@ export function wrap(text, width, size, bold = false) {
     let line = '';
     for (const word of para.split(/\s+/).filter(Boolean)) {
       const candidate = line ? `${line} ${word}` : word;
-      if (measure(candidate, size, bold) <= width) { line = candidate; continue; }
+      if (measureFn(candidate, size, bold) <= width) { line = candidate; continue; }
       if (line) { lines.push(line); line = ''; }
-      if (measure(word, size, bold) <= width) { line = word; continue; }
+      if (measureFn(word, size, bold) <= width) { line = word; continue; }
       let chunk = '';
       for (const ch of word) {
-        if (measure(chunk + ch, size, bold) > width && chunk) { lines.push(chunk); chunk = ''; }
+        if (measureFn(chunk + ch, size, bold) > width && chunk) { lines.push(chunk); chunk = ''; }
         chunk += ch;
       }
       line = chunk;
@@ -176,3 +204,28 @@ export function wrap(text, width, size, bold = false) {
   }
   return lines;
 }
+
+/** Wrap against the standard fonts. */
+export function wrap(text, width, size, bold = false) {
+  return wrapWith(measure, text, width, size, bold);
+}
+
+/**
+ * The standard family, in the shape the writer wants from any family: measure, encode, and the
+ * objects to write. No font data — every viewer already has these three faces, which is the whole
+ * reason an invoice from here can be six kilobytes.
+ */
+export const STANDARD_FONTS = {
+  kind: 'standard',
+  italicSkew: false,
+  measure,
+  prepare() { return this; },
+  encode(text) { return { hex: false, raw: encodeString(text) }; },
+  objectCount() { return 3; },
+  resourceEntries(first) { return `/F1 ${first} 0 R /F2 ${first + 1} 0 R /F3 ${first + 2} 0 R`; },
+  objects() {
+    return ['Helvetica', 'Helvetica-Bold', 'Helvetica-Oblique'].map((base) => ({
+      dict: `<< /Type /Font /Subtype /Type1 /BaseFont /${base} /Encoding /WinAnsiEncoding >>`,
+    }));
+  },
+};

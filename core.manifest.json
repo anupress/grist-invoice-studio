@@ -20,6 +20,7 @@
     "src/assets/brand-logo.js",
     "src/assets/icon-library.js",
     "src/assets/icons.js",
+    "src/qr/encoder.js",
     "src/theme/palettes.js",
     "src/theme/apply.js"
   ]

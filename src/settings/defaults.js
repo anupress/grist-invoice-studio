@@ -17,6 +17,17 @@ export const DEFAULT_BUSINESS = {
   // one image filter a PDF accepts without a compression library. Both are data URIs stored in the
   // settings JSON, so the logo travels with the document and needs no host.
   logoData: null, logoJpeg: null,
+  /**
+   * How the business gets paid, for the code on the document. An IBAN puts a SEPA transfer code
+   * (EPC "GiroCode") on euro invoices; a UPI id does the same for rupee ones; a payment link — a
+   * Stripe or PayPal page the business already has — serves everything else. All optional.
+   */
+  iban: '', bic: '', accountHolder: '', upiId: '', paymentLink: '',
+  /**
+   * The legal line at the foot of every document: registration number and court, managing
+   * director, share capital, whatever the jurisdiction requires. Germany and France both do.
+   */
+  legalText: '',
 };
 
 export const DEFAULT_MONEY = {
@@ -56,6 +67,14 @@ export const DEFAULT_MONEY = {
 
   discountsEnabled: true,
   sequentialDiscounts: false,
+
+  /**
+   * A VAT exemption the business trades under — the small-business scheme, chiefly. When set, no
+   * tax is charged and the document carries the sentence the law expects for the home country
+   * (money/tax/exemptions.js), or the business's own wording.
+   */
+  exemption: '',          // '' | 'small_business'
+  exemptionText: '',
 };
 
 /**
@@ -102,6 +121,25 @@ export const DEFAULT_DOCUMENT = {
   paymentDetails: '',
   closingText: '',
   showSignature: false,
+  /**
+   * The language the document is written in, unless the client record says otherwise. Only the
+   * document's own words — Invoice, Due, Subtotal — change; the business's text is its own.
+   */
+  language: 'en',
+  /**
+   * Which fonts the PDF uses. 'auto' embeds a font only when the standard ones would lose a
+   * character (a Polish name, a rupee sign); 'embed' always does, which an archival PDF requires
+   * and which makes every document look the same whatever it says.
+   */
+  pdfFont: 'auto',
+  /**
+   * Whether an issued document opens read-only. In most of Europe an invoice that has been sent
+   * may not be altered — corrections are a credit note — and the composer says so rather than
+   * silently allowing it. It can always be unlocked for the one edit that is genuinely needed.
+   */
+  lockIssued: true,
+  /** Whether the payment code is drawn when a way to pay has been set up. */
+  showPayQr: true,
 };
 
 /**
@@ -126,7 +164,7 @@ export const DEFAULT_DELIVERY = {
    * will not open attachments actually reads, and what survives a spam filter that strips files.
    * Most businesses want both, which is why both default to on.
    *
-   *   attachFormat  'pdf' | 'html' | 'none'
+   *   attachFormat  'pdf' | 'html' | 'none' | 'facturx' | 'ubl' | 'cii'
    *   includeInBody  the invoice, as tables, inside the email
    */
   attachFormat: 'pdf',
@@ -136,6 +174,16 @@ export const DEFAULT_DELIVERY = {
 /** Table overrides, for when detection guesses wrong. Empty means work it out. */
 export const DEFAULT_TABLES = { invoice: '', line: '', client: '', product: '' };
 
+/**
+ * The electronic invoice.
+ *
+ * `profile` is which rulebook the XML announces itself under — EN 16931 as such, XRechnung for
+ * Germany, Peppol BIS for the Peppol network — and empty means the business does not send
+ * e-invoices, so nothing about them is offered or checked. Choosing one puts the Factur-X and
+ * XML formats in the Send panel and runs the pre-send check.
+ */
+export const DEFAULT_EINVOICE = { profile: '' };
+
 export const DEFAULT_SETTINGS = {
   business: { ...DEFAULT_BUSINESS },
   tables: { ...DEFAULT_TABLES },
@@ -143,6 +191,7 @@ export const DEFAULT_SETTINGS = {
   numbering: { ...DEFAULT_NUMBERING },
   document: { ...DEFAULT_DOCUMENT },
   delivery: { ...DEFAULT_DELIVERY },
+  einvoice: { ...DEFAULT_EINVOICE },
   // Per-message overrides, keyed by template id. Absent means "use the built-in wording".
   messages: {},
 };

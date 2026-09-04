@@ -12,9 +12,10 @@
 // invoice comfortably inside it rather than relying on the guard.
 
 import { formatMoney } from '../money/currency.js';
-import { documentKind } from '../doc/kinds.js';
-import { fieldsFor } from '../doc/fields.js';
-import { docDate } from '../doc/render.js';
+import { fieldsFor, totalLabels } from '../doc/fields.js';
+import { docDate, taxLabel } from '../doc/render.js';
+import { labelOr } from '../doc/lang.js';
+import { paymentCode } from '../doc/payment.js';
 
 /**
  * Render the document as text.
@@ -24,21 +25,24 @@ import { docDate } from '../doc/render.js';
  */
 export function documentToPlainText(draft, settings = {}) {
   if (!draft) return '';
-  const kind = documentKind(draft.kind);
   const fields = fieldsFor(draft, settings);
+  const { kind, L, lang } = fields;
+  const TL = totalLabels(fields, draft.totals);
   const t = draft.totals || {};
   const fmt = draft.format || { currency: draft.currency };
   const money = (v) => formatMoney(v, fmt);
+  const date = (v) => docDate(v, lang);
 
   const out = [];
   out.push(`${kind.word.toUpperCase()} ${draft.number || ''}`.trim());
 
-  const dates = [`${kind.dateLabels.issued} ${docDate(draft.issued)}`];
-  if (fields.showSecondDate && draft.due) dates.push(`${kind.dateLabels.second} ${docDate(draft.due)}`);
+  const dates = [`${kind.dateLabels.issued} ${date(draft.issued)}`];
+  if (fields.showSecondDate && draft.due) dates.push(`${kind.dateLabels.second} ${date(draft.due)}`);
   out.push(dates.join('  ·  '));
   if (fields.showReference && draft.reference) {
-    out.push(`${settings.referenceLabel || 'Your reference'}: ${draft.reference}`);
+    out.push(`${labelOr(settings.referenceLabel, 'Your reference', L.yourReference)}: ${draft.reference}`);
   }
+  if (fields.showRelated) out.push(`${L.refersTo}: ${draft.relatedTo}`);
   out.push('');
 
   // One line per item. Quantity first, because that is what a reader checks against what arrived.
@@ -47,7 +51,7 @@ export function documentToPlainText(draft, settings = {}) {
   for (const l of draft.lines || []) {
     if (l.charge != null || l.paid != null || l.balance != null) {
       out.push([
-        docDate(l.date),
+        date(l.date),
         String(l.reference || l.description || '').trim(),
         l.charge != null ? money(l.charge) : '',
         l.paid != null ? `paid ${money(l.paid)}` : '',
@@ -66,17 +70,16 @@ export function documentToPlainText(draft, settings = {}) {
 
   if (fields.showTotals) {
     out.push('');
-    out.push(`Subtotal ${money(t.subtotal)}`);
-    if (t.discountTotal) out.push(`${t.discounts?.[0]?.label || 'Discount'} −${money(t.discountTotal)}`);
-    if (t.shipping?.amount) out.push(`${t.shipping.label || 'Shipping'} ${money(t.shipping.amount)}`);
+    out.push(`${TL.subtotal} ${money(t.subtotal)}`);
+    if (t.discountTotal) out.push(`${TL.discount} −${money(t.discountTotal)}`);
+    if (t.shipping?.amount) out.push(`${TL.shipping} ${money(t.shipping.amount)}`);
     if (fields.showTax) {
-      for (const l of t.taxLines || []) {
-        out.push(`${l.rate != null ? `${l.name} ${Number(l.rate)}%` : l.name} ${money(l.amount)}`);
-      }
+      for (const l of t.taxLines || []) out.push(`${taxLabel(l, L.tax)} ${money(l.amount)}`);
     }
-    out.push(`Total ${money(t.total)}`);
+    if (t.exempt) out.push(t.exempt.reason);
+    out.push(`${TL.total} ${money(t.total)}`);
     if (fields.showPaid) {
-      out.push(`Paid −${money(t.amountPaid)}`);
+      out.push(`${TL.paid} −${money(t.amountPaid)}`);
       out.push(`${kind.totalLabel} ${money(t.balance)}`);
     }
   }
@@ -85,8 +88,18 @@ export function documentToPlainText(draft, settings = {}) {
   // reading only the quoted document still learns where to send it.
   if (fields.showPaymentDetails && settings.paymentDetails) {
     out.push('');
-    out.push(settings.paymentDetailsLabel || 'How to pay');
+    out.push(labelOr(settings.paymentDetailsLabel, 'How to pay', L.howToPay));
     out.push(String(settings.paymentDetails).trim());
+  }
+  const pay = paymentCode(draft, settings, fields);
+  if (pay) {
+    out.push('');
+    out.push(pay.caption);
+    for (const l of pay.lines) out.push(l);
+  }
+  if (draft.sender?.legalText) {
+    out.push('');
+    out.push(String(draft.sender.legalText).trim());
   }
 
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();

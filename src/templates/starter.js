@@ -39,6 +39,9 @@ const CLIENT_COLUMNS = [
   { id: 'Zip', label: 'Postcode', type: 'Text' },
   { id: 'Country', label: 'Country', type: 'Text' },
   { id: 'TaxNumber', label: 'Tax number', type: 'Text' },
+  // The language their documents are written in: de, fr, es, it, nl, pl, pt. Empty means the
+  // business's own default, which is what every sample client here uses.
+  { id: 'Language', label: 'Language', type: 'Text' },
 ];
 
 const PRODUCT_COLUMNS = [
@@ -73,6 +76,9 @@ const INVOICE_COLUMNS = [
   { id: 'Total', label: 'Total', type: 'Numeric' },
   { id: 'SentAt', label: 'Sent', type: 'Date' },
   { id: 'SentTo', label: 'Sent to', type: 'Text' },
+  // The document this one corrects or follows — filled in when a credit note is raised against
+  // an invoice, or an invoice from a quote.
+  { id: 'RelatedTo', label: 'Related to', type: 'Text' },
   // Included from the start rather than left to the upgrade, so a document built here never opens
   // with a list of things still to add to it.
   { id: 'Document', label: 'Document', type: 'Attachments' },

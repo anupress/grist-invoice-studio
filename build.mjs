@@ -79,6 +79,10 @@ for (const file of result.outputFiles) {
 //    drops anything whose name starts with an underscore.
 copyIfExists('.nojekyll', path.join(OUT, '.nojekyll'));
 copyIfExists('vendor', path.join(OUT, 'vendor'));
+// The embedded PDF fonts, fetched at runtime only by documents that need a glyph the standard
+// fonts cannot draw. Their URLs carry the version, so they are re-fetched on a release like
+// everything else.
+copyIfExists('fonts', path.join(OUT, 'fonts'));
 copyIfExists('src/styles', path.join(OUT, 'assets/styles'));
 
 // 4. Production index.html — the obfuscated entry chunk, and nothing else.

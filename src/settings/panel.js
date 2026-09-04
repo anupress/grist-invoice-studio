@@ -21,6 +21,10 @@ import { numberFormatFor } from './defaults.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from '../compose/ui.js';
 import { templatesBySector, findTemplate, templateChanges, applyTemplate } from '../templates/index.js';
 import { MESSAGE_TEMPLATES } from '../send/message.js';
+import { LANGUAGES } from '../doc/lang.js';
+import { EXEMPTION_CHOICES, smallBusinessNote } from '../money/tax/exemptions.js';
+import { looksLikeIban, formatIban } from '../doc/payment.js';
+import { PROFILES, EINVOICE_FORMATS } from '../einvoice/index.js';
 
 const opt = (value, label) => ({ value, label });
 
@@ -107,6 +111,8 @@ export function renderSettingsPanel(ctx) {
     field('Postcode', textInput(b.postcode, (v) => { b.postcode = v; touched(); })),
     field('Country', textInput(b.country, (v) => { b.country = v.toUpperCase(); touched(); }, { placeholder: 'GB', class: 'cmp-input--code' })),
     field('Tax number', textInput(b.taxNumber, (v) => { b.taxNumber = v; touched(); }, { placeholder: 'VAT / GST / TRN' })),
+    field('Legal line', textArea(b.legalText, (v) => { b.legalText = v; touched(); }, { rows: 2, placeholder: 'Registered in England no. 01234567 · Managing director: …' }),
+      'Printed small at the foot of every document. Registration number and court, managing director, share capital \u2014 whatever your jurisdiction requires on an invoice.'),
   ], { grid: true });
 
   // ---- money -----------------------------------------------------------------------------------
@@ -170,6 +176,23 @@ export function renderSettingsPanel(ctx) {
       ? 'For selling across borders: the rate follows the client’s country.'
       : 'No tax is charged and none is shown.');
 
+  // A standing exemption replaces the rate: no tax, and the sentence the law wants instead of it.
+  const exemptionNote = el('span', { class: 'cmp-field__hint' });
+  const paintExemption = () => {
+    exemptionNote.textContent = m.exemption === 'small_business'
+      ? `Printed on every document: \u201c${smallBusinessNote(m.homeCountry, m.exemptionText)}\u201d`
+      : '';
+  };
+  const exemptionFields = [
+    field('VAT exemption', selectInput(EXEMPTION_CHOICES.map((c) => opt(c.id, c.label)), m.exemption || '', (v) => {
+      m.exemption = v; paintExemption(); touched();
+    }), 'Below the registration threshold? The document then charges no VAT and says why, in the words your country expects.'),
+    m.exemption === 'small_business' || m.exemptionText
+      ? field('Wording', textInput(m.exemptionText, (v) => { m.exemptionText = v; paintExemption(); touched(); }, { placeholder: 'Leave blank for the standard sentence' }), exemptionNote)
+      : null,
+  ];
+  paintExemption();
+
   const simpleFields = m.taxMode !== 'simple' ? [] : [
     field('Rate', numberInput(m.simpleRate, (v) => { m.simpleRate = v; touched(); }), 'A percentage — 20 for 20%.'),
     field('Call it', textInput(m.simpleName, (v) => { m.simpleName = v; touched(); }, { placeholder: 'VAT' }),
@@ -179,6 +202,7 @@ export function renderSettingsPanel(ctx) {
   const taxSection = section('Tax', [
     modeField,
     ...simpleFields,
+    ...exemptionFields,
     field('Prices entered', selectInput([
       opt('excl', 'Without tax — it is added on'), opt('incl', 'With tax already included'),
     ], m.pricesIncludeTax ? 'incl' : 'excl', (v) => { m.pricesIncludeTax = v === 'incl'; touched(); })),
@@ -198,6 +222,29 @@ export function renderSettingsPanel(ctx) {
     field('Assume clients are in', textInput(m.defaultCustomerCountry, (v) => { m.defaultCustomerCountry = v.toUpperCase(); touched(); }, { class: 'cmp-input--code' }),
       'Used when a client record has no country of its own.'),
   ].filter(Boolean), { grid: true });
+
+  // ---- getting paid ----------------------------------------------------------------------------
+  const ibanNote = el('span', { class: 'cmp-field__hint' });
+  const paintIban = () => {
+    const v = b.iban || '';
+    ibanNote.textContent = !v ? 'Euro invoices then carry a SEPA transfer code (GiroCode) that a banking app scans and pre-fills.'
+      : looksLikeIban(v) ? `Will print as ${formatIban(v)}.`
+        : 'That does not look like an IBAN yet \u2014 two letters, two digits, then the account.';
+  };
+  paintIban();
+  const payingSection = section('Getting paid', [
+    el('p', { class: 'set-lead', text: 'A code the client can scan, drawn on anything that asks for money. Euro documents with an IBAN get a SEPA transfer code; rupee documents with a UPI id get a UPI code; a payment link serves everything else. Nothing here is required, and nothing is sent anywhere \u2014 the code is drawn in this browser.' }),
+    field('Account holder', textInput(b.accountHolder, (v) => { b.accountHolder = v; touched(); }, { placeholder: b.name || 'as on the bank account' }),
+      'Only when it differs from the business name.'),
+    field('IBAN', textInput(b.iban, (v) => { b.iban = v.replace(/\s+/g, '').toUpperCase(); paintIban(); touched(); }, { class: 'cmp-input--code', placeholder: 'DE89 3704 0044 0532 0130 00' }), ibanNote),
+    field('BIC', textInput(b.bic, (v) => { b.bic = v.toUpperCase(); touched(); }, { class: 'cmp-input--code', placeholder: 'optional' })),
+    field('UPI id', textInput(b.upiId, (v) => { b.upiId = v; touched(); }, { class: 'cmp-input--code', placeholder: 'name@bank' }),
+      'For rupee documents.'),
+    field('Payment link', textInput(b.paymentLink, (v) => { b.paymentLink = v.trim(); touched(); }, { type: 'url', placeholder: 'https://pay.example/your-page' }),
+      'A Stripe payment link, PayPal.me, or your bank\u2019s own request page. Must be https.'),
+    field('Payment code', selectInput([opt('yes', 'Shown when a way to pay is set up'), opt('no', 'Never shown')],
+      s.document.showPayQr === false ? 'no' : 'yes', (v) => { s.document.showPayQr = v === 'yes'; touched(); })),
+  ], { grid: true });
 
   const ratesSection = section('Tax rates', [
     field('Start from', presetChooser),
@@ -260,6 +307,8 @@ export function renderSettingsPanel(ctx) {
   // ---- the document -------------------------------------------------------------------------------
   const doc = s.document;
   const documentSection = section('The document', [
+    field('Language', selectInput(LANGUAGES.map((l) => opt(l.id, l.label)), doc.language || 'en', (v) => { doc.language = v; touched(); }),
+      'The words on the document — Invoice, Due, Subtotal — unless a client record names its own language. Your own text is never translated.'),
     field('Layout', selectInput(LAYOUTS.map((l) => opt(l.id, l.label)), doc.layout, (v) => { doc.layout = v; touched(); })),
     field('Paper', selectInput([
       opt('a4', 'A4 — 210 × 297mm'),
@@ -276,6 +325,16 @@ export function renderSettingsPanel(ctx) {
       opt('roomy', 'Roomy — easier to read'),
     ], doc.density, (v) => { doc.density = v; touched(); })),
     field('Accent colour', textInput(doc.accent, (v) => { doc.accent = v; touched(); }, { placeholder: '#14509b', class: 'cmp-input--code' })),
+    field('PDF fonts', selectInput([
+      opt('auto', 'Embed only when needed — the usual'),
+      opt('embed', 'Always embed a font'),
+    ], doc.pdfFont || 'auto', (v) => { doc.pdfFont = v; }),
+      'The standard PDF fonts cannot draw ł, č, ő, Greek, Cyrillic or ₹. When a document needs one of those, a font is embedded automatically; choose Always if every PDF should look the same or must be archived as PDF/A.'),
+    field('Issued documents', selectInput([
+      opt('lock', 'Open read-only — correct with a credit note'),
+      opt('edit', 'Stay editable'),
+    ], doc.lockIssued === false ? 'edit' : 'lock', (v) => { doc.lockIssued = v === 'lock'; }),
+      'Once an invoice has gone out, most of Europe requires that it not be altered. Read-only can still be unlocked for the one edit that is genuinely needed.'),
     field('Label for a tax number', textInput(doc.taxNumberLabel, (v) => { doc.taxNumberLabel = v; touched(); })),
     field('Label for their reference', textInput(doc.referenceLabel, (v) => { doc.referenceLabel = v; touched(); })),
     field('Heading for payment details', textInput(doc.paymentDetailsLabel, (v) => { doc.paymentDetailsLabel = v; touched(); })),
@@ -355,10 +414,21 @@ export function renderSettingsPanel(ctx) {
 
   // ---- delivery ------------------------------------------------------------------------------------
   const del = s.delivery;
+  const ei = s.einvoice;
+  const einvoiceSection = section('Electronic invoices', [
+    el('p', { class: 'set-lead', text: 'Structured invoices for the systems that now require them: Germany (XRechnung, ZUGFeRD), France (Factur-X), Belgium and the Nordics (Peppol). Choose the rulebook your clients expect and the Send panel gains Factur-X — a PDF with the invoice inside as XML — and the bare XML formats, with a check before each send of what a receiver would reject. Nothing is transmitted by this widget; the file goes out by whichever route you use today.' }),
+    field('Profile', selectInput([
+      opt('', 'Off — ordinary PDFs only'),
+      ...Object.values(PROFILES).map((p) => opt(p.id, p.label)),
+    ], ei.profile || '', (v) => { ei.profile = v; if (!v && ['facturx', 'ubl', 'cii'].includes(del.attachFormat)) del.attachFormat = 'pdf'; if (ctx.onRebuild) ctx.onRebuild(); }),
+      'EN 16931 is the European standard every profile is built on; XRechnung and Peppol add their own required fields, which the check will ask for. Your VAT number, with its country prefix, goes in Business → Tax number.'),
+  ]);
+
   const deliverySection = section('Sending', [
     el('p', { class: 'set-lead', text: 'Nothing here ever holds a password or an API key. Settings are stored in your Grist document, where everyone who can edit it can read them — so credentials belong in whatever you run at the far end, not here.' }),
     field('Attach by default', selectInput([
       opt('pdf', 'PDF — the usual'),
+      ...(ei.profile ? EINVOICE_FORMATS.map((f) => opt(f.id, f.label)) : []),
       opt('html', 'HTML file — opens in any browser'),
       opt('none', 'Nothing — the email only'),
     ], del.attachFormat, (v) => { del.attachFormat = v; }),
@@ -394,11 +464,11 @@ export function renderSettingsPanel(ctx) {
     business: [businessSection, tradeSection],
     // The rate grid only when there is a table to show. A grid sitting under "one rate I type in"
     // is an invitation to fill in something that will never be read.
-    money: [moneySection, taxSection, m.taxMode === 'preset' ? ratesSection : null],
+    money: [moneySection, taxSection, m.taxMode === 'preset' ? ratesSection : null, payingSection],
     numbering: [numberingSection],
     document: [documentSection],
     messages: [messagesSection],
-    sending: [deliverySection],
+    sending: [einvoiceSection, deliverySection],
   };
 
   const tabStrip = el('div', { class: 'set-tabs', role: 'tablist' }, TABS.map((t) => {

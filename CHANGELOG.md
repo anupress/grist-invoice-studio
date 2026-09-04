@@ -1,5 +1,68 @@
 # Changelog
 
+## 1.17.0 — EU-ready
+
+The release that makes the "Europe and the major markets" claim true, and closes the gaps the
+competitor research found. Nothing that worked before changed shape: a Latin-1 English document
+with no payment details is the document it was, byte for byte.
+
+- **The PDF can write every European language.** The standard PDF fonts are WinAnsi, which has no
+  ł, č, ő, Greek, Cyrillic or ₹ — a Polish client's name came out with question marks in it. The
+  writer now embeds a subset of DejaVu Sans when a document needs it: only the glyphs on the page
+  (about twenty kilobytes), as a Type 0 font with a ToUnicode map so the text still searches and
+  copies. The font is fetched once, only by documents that need it, so an English invoice never
+  loads it and stays six kilobytes. Settings → Document can force embedding for every PDF. The
+  subsetter, `src/export/pdf/ttf.js`, is our own; `fonts/` holds the shipped faces, cut down by
+  `scripts/subset-fonts.mjs` from DejaVu (Bitstream Vera licence, included).
+- **Eight document languages.** English, German, French, Spanish, Italian, Dutch, Polish and
+  Portuguese: the document's own words — Invoice/Rechnung/Facture, the dates, column headings,
+  totals, legends, the reverse-charge sentence — with dates written the way the language writes
+  them. Chosen per document, else from the client record's new `Language` column, else the default
+  in Settings → Document. Only the document's words change; what you type is never translated. The
+  screen, the PDF, the email body and the plain text all read one dictionary (`src/doc/lang.js`),
+  and message placeholders like `{kind}` and `{due}` follow the document.
+- **The EU reverse charge is worked out, not ticked.** A cross-border sale inside the EU to a client
+  with a VAT number charges no VAT and says so, citing Article 196, in the document's language.
+  The rule existed since 1.1.0 and was never wired to the totals; now it is.
+- **Small-business VAT exemption.** Settings → Money & tax → VAT exemption. No tax is charged and
+  the document carries the sentence the home country expects (§ 19 UStG, art. 293 B du CGI, art.
+  113 ustawy o VAT, and fifteen more), or the business's own wording.
+- **A legal line.** Settings → Business → Legal line: registration number and court, managing
+  director, share capital — printed small at the foot of every document, as German and French law
+  require.
+- **A payment code the client scans.** Settings → Money & tax → Getting paid. Euro documents with
+  an IBAN carry the EPC "GiroCode" that European banking apps scan to pre-fill a SEPA transfer
+  (account, amount, reference); rupee documents with a UPI id carry a UPI code; a payment link — a
+  Stripe or PayPal page — serves any currency. Drawn as SVG on screen and as vector squares in the
+  PDF; the account lines are printed beside it and in the email and plain text. Only on documents
+  that ask for money, only while something is owed. The QR encoder is the shared core's.
+- **Issued documents open read-only.** A saved document whose status has moved past Draft opens in
+  the composer greyed out with the reason and three actions: make a credit note, duplicate as new,
+  or edit anyway. The credit note names the invoice it reverses (`RelatedTo`, offered by the
+  upgrade and included in new setups) and its legend says so in the document's language. Settings
+  → Document → Issued documents turns the lock off.
+- **Electronic invoices.** Settings → Sending → Electronic invoices chooses a rulebook — EN 16931,
+  XRechnung 3.0 (Germany) or Peppol BIS Billing 3.0 — and the Send panel gains three formats:
+  Factur-X/ZUGFeRD, a PDF/A-3 with the invoice embedded as UN/CEFACT CII XML, which German and
+  French systems read automatically; UBL 2.1 XML; and bare CII XML. All three come from one
+  EN 16931 model (`src/einvoice/model.js`): VAT categories S/Z/AE/E from what the engine did, the
+  reverse charge as AE with `VATEX-EU-AE`, line allowances so the arithmetic closes to the cent,
+  shipping as a document charge, unit codes, the preceding invoice on a credit note. A check runs
+  before every send and lists what a receiver's validator would reject, in words, with the setting
+  to fix it — a spelled-out country, a VAT number without its prefix, a missing Leitweg-ID. The
+  PDF/A-3 side is our own too: XMP metadata with the Factur-X extension schema, an sRGB output
+  intent built from its numbers (`src/export/pdf/icc.js`), the embedded file as an associated
+  file with `AFRelationship /Alternative`, fonts always embedded. Nothing is transmitted by the
+  widget; the file goes out by whichever route is used today, and the Direct payload carries XML
+  as `utf8` and Factur-X as `base64` exactly as it carries a PDF.
+- Unit words on lines map to UN/ECE codes (`src/doc/units.js`) — hours to HUR, m² to MTK — which
+  the electronic invoice requires; nothing visible changes.
+- The composer gains Language and, on credit notes, Refers to. Settings → Document gains Language,
+  PDF fonts and Issued documents. New starter documents include `Language` on Clients and
+  `RelatedTo` on Invoices; existing documents are offered both by the upgrade.
+- Downloading a PDF is asynchronous now (the font may need fetching); the send panel warms the
+  font the moment it opens for a document that will need it, so the click still feels immediate.
+
 ## 1.16.1
 
 - Change of trade moves to the bottom of the Business tab — it is a fact about the business, and a
