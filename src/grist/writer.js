@@ -424,6 +424,10 @@ export async function createStarterTables(tables, provider, { live }) {
   const todo = tables.filter((t) => !existing.has(t.id));
   if (!todo.length) return { ok: true, created: [], skipped: tables.map((t) => t.id) };
 
+  // The ids of every row written, per table, handed back so the caller can remember which rows
+  // are the sample — and remove exactly those later, never a row somebody typed in beside them.
+  const rows = {};
+
   if (!live) {
     for (const t of todo) {
       provider.data.tables[t.id] = {
@@ -433,12 +437,13 @@ export async function createStarterTables(tables, provider, { live }) {
         columns: t.columns.map((c) => ({ id: c.id, label: c.label, type: c.type, isFormula: false, widgetOptions: c.widgetOptions || null })),
         records: t.records.map((r, i) => ({ id: i + 1, ...r })),
       };
+      rows[t.id] = t.records.map((_, i) => i + 1);
     }
     // A document that had nothing in it has no default table either, and provider.columns() with no
     // argument reads through it.
     if (!provider.data.defaultTable) provider.data.defaultTable = todo[todo.length - 1].id;
     provider.setData(provider.data);
-    return { ok: true, created: todo.map((t) => t.id), skipped: [] };
+    return { ok: true, created: todo.map((t) => t.id), skipped: [], rows };
   }
 
   const created = [];
@@ -460,7 +465,64 @@ export async function createStarterTables(tables, provider, { live }) {
   // Rows, not just columns. refreshTables loads both for tables it has not seen, and these are all
   // new — but priming again is cheap and makes the dependency explicit rather than incidental.
   await provider.prime(created);
-  return { ok: true, created, skipped: tables.length - todo.length ? tables.filter((t) => existing.has(t.id)).map((t) => t.id) : [] };
+  // A table that did not exist a moment ago holds nothing but what was just written.
+  for (const id of created) rows[id] = (provider.records(id) || []).map((r) => r.id);
+  return { ok: true, created, skipped: tables.length - todo.length ? tables.filter((t) => existing.has(t.id)).map((t) => t.id) : [], rows };
+}
+
+/** Tables in the order their rows can be removed: a referenced row goes after the row pointing at it. */
+const REMOVAL_ORDER = ['InvoiceItems', 'Invoices', 'Products', 'Clients'];
+
+/**
+ * Which of the remembered sample rows are still there to remove, per table, in a safe order.
+ *
+ * Pure, so it can be tested: a row that has already been deleted by hand is simply not in the
+ * list, and a table that has gone is skipped.
+ */
+export function sampleRowsPresent(sampleRows, provider) {
+  const known = new Set((provider.tables() || []).map((t) => t.id));
+  const tables = Object.keys(sampleRows || {}).sort((a, b) => {
+    const ia = REMOVAL_ORDER.indexOf(a), ib = REMOVAL_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+  const out = [];
+  for (const table of tables) {
+    if (!known.has(table)) continue;
+    const have = new Set((provider.records(table) || []).map((r) => r.id));
+    const ids = (sampleRows[table] || []).filter((id) => have.has(id));
+    if (ids.length) out.push({ table, ids });
+  }
+  return out;
+}
+
+/**
+ * Remove the sample rows setup created.
+ *
+ * Exactly those rows, by id, and only the ones that still exist. Tables and columns are never
+ * touched — the point is a document that keeps its structure and loses its placeholders.
+ */
+export async function removeSampleRows(sampleRows, provider, { live }) {
+  const todo = sampleRowsPresent(sampleRows, provider);
+  const removed = todo.reduce((a, t) => a + t.ids.length, 0);
+  if (!removed) return { ok: true, removed: 0 };
+
+  if (!live) {
+    for (const { table, ids } of todo) {
+      const drop = new Set(ids);
+      const t = provider.data.tables[table];
+      if (t) t.records = t.records.filter((r) => !drop.has(r.id));
+    }
+    provider.setData(provider.data);
+    return { ok: true, removed };
+  }
+
+  const denied = await requireFullAccess('Removing the sample rows');
+  if (denied) return denied;
+  const res = await apply(todo.map(({ table, ids }) => ['BulkRemoveRecord', table, ids]));
+  if (!res.ok) return { ok: false, error: res.error };
+  bridge.invalidateMetaCache();
+  await provider.prime(todo.map((t) => t.table));
+  return { ok: true, removed };
 }
 
 /** Add the columns an upgrade plan asks for. */

@@ -13,6 +13,25 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
+ * Already-escaped text with its web addresses and emails made clickable.
+ *
+ * A payment link a client has to select, copy and paste is a payment that happens tomorrow.
+ * Only https and mailto targets are made: a plain-http address stays text, and anything that
+ * merely looks like a domain is left alone rather than guessed at. Trailing punctuation belongs
+ * to the sentence, not the link.
+ */
+export function linkify(escapedText, color = '#14509b') {
+  return String(escapedText || '')
+    .replace(/https:\/\/[^\s<>"']+/g, (raw) => {
+      const m = /^(.*?)([.,;:!?)]*)$/.exec(raw);
+      const url = m[1], tail = m[2];
+      return `<a href="${url}" style="color:${color};text-decoration:underline">${url}</a>${tail}`;
+    })
+    .replace(/(^|[\s(>])([\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g, (all, before, mail) =>
+      `${before}<a href="mailto:${mail}" style="color:${color};text-decoration:underline">${mail}</a>`);
+}
+
+/**
  * The message as email-ready HTML.
  *
  * Inline styles only, and no stylesheet: every mail client strips or ignores a `<style>` block, and
@@ -26,7 +45,7 @@ export function messageToHtml(message, settings = {}, opts = {}) {
 
   const paragraphs = String(message.body || '')
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 14px;line-height:1.55;color:${ink}">${esc(p).replace(/\n/g, '<br>')}</p>`)
+    .map((p) => `<p style="margin:0 0 14px;line-height:1.55;color:${ink}">${linkify(esc(p), accent).replace(/\n/g, '<br>')}</p>`)
     .join('');
 
   const d = message.document || {};

@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.18.0 — A complete sample business for every trade
+
+- **Setup builds a whole business, not four rows.** Every trade now has its own sample: an
+  ANUPRESS-branded business with an address (ANUPRESS Café, ANUPRESS Works, ANUPRESS Legal, and
+  eleven more), three or four clients suited to the trade, a catalogue of what it sells with units
+  and SKUs, and five documents in five states — overdue, paid, part paid, sent and draft — with
+  references, notes and sent/paid dates. Four trades have a client abroad with a Language set, so
+  the invoice to them opens in German, French, Dutch or Polish without anyone choosing. The data is
+  in `src/templates/samples.js`; the starter builds the tables from it.
+- **The sample business fills the settings when they are empty**, so a fresh document is headed
+  ANUPRESS Café rather than "Your business", and the money settings still at their factory
+  defaults follow it into pounds and VAT. The widget keeps pointing at Settings → Business until
+  the name is replaced. A business that already has a name is never touched.
+- **Remove the sample rows.** Setup remembers the row ids it wrote, and Data offers to remove
+  exactly those — never a row you added, never a table or a column — so a document can be cleared
+  in one click when the real invoices arrive. A hint above the document says how many are left.
+- **`?trade=<id>` on the demo** builds that trade's starter document in memory, so every sample
+  business can be looked at, and screenshotted, from one URL each.
+- **Links in emails.** Web addresses and emails in the formatted message and in the document's
+  standing text are now links a client can tap, the masthead's website is one too, and the
+  message templates carry `{payment_link_line}` — "Pay online: …" when the business has a payment
+  page and nothing when it has not. `{payment_link}` and `{website}` are available as placeholders.
+- The demo sender is ANUPRESS Works, the same business the construction starter builds; the
+  previous fictional name is gone from everything a person sees.
+- Invoice items gain a Unit column in new starter documents.
+
 ## 1.17.0 — EU-ready
 
 The release that makes the "Europe and the major markets" claim true, and closes the gaps the

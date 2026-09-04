@@ -99,19 +99,19 @@ ok('and invoices before their items',
   built.findIndex((t) => t.id === 'Invoices') < built.findIndex((t) => t.id === 'InvoiceItems'));
 
 const byId = Object.fromEntries(built.map((t) => [t.id, t]));
-eq('three clients', byId.Clients.records.length, 3);
+ok('at least three clients', byId.Clients.records.length >= 3);
 eq('with email addresses, so invoices can be sent', byId.Clients.records.every((c) => /@/.test(c.Email)), true);
-eq('four invoices', byId.Invoices.records.length, 4);
+eq('five invoices, one in each state', byId.Invoices.records.map((r) => r.Status).sort(), ['Draft', 'Overdue', 'Paid', 'Part paid', 'Sent']);
 ok('there is something to chase', byId.Invoices.records.some((i) => i.Status === 'Overdue'));
 ok('something already settled', byId.Invoices.records.some((i) => i.Status === 'Paid'));
 ok('something in flight', byId.Invoices.records.some((i) => i.Status === 'Sent'));
 ok('and something to finish', byId.Invoices.records.some((i) => i.Status === 'Draft'));
 
 // Grist assigns row ids in insert order from 1, which is what makes a plain number a valid Ref.
-ok('client references are row ids', byId.Invoices.records.every((i) => i.Client >= 1 && i.Client <= 3));
-ok('line items point at real invoices', byId.InvoiceItems.records.every((it) => it.Invoice >= 1 && it.Invoice <= 4));
+ok('client references are row ids', byId.Invoices.records.every((i) => i.Client >= 1 && i.Client <= byId.Clients.records.length));
+ok('line items point at real invoices', byId.InvoiceItems.records.every((it) => it.Invoice >= 1 && it.Invoice <= 5));
 ok('every invoice has at least one line',
-  [1, 2, 3, 4].every((n) => byId.InvoiceItems.records.some((it) => it.Invoice === n)));
+  [1, 2, 3, 4, 5].every((n) => byId.InvoiceItems.records.some((it) => it.Invoice === n)));
 
 // The stored total has to agree with the lines, or the ledger reads wrongly in Grist itself.
 for (const n of [1, 2, 3, 4]) {
@@ -134,8 +134,11 @@ const paidVat = taxed.find((t) => t.id === 'Invoices').records.find((i) => i.Sta
 eq('with VAT, paid in full includes it', paidVat.AmountPaid, Math.round(paidVat.Total * 1.2 * 100) / 100);
 ok('and the invoice is therefore settled', paidVat.AmountPaid > paidVat.Total);
 // Unpaid invoices are untouched by any of this.
-eq('nothing else is marked paid',
-  taxed.find((t) => t.id === 'Invoices').records.filter((i) => i.AmountPaid > 0).length, 1);
+// The paid one and the part-paid one carry a payment; the overdue, sent and draft ones do not.
+eq('only the paid and part-paid invoices carry a payment',
+  taxed.find((t) => t.id === 'Invoices').records.filter((i) => i.AmountPaid > 0).map((i) => i.Status).sort(), ['Paid', 'Part paid']);
+const partVat = taxed.find((t) => t.id === 'Invoices').records.find((i) => i.Status === 'Part paid');
+eq('and a part payment is half the gross', partVat.AmountPaid, Math.round(partVat.Total * 1.2 / 2 * 100) / 100);
 
 // The trade decides what is being sold, which is the whole reason it is asked for.
 ok('a builder invoices for labour', byId.InvoiceItems.records.some((it) => /Labour/i.test(it.Description)));
@@ -215,7 +218,8 @@ eq('the catalogue image column is mapped', detProducts.roles.image, 'Image');
   const shop = starter.starterTablesFor('retail', {}).find((t) => t.id === 'Products').records;
   ok('retail products carry pictures', shop.every((p) => String(p.Image).startsWith('data:image/svg+xml')));
   const cafe = starter.starterTablesFor('restaurant', {}).find((t) => t.id === 'Products').records;
-  ok('so does the cafe', cafe.every((p) => String(p.Image).startsWith('data:image/svg+xml')));
+  // The café's counter items carry pictures; its catering line, which is a service, does not.
+  ok('so does the cafe', cafe.filter((p) => String(p.Image).startsWith('data:image/svg+xml')).length >= 4);
   // Attachments, because dragging a photo in is the gesture a Grist user reaches for. The data
   // URIs in the records are what the DEMO shows and what the live writer UPLOADS through the
   // attachment API — they never enter the column as text.

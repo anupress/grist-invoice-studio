@@ -374,7 +374,7 @@ export function renderSettingsPanel(ctx) {
 
   const messagesSection = el('div', {}, [
     section('Wording', [
-      el('p', { class: 'set-lead', text: 'The covering message for each event, chosen automatically from the document\u2019s status when you open Send. Anything in {braces} is filled in per document \u2014 available: {number} {kind} {kind_lower} {status} {issued} {due} {reference} {client_name} {client_first_name} {client_email} {sender_name} {sender_email} {total} {balance} {subtotal} {tax} {amount_paid} {days_overdue} {payment_terms_line} {payment_details} {note}. An unknown placeholder is left visible rather than blanked, so a typo shows itself.' }),
+      el('p', { class: 'set-lead', text: 'The covering message for each event, chosen automatically from the document\u2019s status when you open Send. Anything in {braces} is filled in per document \u2014 available: {number} {kind} {kind_lower} {status} {issued} {due} {reference} {client_name} {client_first_name} {client_email} {sender_name} {sender_email} {total} {balance} {subtotal} {tax} {amount_paid} {days_overdue} {payment_terms_line} {payment_details} {payment_link} {payment_link_line} {website} {note}. Web addresses and emails come out as links in the formatted message. An unknown placeholder is left visible rather than blanked, so a typo shows itself.' }),
     ]),
     ...messageEditors,
   ]);

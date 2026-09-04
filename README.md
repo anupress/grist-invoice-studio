@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.17.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.18.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -36,13 +36,24 @@ Test on a copy of your document first. The write path has not yet run against a 
 ## An empty document
 
 Point it at a document with no invoice tables and it offers to build them: `Clients`, `Products`,
-`Invoices` and `InvoiceItems`, with four sample invoices in them — one overdue, one paid, one sent
-and one still a draft. Pick a trade first and the line items, wording, numbering and tax settings
-come from it, so a builder gets labour and materials and a shop gets a till receipt.
+`Invoices` and `InvoiceItems`, filled with a complete sample business for the trade you pick — a
+name and address (ANUPRESS Café, ANUPRESS Works, ANUPRESS Legal…), three or four clients, a
+catalogue of what that trade sells, and five documents in five states: overdue, paid, part paid,
+sent and draft. A builder gets labour and materials with job references; a café gets lunches and a
+catering account; four trades have a client abroad whose documents come out in their language.
+The wording, numbering, layout and tax settings come from the trade too.
 
-A table that already exists is skipped, never overwritten. The sample data is invented; no real
-business or address appears in it. Until the document is set up, a sample invoice drawn with the
-current settings stands in for a blank pane.
+The sample business is used only when the settings hold no business of your own, and the widget
+keeps pointing at Settings → Business until it is replaced. When you are ready for your own data,
+Data → "Remove the sample rows" deletes exactly the rows setup created — never a row you added,
+never a table or a column. A table that already exists is never touched by setup either.
+
+Every trade's starter document can be seen without a Grist document: add `?trade=restaurant` (or
+any trade id from `src/templates/index.js`) to the widget URL and the demo builds it in memory.
+
+All sample data is invented. The businesses carry the ANUPRESS name so a screenshot says who made
+the widget; the clients, addresses, phone numbers and tax numbers are fictional and the email
+domains are reserved for examples.
 
 If you already keep invoices in tables of your own, the Data drawer lets you point each part —
 invoices, line items, clients, catalogue — at the table you use. Detection is only a guess, and a
@@ -176,7 +187,7 @@ Cloudflare Worker, a Node relay that speaks SMTP, and setup notes for n8n, Make,
 
 What travels with the message is your choice: a PDF, an HTML file, or nothing — and separately, whether the invoice is laid out in the body of the email. Set the default in Settings → Sending, change it for one send in the Send panel.
 
-The covering message for each event — sent, reminders, final notice, payment received — can be reworded in Settings → Messages, WooCommerce-style, with {placeholders} filled in per document.
+The covering message for each event — sent, reminders, final notice, payment received — can be reworded in Settings → Messages, WooCommerce-style, with {placeholders} filled in per document. `{payment_link_line}` puts "Pay online: …" in the message when the business has a payment page and nothing when it has not, and in the formatted message every web address and email is a link the client can tap.
 
 No SMTP password or API key is ever stored. Settings live in your Grist document, readable by anyone
 who can edit it, so credentials belong in whatever you run at the far end. Endpoints must be HTTPS

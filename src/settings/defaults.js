@@ -184,6 +184,13 @@ export const DEFAULT_TABLES = { invoice: '', line: '', client: '', product: '' }
  */
 export const DEFAULT_EINVOICE = { profile: '' };
 
+/**
+ * What setup built, so it can be undone: the trade chosen, the sample business it named, and the
+ * row ids of the sample data in each table. Rows only — never a table or a column — and only
+ * those ids, so a real row typed in alongside the sample is never touched.
+ */
+export const DEFAULT_SETUP = { trade: '', sampleBusiness: '', sampleRows: {} };
+
 export const DEFAULT_SETTINGS = {
   business: { ...DEFAULT_BUSINESS },
   tables: { ...DEFAULT_TABLES },
@@ -192,6 +199,7 @@ export const DEFAULT_SETTINGS = {
   document: { ...DEFAULT_DOCUMENT },
   delivery: { ...DEFAULT_DELIVERY },
   einvoice: { ...DEFAULT_EINVOICE },
+  setup: { ...DEFAULT_SETUP },
   // Per-message overrides, keyed by template id. Absent means "use the built-in wording".
   messages: {},
 };

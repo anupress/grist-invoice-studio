@@ -39,6 +39,8 @@ Please find {kind_lower} {number} attached, for {total}.
 
 {payment_details}
 
+{payment_link_line}
+
 Thank you,
 {sender_name}`,
   },
@@ -66,6 +68,8 @@ A quick note that {kind_lower} {number}, for {balance}, falls due on {due}.
 
 {payment_details}
 
+{payment_link_line}
+
 If it is already on its way, please ignore this.
 
 {sender_name}`,
@@ -82,6 +86,8 @@ If it is already on its way, please ignore this.
 
 {payment_details}
 
+{payment_link_line}
+
 If there is a problem with it, let me know and we will sort it out.
 
 {sender_name}`,
@@ -97,6 +103,8 @@ If there is a problem with it, let me know and we will sort it out.
 not heard back.
 
 {payment_details}
+
+{payment_link_line}
 
 Please either settle it or tell me when I can expect payment.
 
@@ -196,6 +204,13 @@ export function placeholdersFor(draft, settings = {}, now = new Date()) {
     days_overdue: overdue != null && overdue > 0 ? String(overdue) : '0',
     payment_terms_line: termsLine,
     payment_details: text(settings.paymentDetails),
+    // The payment page, when the business has one — as a bare address and as a ready sentence.
+    // The sentence is empty without a link, and an empty line collapses out of the message, so a
+    // template can carry it whether or not the business has anything to put there.
+    payment_link: text(draft.sender?.paymentLink) || text(settings.sender?.paymentLink),
+    payment_link_line: (text(draft.sender?.paymentLink) || text(settings.sender?.paymentLink))
+      ? `Pay online: ${text(draft.sender?.paymentLink) || text(settings.sender?.paymentLink)}` : '',
+    website: text(draft.sender?.website) || text(settings.sender?.website),
     note: text(draft.note),
   };
 }

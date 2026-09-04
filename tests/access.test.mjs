@@ -81,7 +81,8 @@ async function loadAccess(bust) {
 {
   const src = await import('node:fs').then((fs) => fs.readFileSync(_resolve(ROOT, 'src/grist/writer.js'), 'utf8'));
   ok('no write guard consults the recorded access level', !/accessLevel\(\)/.test(src));
-  eq('every live write path asks instead', (src.match(/requireFullAccess\(/g) || []).length, 5);
+  // Save, outbox queue, outbox release, create tables, upgrade, remove sample rows — and the guard itself.
+  eq('every live write path asks instead', (src.match(/requireFullAccess\(/g) || []).length, 6);
   ok('and the refusal tells the user where the control is', /creator panel/.test(src));
 }
 

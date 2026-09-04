@@ -17,6 +17,7 @@ import { fieldsFor, lineColumns, totalLabels } from '../doc/fields.js';
 import { docDate, imageSrc, taxLabel } from '../doc/render.js';
 import { labelOr, localiseStatus } from '../doc/lang.js';
 import { paymentCode } from '../doc/payment.js';
+import { linkify } from './clipboard.js';
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -113,7 +114,7 @@ export function documentToEmailHtml(draft, settings = {}) {
   // ---- masthead -------------------------------------------------------------------------------
   const head = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:2px solid ${accent};padding-bottom:14px">
 <tr>
-<td align="left" valign="top" style="${F};font-size:19px;font-weight:700;color:${INK}">${logoTag(sender)}${esc(sender.name || 'Your business')}</td>
+<td align="left" valign="top" style="${F};font-size:19px;font-weight:700;color:${INK}">${logoTag(sender)}${esc(sender.name || 'Your business')}${sender.website ? `<div style="${F};font-size:12px;font-weight:400;padding-top:2px"><a href="${esc(/^https?:\/\//i.test(sender.website) ? sender.website : 'https://' + sender.website)}" style="color:${MUTED};text-decoration:none">${esc(sender.website)}</a></div>` : ''}</td>
 <td align="right" valign="top">
 <div style="${F};font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${accent}">${esc(kind.word)}</div>
 <div style="${F};font-size:16px;color:${INK};padding-top:2px">${esc(draft.number || '—')}</div>
@@ -172,9 +173,11 @@ ${fields.showPaid ? totalRow(kind.totalLabel, money(t.balance), true) : ''}
 <div style="clear:both"></div>`;
 
   // ---- the standing wording ---------------------------------------------------------------------
+  // Addresses in the standing text — a payment page, an email to query — are links a client can
+  // tap; see clipboard.js. The text is escaped first and linked second, in that order.
   const block = (heading, body) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:14px 0 0">
 ${heading ? `<tr>${label(heading)}</tr>` : ''}
-<tr><td style="${F};font-size:13px;color:${INK};line-height:1.5">${esc(body).replace(/\n/g, '<br>')}</td></tr>
+<tr><td style="${F};font-size:13px;color:${INK};line-height:1.5">${linkify(esc(body), accent).replace(/\n/g, '<br>')}</td></tr>
 </table>`;
 
   const foot = [

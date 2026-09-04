@@ -155,6 +155,17 @@ export function sanitise(settings) {
   if (!s.einvoice.profile && ['facturx', 'ubl', 'cii'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';
   s.delivery.includeInBody = s.delivery.includeInBody !== false;
 
+  // The setup record: short strings and lists of row ids, nothing else.
+  s.setup.trade = typeof s.setup.trade === 'string' ? s.setup.trade.slice(0, 32) : '';
+  s.setup.sampleBusiness = typeof s.setup.sampleBusiness === 'string' ? s.setup.sampleBusiness.slice(0, 120) : '';
+  const rows = {};
+  for (const [table, ids] of Object.entries(s.setup.sampleRows || {})) {
+    if (!Array.isArray(ids)) continue;
+    const clean = ids.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    if (clean.length) rows[String(table).slice(0, 64)] = clean;
+  }
+  s.setup.sampleRows = rows;
+
   // Table overrides are ids, and an id is a short string. Anything else stored there is noise.
   for (const key of ['invoice', 'line', 'client', 'product']) {
     s.tables[key] = typeof s.tables[key] === 'string' ? s.tables[key].slice(0, 64) : '';

@@ -24,7 +24,8 @@ import { loadSettings, saveSettings, sanitise } from './settings/store.js';
 import { numberFormatFor } from './settings/defaults.js';
 import { renderSettingsPanel } from './settings/panel.js';
 import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate } from './templates/index.js';
-import { starterTablesFor, SAMPLE_LINES } from './templates/starter.js';
+import { starterTablesFor, SAMPLE_LINES, sampleBusinessFor } from './templates/starter.js';
+import { removeSampleRows } from './grist/writer.js';
 import { ensureFullAccess } from './grist/access.js';
 import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
@@ -144,7 +145,7 @@ function seedDemoSettings() {
     business: { ...SAMPLE_SENDER },
     money: { ...SAMPLE_MONEY },
     document: {
-      paymentDetails: 'Bank transfer to Thornbury Works\nSort code 01-02-03 · Account 12345678\nPlease quote the invoice number.',
+      paymentDetails: sampleBusinessFor('construction').paymentDetails,
       closingText: 'Thank you for your custom.',
     },
   });
@@ -195,10 +196,20 @@ async function boot() {
     if (wanted.length) await gp.prime(wanted);
   } else {
     // ?empty exercises the setup path, which is otherwise unreachable in the demo because the
-    // bundled document already has tables in it.
-    const emptyDoc = new URLSearchParams(location.search).has('empty');
+    // bundled document already has tables in it. ?trade=<id> goes one step further and builds
+    // that trade's starter document in memory — every sample business, one URL each, which is
+    // how the trades are shown side by side without a Grist document for each.
+    const params = new URLSearchParams(location.search);
+    const trade = findTradeTemplate(params.get('trade')) ? params.get('trade') : '';
+    const emptyDoc = params.has('empty') || !!trade;
     app.provider = new DummyProvider(emptyDoc ? { defaultTable: null, tables: {} } : SAMPLE_DATA);
     app.live = false;
+    if (trade) {
+      app.stored = sanitise({});
+      app.setupTrade = trade;
+      await runSetup(trade);
+      return;
+    }
     rescan();
   }
   render();
@@ -897,6 +908,26 @@ async function runSetup(templateId) {
   // worked out first: the tax they set up decides what a paid invoice was actually paid, and the
   // prefix they set up decides what the sample invoices are numbered.
   const next = sanitise(template ? applyTemplate(template, app.stored) : app.stored);
+  // A document with no business in its settings gets the sample one for the trade — ANUPRESS Café,
+  // ANUPRESS Works — so the first document is complete rather than headed "Your business". It is
+  // remembered as a sample so the widget can keep pointing at Settings until it is replaced. A
+  // business that already has a name is never touched.
+  if (!String(next.business.name || '').trim()) {
+    const sample = sampleBusinessFor(templateId);
+    const { paymentDetails, ...identity } = sample;
+    next.business = { ...next.business, ...identity };
+    if (!String(next.document.paymentDetails || '').trim()) next.document.paymentDetails = paymentDetails;
+    next.setup.sampleBusiness = identity.name;
+    // The sample businesses are British; a money section still at its factory defaults follows
+    // them, so the documents come out in pounds with VAT rather than in dollars with nothing.
+    if (next.money.currency === 'USD' && !next.money.homeCountry) {
+      next.money.currency = 'GBP';
+      next.money.homeCountry = 'GB';
+      next.money.defaultCustomerCountry = 'GB';
+      if (next.money.taxMode === 'simple' && next.money.simpleName === 'VAT' && next.money.simpleRate === 20) { /* already the UK default */ }
+    }
+  }
+  next.setup.trade = templateId;
   const money = moneySettings(next.money);
   // A shop that picked "Retail — a till receipt" should not then be shown an invoice. The bar's
   // chooser still switches it afterwards; this only decides where it starts.
@@ -912,6 +943,9 @@ async function runSetup(templateId) {
   app.busy = false;
 
   if (!res.ok) { toast(res.error || 'Could not create the tables.', 'err'); return; }
+
+  // Which rows are the sample, so they can be removed in one go when the real ones arrive.
+  next.setup.sampleRows = res.rows || {};
 
   // Saved rather than only held in memory, or the wording and numbering chosen here are gone on
   // reload while the invoices they produced are not.
@@ -1024,6 +1058,22 @@ function renderDataPanel() {
     ]));
   }
 
+  // The sample rows setup created, and the way to be rid of them. Per table, so the count is a
+  // fact about this document rather than a number pulled from the air.
+  const setup = app.stored.setup || {};
+  const sampleTotal = sampleRowCount(setup);
+  if (sampleTotal) {
+    const perTable = Object.entries(setup.sampleRows || {}).filter(([, ids]) => Array.isArray(ids) && ids.length)
+      .map(([table, ids]) => `${ids.length} in ${table}`).join(', ');
+    const clearBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: `Remove the ${sampleTotal} sample rows` });
+    clearBtn.addEventListener('click', clearSampleRows);
+    bits.push(el('details', { class: 'studio-upgrade', open: true }, [
+      el('summary', { text: `${sampleTotal} sample rows from setup are still in your tables` }),
+      el('p', { class: 'studio-upgrade__note', text: `${perTable}. Only these rows are removed — never a row you added, and never a table or a column. ${setup.sampleBusiness && app.stored.business.name === setup.sampleBusiness ? `The business name, ${setup.sampleBusiness}, is a setting: replace it in Settings → Business.` : ''}` }),
+      clearBtn,
+    ]));
+  }
+
   const todo = upgradeChecklist(s, app.products);
   const count = todo.invoice.length + todo.client.length + todo.line.length + todo.product.length;
   if (count) {
@@ -1071,6 +1121,13 @@ function renderHintStrip() {
   if (app.live && !app.stored.business.name) {
     return hintStrip('Your business details are empty — the From block, logo and tax are set once, in Settings.', 'Open settings', () => { app.mode = 'settings'; render(); });
   }
+  const setup = app.stored.setup || {};
+  if (app.live && setup.sampleBusiness && app.stored.business.name === setup.sampleBusiness) {
+    return hintStrip(`The business on these documents is the sample, ${setup.sampleBusiness}. Replace it with yours in Settings → Business.`, 'Open settings', () => { app.mode = 'settings'; render(); });
+  }
+  if (app.live && sampleRowCount(setup) > 0) {
+    return hintStrip(`Your tables still hold the ${sampleRowCount(setup)} sample rows setup created. Remove them when you are ready to enter your own.`, 'Review in Data', () => { app.mode = 'data'; render(); });
+  }
   // The mystery this answers: "why is my invoice still in dollars?" A currency stored on the row
   // outranks the setting, on purpose — an issued invoice does not change currency because the
   // business later did — but silently is how it reads as a bug.
@@ -1089,6 +1146,34 @@ function renderHintStrip() {
     return hintStrip(s.warnings[0].text, 'Details in Data', () => { app.mode = 'data'; render(); });
   }
   return null;
+}
+
+/** How many rows the setup's sample is still known to occupy. */
+function sampleRowCount(setup) {
+  return Object.values(setup?.sampleRows || {}).reduce((a, ids) => a + (Array.isArray(ids) ? ids.length : 0), 0);
+}
+
+/**
+ * Take the sample rows back out.
+ *
+ * Only the rows setup created, by id, and only those that still exist — a real invoice typed
+ * into the same table is never touched. The business identity is left alone here: it is a
+ * setting, replaced in Settings, and the hint strip keeps saying so until it is.
+ */
+async function clearSampleRows() {
+  if (app.busy) return;
+  const setup = app.stored.setup || {};
+  app.busy = true;
+  const res = await removeSampleRows(setup.sampleRows || {}, app.provider, { live: app.live });
+  app.busy = false;
+  if (!res.ok) { toast(res.error || 'Could not remove the sample rows.', 'err'); return; }
+  app.stored.setup = { ...setup, sampleRows: {} };
+  const saved = await saveSettings(app.stored);
+  app.stored = saved.settings;
+  rescan();
+  app.currentRowId = null;
+  toast(`Removed ${res.removed} sample row${res.removed === 1 ? '' : 's'}. The tables and their columns are untouched.`, 'ok');
+  render();
 }
 
 function hintStrip(text, label, onGo) {

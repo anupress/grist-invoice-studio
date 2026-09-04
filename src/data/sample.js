@@ -8,6 +8,8 @@
 // Everything in it is invented. No real business, person or address appears here, and none ever
 // should — this data ends up in screenshots and documentation.
 
+import { sampleFor } from '../templates/samples.js';
+
 const iso = (d) => d.toISOString().slice(0, 10);
 const day = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return iso(d); };
 
@@ -81,21 +83,13 @@ const items = rawItems.map(([Invoice, Description, Price, Quantity], i) => ({
  * keeping the sender out of the table in the first place: it is branding, it is identical on every
  * invoice, and it belongs with the logo rather than beside the line items.
  */
+// The same ANUPRESS-branded business the construction starter builds, so the demo and a fresh
+// document set up as a builder say the same name. A payment page is included so the demo shows
+// the code a client scans; the domain is a reserved example.
 export const SAMPLE_SENDER = {
-  name: 'Thornbury Works',
-  street1: '4 Quarry Street',
-  street2: '',
-  city: 'Bristol',
-  state: 'Somerset',
-  postcode: 'BS1 5TF',
-  country: 'GB',
-  email: 'accounts@thornburyworks.example',
-  phone: '+44 117 496 0139',
-  website: 'thornburyworks.example',
-  taxNumber: 'GB 481 2739 55',
-  // A payment page, so the demo shows the code a client scans. The domain is a reserved example.
-  paymentLink: 'https://pay.thornburyworks.example/invoice',
-  legalText: 'Thornbury Works Ltd · Registered in England and Wales no. 01234567 · Registered office: 4 Quarry Street, Bristol BS1 5TF',
+  ...sampleFor('construction').business,
+  paymentLink: 'https://pay.anupress.example/invoice',
+  legalText: 'ANUPRESS Works Ltd · Registered in England and Wales no. 01234567 · Registered office: 4 Quarry Street, Bristol BS1 5TF',
 };
 
 /**
