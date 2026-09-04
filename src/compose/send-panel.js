@@ -222,7 +222,7 @@ export function renderSendPanel(ctx) {
   const queueBtn = button('Queue it', async () => {
     const m = message();
     if (!m.to) { say('There is no address to send it to.', 'warn'); return; }
-    const row = buildOutboxRow(m, { html: messageToHtml(m, settings, { document: state.includeDocument ? documentToEmailHtml(draft, settings) : '' }) });
+    const row = buildOutboxRow(m, { html: messageToHtml(m, settings, { full: true, document: state.includeDocument ? documentToEmailHtml(draft, settings) : '' }) });
     const res = await actions.queue(row);
     if (!res.ok) { say(res.error, 'warn'); return; }
     state.lastQueuedRow = res.rowId;
@@ -260,7 +260,7 @@ export function renderSendPanel(ctx) {
       return;
     }
     const payload = buildPayload(m, {
-      html: messageToHtml(m, settings, { document: state.includeDocument ? documentToEmailHtml(draft, settings) : '' }),
+      html: messageToHtml(m, settings, { full: true, document: state.includeDocument ? documentToEmailHtml(draft, settings) : '' }),
       // Nothing attached means no attachment key at all, rather than an empty one the far end
       // has to know to ignore.
       attachment: state.attachFormat === 'none' ? null : await attachmentFor(draft, settings, state.attachFormat),

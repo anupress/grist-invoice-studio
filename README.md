@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.19.3-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.20.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -199,6 +199,24 @@ table.
 
 A browser cannot send email, and Grist's own email action only reaches people with access to the
 document, so it cannot email a client. The four routes reflect that:
+
+## The email itself
+
+The covering message is built the way a designed transactional email is built: nested tables and
+inline styles, because that is the only thing every mail client renders the same way. Four shells,
+chosen in Settings → Sending:
+
+| Style | What it looks like |
+|---|---|
+| Card | A white card on a tinted ground, an accent rule across the top. The default. |
+| Banded | Your accent as a full-width header band, your name reversed out of it |
+| Slate | The same band in ink — the most formal |
+| Plain | Hairlines on white, the way a letter is typed |
+
+Whichever it is, what it carries is yours: your logo, your name, your accent colour, your address
+and contact line in the footer. Above the message sits a summary — the document, the amount, the
+due date — because that is what a client answers, and it should not need scrolling to. One small
+line at the very bottom credits Invoice Studio, and Settings → Sending turns it off.
 
 What travels with a message is two separate questions. **Attach** is the file the client keeps —
 a PDF, or one of the e-invoice formats. **Show the invoice under your message** puts the whole

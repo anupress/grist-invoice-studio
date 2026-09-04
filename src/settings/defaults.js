@@ -157,6 +157,14 @@ export const DEFAULT_DELIVERY = {
   bcc: '',
   emailAccent: '#14509b',
   /**
+   * How the covering email is dressed: a card on a tinted ground, a coloured band, a dark band,
+   * or plain hairlines. The document's own layout is chosen separately — an invoice and the
+   * email carrying it are two different pieces of paper.
+   */
+  emailStyle: 'card',
+  /** One small line at the foot of the email. Theirs to remove. */
+  emailCredit: true,
+  /**
    * What travels with the covering message, and what the email itself shows.
    *
    * Two independent answers, because they solve different problems. An attached PDF is the thing a

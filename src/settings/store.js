@@ -159,6 +159,11 @@ export function sanitise(settings) {
   // An e-invoice format as the default attachment only makes sense with a profile to write it under.
   if (!s.einvoice.profile && ['facturx', 'ubl', 'cii'].includes(s.delivery.attachFormat)) s.delivery.attachFormat = 'pdf';
   s.delivery.includeInBody = s.delivery.includeInBody !== false;
+  if (!['card', 'banded', 'slate', 'plain'].includes(s.delivery.emailStyle)) s.delivery.emailStyle = 'card';
+  s.delivery.emailCredit = s.delivery.emailCredit !== false;
+  // A colour that is not one is worse than no colour: it lands in a style attribute and takes the
+  // rest of the declaration with it.
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(s.delivery.emailAccent || ''))) s.delivery.emailAccent = '#14509b';
 
   // The setup record: short strings and lists of row ids, nothing else.
   s.setup.trade = typeof s.setup.trade === 'string' ? s.setup.trade.slice(0, 32) : '';

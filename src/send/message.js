@@ -277,6 +277,10 @@ export function buildMessage(templateId, draft, settings = {}, overrides = {}) {
     // match a payment against it, or refuse to send twice.
     document: {
       kind: draft.kind,
+      // The word for this kind in the document's own language, and the amount already formatted,
+      // so a route that shows a summary does not have to work either out again.
+      kindWord: values.kind,
+      amount: values.balance,
       number: values.number,
       status: values.status,
       issued: values.issued,

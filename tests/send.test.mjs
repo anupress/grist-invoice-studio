@@ -168,12 +168,14 @@ eq('and carries no prices', /1,250\.00|1,500\.00/.test(dnBody), false);
 
 // Folded into the covering note.
 const withDoc = clip.messageToHtml(m, {}, { document: body });
-ok('the note comes first', withDoc.indexOf('Hello') < withDoc.indexOf('<table'));
+ok('the note comes before the document', withDoc.indexOf('Hello') < withDoc.indexOf('Press setup'));
 ok('then the document', withDoc.includes('Press setup'));
-// The three-line summary box would be repeating what the table underneath says in full.
-eq('and the summary box is dropped', (withDoc.match(/Invoice INV-2026-0001<\/strong>/g) || []).length, 0);
+// The summary box used to be dropped here as a repetition of the table below it. It stays now:
+// what a client answers is the amount and the date, and those should not need scrolling to.
+ok('and the summary names the document above both', withDoc.indexOf('INV-2026-0001') < withDoc.indexOf('Press setup'));
 const withoutDoc = clip.messageToHtml(m, {});
-ok('without it, the summary box stays', withoutDoc.includes('<strong>'));
+ok('without it, the summary box stays', withoutDoc.includes('INV-2026-0001'));
+ok('carrying the amount', withoutDoc.includes(m.document.amount));
 eq('and there is no line table', withoutDoc.includes('Press setup'), false);
 
 // ---------------------------------------------------------------------------------------------

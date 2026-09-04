@@ -25,6 +25,7 @@ import { LANGUAGES } from '../doc/lang.js';
 import { EXEMPTION_CHOICES, smallBusinessNote } from '../money/tax/exemptions.js';
 import { looksLikeIban, formatIban } from '../doc/payment.js';
 import { PROFILES, EINVOICE_FORMATS } from '../einvoice/index.js';
+import { EMAIL_STYLES } from '../send/email-shell.js';
 
 const opt = (value, label) => ({ value, label });
 
@@ -436,6 +437,14 @@ export function renderSettingsPanel(ctx) {
       opt('yes', 'Yes — the invoice follows your text'), opt('no', 'No — a covering note only'),
     ], del.includeInBody === false ? 'no' : 'yes', (v) => { del.includeInBody = v === 'yes'; }),
       'The invoice laid out in the email itself, below what you wrote. A client who will not open an attachment can still read it.'),
+    field('Email design', selectInput(EMAIL_STYLES.map((s2) => opt(s2.id, s2.label)), del.emailStyle || 'card', (v) => { del.emailStyle = v; }),
+      'How the covering email itself looks. Your logo, your name and your accent colour are what it carries — the document inside it keeps its own layout.'),
+    field('Email accent', textInput(del.emailAccent, (v) => { del.emailAccent = v; }, { placeholder: '#14509b', class: 'cmp-input--code' }),
+      'The colour of the rule or the band. Text on it turns black or white by itself, whichever can be read.'),
+    field('Credit line', selectInput([
+      opt('yes', 'Keep the small ANUPRESS line'), opt('no', 'No credit line'),
+    ], del.emailCredit === false ? 'no' : 'yes', (v) => { del.emailCredit = v === 'yes'; }),
+      'One line at the very bottom of the email, under your own details.'),
     field('Reply-to address', textInput(del.replyTo, (v) => { del.replyTo = v; }, { type: 'email' })),
     field('Always Cc', textInput(del.cc, (v) => { del.cc = v; }, { type: 'email' })),
     field('Always Bcc', textInput(del.bcc, (v) => { del.bcc = v; }, { type: 'email' }),

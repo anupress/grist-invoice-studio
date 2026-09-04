@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.20.0 — the email, dressed
+
+- **The covering email has a shell now**, in four styles: Card (a white card on a tinted ground
+  with an accent rule across the top), Banded (your accent as a header band with your name
+  reversed out of it), Slate (the same in ink) and Plain (hairlines on white, like a letter).
+  Settings → Sending. It is built from nested tables with inline styles, which is the only thing
+  every mail client renders the same way.
+- Everything it carries is the sender's: their logo — on a coloured band it gets a white plate,
+  since a transparent PNG disappears into one — their name, their accent, and their address and
+  contact line in a quiet footer under the card. Text on the band turns black or white by itself,
+  whichever can be read on the colour chosen, so a pale accent never ends up with white on it.
+- **A summary above the message**: the document, the amount in large type, the due date. It used
+  to be dropped whenever the whole invoice was shown below; it stays now, because what a client
+  answers is the amount and the date and neither should need scrolling to. It follows the
+  document's language — a German invoice's summary says Rechnung.
+- The routes that hand HTML to a mail service (the Outbox and Direct) now send a whole page, with
+  the hardening every serious template carries: the text-size-adjust rules iOS needs, the mso
+  table rules Outlook needs, the data-detector reset that stops iOS relinking dates and addresses,
+  Gmail's stray-margin fix, and a width that narrows on a phone. The clipboard still gets a
+  fragment, because pasting a page into a composer is how a stray stylesheet becomes text.
+- One small credit line sits at the very bottom, under the business's own details, and Settings →
+  Sending removes it.
+
 ## 1.19.3
 
 - **The same product cannot land on a document twice.** Choosing something already on the invoice

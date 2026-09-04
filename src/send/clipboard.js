@@ -8,6 +8,8 @@
 // several flavours at once, and the receiving application picks; offering only HTML means anything
 // that wants plain text gets nothing, and offering only text throws the formatting away.
 
+import { emailShell, emailPage } from './email-shell.js';
+
 /** Minimal escaping for text going into HTML. */
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -41,7 +43,6 @@ export function linkify(escapedText, color = '#14509b') {
 export function messageToHtml(message, settings = {}, opts = {}) {
   const accent = settings.emailAccent || '#14509b';
   const ink = settings.emailInk || '#16212c';
-  const muted = '#5f7285';
 
   const paragraphs = String(message.body || '')
     .split(/\n{2,}/)
@@ -49,22 +50,25 @@ export function messageToHtml(message, settings = {}, opts = {}) {
     .join('');
 
   const d = message.document || {};
+  // What the message is about, in one line, for a client who reads three words and a number. The
+  // amount is the part they are looking for, so it is the part that is large.
   const summary = d.number
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border-collapse:collapse">
-<tr><td style="padding:10px 14px;background:#f2f5f8;border-left:3px solid ${accent};font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;color:${ink}">
-<strong>${esc(d.kind === 'quote' ? 'Quote' : 'Invoice')} ${esc(d.number)}</strong>${d.due && d.due !== '—' ? ` &middot; due ${esc(d.due)}` : ''}
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 18px;border-collapse:collapse">
+<tr><td style="padding:12px 14px;background:#f2f5f8;border-left:3px solid ${accent};font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#5f7285">${esc(d.kindWord || (d.kind === 'quote' ? 'Quote' : 'Invoice'))} ${esc(d.number)}</div>
+${d.amount ? `<div style="font-size:20px;font-weight:700;color:${ink};padding-top:2px">${esc(d.amount)}</div>` : ''}
+${d.due && d.due !== '—' ? `<div style="font-size:12px;color:#5f7285;padding-top:2px">Due ${esc(d.due)}</div>` : ''}
 </td></tr></table>`
     : '';
 
-  // The whole document, below the covering note, when asked for. The summary box is dropped in that
-  // case — it would be repeating in three lines what the table underneath says in full.
+  // The whole document, below the covering note, when asked for. The summary box stays: it names
+  // the amount and the date in a glance, which is what a client answers, and the table under it
+  // is what their bookkeeper reads.
   const document = opts.document || '';
 
-  return `<div style="font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;color:${ink};max-width:600px">
-${document ? '' : summary}${paragraphs}
-${document ? `<div style="margin:18px 0 0">${document}</div>` : ''}
-<p style="margin:18px 0 0;padding-top:12px;border-top:1px solid #dfe5ec;font-size:12px;color:${muted}">${esc(message.fromName || '')}</p>
-</div>`;
+  const body = `${summary}${paragraphs}${document ? `<div style="margin:20px 0 0">${document}</div>` : ''}`;
+  const fragment = emailShell(body, settings, { sender: opts.sender || settings.sender });
+  return opts.full ? emailPage(fragment, { title: message.subject || '', accent }) : fragment;
 }
 
 /**
