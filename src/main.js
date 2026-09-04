@@ -25,7 +25,7 @@ import { renderSendPanel } from './compose/send-panel.js';
 import { loadSettings, saveSettings, sanitise } from './settings/store.js';
 import { numberFormatFor } from './settings/defaults.js';
 import { renderSettingsPanel } from './settings/panel.js';
-import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate } from './templates/index.js';
+import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate, templateSummary } from './templates/index.js';
 import { starterTablesFor, SAMPLE_LINES, sampleBusinessFor } from './templates/starter.js';
 import { removeSampleRows, saveRecord, removeRecord, uploadAttachment } from './grist/writer.js';
 import { formFields, readRecord, recordPlan, recordName, ADDABLE } from './model/records.js';
@@ -129,8 +129,10 @@ const canWrite = () => (app.live ? app.access === 'full' : true);
  * the persisted shape tidy and versionable, and means there is exactly one place to look when a
  * setting does not appear to be taking effect.
  */
-function settingsNow() {
-  const st = app.stored;
+function settingsNow() { return settingsFrom(app.stored, app.kind, app.layout); }
+
+/** The runtime settings for a stored shape — settingsNow() over something other than app.stored. */
+function settingsFrom(st, kind, layout) {
   return {
     ...st.document,
     ...st.delivery,
@@ -143,11 +145,32 @@ function settingsNow() {
     // The saved message wordings ride along whole — buildMessage layers them under whatever is
     // typed for one send.
     messages: st.messages,
-    numberFormat: numberFormatFor(st, app.kind),
-    kind: app.kind,
+    numberFormat: numberFormatFor(st, kind),
+    kind,
     // The bar's layout chooser is a per-session try-it-out; the stored one is the business's choice.
-    layout: app.layout || st.document.layout,
+    layout: layout || st.document.layout,
   };
+}
+
+/**
+ * The settings the sample document is drawn with while the trade is still being chosen.
+ *
+ * The same thing runSetup will do, done to a copy: the trade applied over the stored settings, the
+ * trade's sample business standing in where there is none yet. So the preview under the chooser IS
+ * what setting up would produce, and changing the trade changes it.
+ */
+function setupPreviewSettings() {
+  const template = findTradeTemplate(app.setupTrade);
+  const next = sanitise(template ? applyTemplate(template, app.stored) : app.stored);
+  if (!String(next.business.name || '').trim()) {
+    const { paymentDetails, ...identity } = sampleBusinessFor(app.setupTrade);
+    next.business = { ...next.business, ...identity };
+    if (!String(next.document.paymentDetails || '').trim()) next.document.paymentDetails = paymentDetails;
+    if (next.money.currency === 'USD' && !next.money.homeCountry) {
+      next.money.currency = 'GBP'; next.money.homeCountry = 'GB'; next.money.defaultCustomerCountry = 'GB';
+    }
+  }
+  return settingsFrom(next, template?.kind || 'invoice', app.layout);
 }
 
 /**
@@ -562,7 +585,9 @@ function applyPaperSize(size) {
 
 function paintPreview() {
   if (!previewHost || app.mode === 'record') return;
-  const settings = settingsNow();
+  // Before there is a document, the preview follows the trade being chosen rather than the
+  // stored settings — see setupPreviewSettings.
+  const settings = app.schema?.invoice ? settingsNow() : setupPreviewSettings();
   applyPaperSize(app.stored.document.paperSize);
   let draft = app.mode === 'compose'
     ? (app.draft = recalc(app.draft, settings))
@@ -678,7 +703,7 @@ function renderSidebar() {
     if (which === 'invoices') {
       const rows = q ? all.filter((i) => (i.number + ' ' + i.client).toLowerCase().includes(q)) : all;
       if (!rows.length) {
-        listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : 'No invoices yet. New starts one.' }));
+        listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : (app.schema?.invoice ? 'No invoices yet. New starts one.' : 'No invoice table yet. Set the document up first.') }));
         return;
       }
       for (const i of rows) {
@@ -737,13 +762,15 @@ function renderSidebar() {
   // Edit and New live here, with the list they act on. On narrow screens the sidebar is hidden
   // and the bar's copies take over — one set or the other, never both.
   const editing = which === 'invoices' ? app.mode === 'compose' : app.mode === 'record';
-  const editBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--edit', type: 'button', text: editing ? 'Close' : 'Edit' });
+  // No table to put anything in yet: the buttons stay, greyed, and say why.
+  const gated = !app.schema?.invoice;
+  const editBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--edit', type: 'button', text: editing ? 'Close' : 'Edit', disabled: gated ? true : null, title: gated ? 'Set the document up first.' : null });
   editBtn.addEventListener('click', () => {
     if (editing) { app.mode = 'view'; app.draft = null; app.record = null; render(); return; }
     if (which === 'invoices') startCompose(currentRow());
     else if (all.length) openRecord(kind, app.record?.rowId ?? all[0].id);
   });
-  const newBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--primary', type: 'button', text: 'New' });
+  const newBtn = el('button', { class: 'studio-btn studio-btn--sm studio-btn--primary', type: 'button', text: 'New', disabled: gated ? true : null, title: gated ? 'Set the document up first.' : null });
   newBtn.addEventListener('click', () => (which === 'invoices' ? startCompose(null) : openRecord(kind, null)));
   const refreshBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: 'Refresh', title: 'Re-read every table from the document' });
   refreshBtn.addEventListener('click', doRefresh);
@@ -836,6 +863,8 @@ function renderDrawer() {
 }
 
 function renderBar() {
+  // Before there is an invoice table there is nothing to edit, add to or send.
+  const gated = !app.schema?.invoice;
   const invoices = app.schema?.invoice ? listInvoices(app.schema, app.provider) : [];
   if (invoices.length && app.currentRowId == null) app.currentRowId = invoices[0].id;
 
@@ -877,19 +906,23 @@ function renderBar() {
     ]),
     invoices.length ? picker : null,
     chooser('Document kind', DOCUMENT_KINDS, app.kind, (v) => { app.kind = v; if (app.draft) app.draft.kind = v; }),
-    chooser('Layout', LAYOUTS, app.layout || app.stored.document.layout, (v) => { app.layout = v; if (app.draft) app.draft.layout = v; }),
+    // Before setup the preview follows the trade's layout, so the chooser shows that one rather
+    // than a stored default the preview is not using.
+    chooser('Layout', LAYOUTS, app.layout || (gated ? setupPreviewSettings().layout : app.stored.document.layout), (v) => { app.layout = v; if (app.draft) app.draft.layout = v; }),
     el('div', { class: 'studio-bar__spacer' }),
     app.live && !canWrite() ? btn('Enable editing', enableEditing, 'primary') : null,
     // Narrow-screen stand-ins for the sidebar's Edit and New: the sidebar owns them, and these
     // exist only where the sidebar does not. CSS hides them at the same breakpoint that shows it.
-    (() => {
+    // None of the three before there is an invoice table: a New that opens a composer over the
+    // setup offer is a New that cannot save.
+    gated ? null : (() => {
       const b = app.mode === 'compose'
         ? btn('Close', () => { app.mode = 'view'; app.draft = null; render(); })
         : btn('Edit', () => startCompose(currentRow()));
       b.classList.add('studio-bar__narrow');
       return b;
     })(),
-    app.mode === 'view' ? (() => {
+    app.mode === 'view' && !gated ? (() => {
       const b = btn('New', () => startCompose(null));
       b.classList.add('studio-bar__narrow');
       return b;
@@ -899,7 +932,7 @@ function renderBar() {
       b.classList.add('studio-bar__narrow');
       return b;
     })(),
-    app.mode !== 'send' && app.mode !== 'record' && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
+    app.mode !== 'send' && app.mode !== 'record' && !gated && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
     btn(app.mode === 'data' ? 'Close data' : 'Data', () => {
       app.mode = app.mode === 'data' ? 'view' : 'data';
       render();
@@ -964,12 +997,33 @@ function renderAccessNeeded() {
  * the settings, so one decision does both.
  */
 function renderSetup() {
-  const chooser = el('select', { class: 'studio-select', 'aria-label': 'What kind of work do you invoice for?' }, [
-    el('option', { value: 'freelancer', text: 'Pick your trade…' }),
-    ...templatesBySector().flatMap((g) => g.items.map((t) =>
-      el('option', { value: t.id, selected: t.id === app.setupTrade ? true : null, text: `${g.sector} · ${t.label}` }))),
-  ]);
-  chooser.addEventListener('change', () => { app.setupTrade = chooser.value; });
+  // Grouped by sector as real <optgroup>s — headings, not options — and with no placeholder
+  // entry: one used to sit at the top reading "Pick your trade…" while secretly being the
+  // freelancer template, so choosing it looked like choosing nothing and chose something.
+  const chooser = el('select', { class: 'studio-select', 'aria-label': 'What kind of work do you invoice for?' },
+    templatesBySector().map((g) => el('optgroup', { label: g.sector }, g.items.map((t) =>
+      el('option', { value: t.id, selected: t.id === app.setupTrade ? true : null, text: t.label })))));
+  // What the choice decides, said beside it, and shown below it: the sample document under this
+  // notice is drawn with the trade's own kind, layout, wording and business, and redrawn on
+  // every change — the preview is the explanation.
+  const summary = el('p', { class: 'studio-setup__summary' });
+  const describe = () => {
+    const t = findTradeTemplate(app.setupTrade);
+    // The business already in the settings is the one setup keeps; the sample stands in only
+    // where there is none — the same rule runSetup applies, so the line says what will happen.
+    const business = String(app.stored.business?.name || '').trim() || sampleBusinessFor(app.setupTrade).name;
+    summary.textContent = t ? `Sets up ${business}: ${templateSummary(t).join(' · ')}. The preview below shows it.` : '';
+  };
+  chooser.addEventListener('change', () => {
+    app.setupTrade = chooser.value;
+    app.kind = findTradeTemplate(chooser.value)?.kind || 'invoice';
+    app.layout = null;
+    // The whole page, not only the preview: the bar's kind and layout choosers show what the
+    // preview is drawn with, and they would otherwise go on saying Invoice and Minimal over a
+    // banded receipt.
+    render();
+  });
+  describe();
 
   // Two ways to build, and a third door for people who already have tables. Both builds press
   // once: four tables and a business's worth of records is a visible pause on a slow connection,
@@ -996,6 +1050,7 @@ function renderSetup() {
       el('li', {}, [el('strong', { text: 'Your own tables' }), el('span', { text: ' — keep what you have and tell the widget which table and which columns hold what.' })]),
     ]),
     el('div', { class: 'studio-setup__row' }, [chooser, go, goEmpty]),
+    summary,
     el('p', { class: 'studio-upgrade__note' }, [
       el('span', { text: 'Existing tables are never touched. Already keep invoices in tables of your own? ' }),
       (() => {

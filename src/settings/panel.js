@@ -19,7 +19,7 @@ import { DOCUMENT_KINDS } from '../doc/kinds.js';
 import { LAYOUTS } from '../doc/layouts.js';
 import { numberFormatFor } from './defaults.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from '../compose/ui.js';
-import { templatesBySector, findTemplate, templateChanges, applyTemplate } from '../templates/index.js';
+import { templatesBySector, findTemplate, templateChanges, applyTemplate, templateSummary } from '../templates/index.js';
 import { MESSAGE_TEMPLATES } from '../send/message.js';
 import { LANGUAGES } from '../doc/lang.js';
 import { EXEMPTION_CHOICES, smallBusinessNote } from '../money/tax/exemptions.js';
@@ -389,14 +389,15 @@ export function renderSettingsPanel(ctx) {
   let pendingTrade = null;
   const tradeChooser = selectInput(
     [opt('', '\u2014 choose a trade \u2014'),
-      ...templatesBySector().flatMap((g) => g.items.map((t) => opt(t.id, `${g.sector} \u00b7 ${t.label}`)))],
+      ...templatesBySector().map((g) => ({ label: g.sector, options: g.items.map((t) => opt(t.id, t.label)) }))],
     '', (v) => {
       pendingTrade = findTemplate(v) || null;
       if (!pendingTrade) { tradeNote.textContent = ''; return; }
       const changes = templateChanges(pendingTrade, s);
-      tradeNote.textContent = changes.length
+      const what = `${pendingTrade.label}: ${templateSummary(pendingTrade).join(' \u00b7 ')}. `;
+      tradeNote.textContent = what + (changes.length
         ? `Would change ${changes.length} setting${changes.length === 1 ? '' : 's'}: ${changes.map((c) => c.path.split('.').pop()).join(', ')}. Your name, address, logo and messages are never touched.`
-        : 'Nothing to change \u2014 your settings already match this trade.';
+        : 'Nothing to change \u2014 your settings already match this trade.');
     }, { ariaLabel: 'Trade' });
 
   const applyTradeBtn = button('Apply this trade', () => {

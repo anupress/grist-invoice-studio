@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.20.2-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.21.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -31,7 +31,9 @@ clients and your product catalogue — and writes rows back to them. Below full 
 to list the document's tables at all, and an unreadable document is indistinguishable from an empty
 one, so the widget says so rather than reporting that you have no invoices.
 
-Test on a copy of your document first. The write path has not yet run against a live Grist document.
+Try it on a copy of your document first. Everything the widget writes is additive — rows it
+creates, columns it adds, never a rename or a removal — but a copy costs nothing and a mistake in
+a billing table does.
 
 ## An empty document
 
@@ -47,6 +49,12 @@ The sample business is used only when the settings hold no business of your own,
 keeps pointing at Settings → Business until it is replaced. When you are ready for your own data,
 Data → "Remove the sample rows" deletes exactly the rows setup created — never a row you added,
 never a table or a column. A table that already exists is never touched by setup either.
+
+The chooser names trades, not documents — Retail shop, Online shop, Charity or nonprofit — and a
+line under it says what the choice decides: the document it opens with, the layout, whether
+prices include tax, how the numbers run. The sample document below the notice is drawn with those
+settings and redrawn as the choice changes, so the preview is the explanation. An online shop
+starts with invoices; its packing slips are made from them with Convert and numbered on their own.
 
 Every trade's starter document can be seen without a Grist document: add `?trade=restaurant` (or
 any trade id from `src/templates/index.js`) to the widget URL and the demo builds it in memory.

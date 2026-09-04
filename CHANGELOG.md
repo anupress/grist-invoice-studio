@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.21.0 — the trade chooser explains itself
+
+A review of everything built so far, screen by screen. What it found and fixed:
+
+- **The setup chooser names trades, not documents.** "Retail — a till receipt", "Online shop —
+  packing slip" and "Charity — donation receipt" read as categories of paperwork; they are
+  Retail shop, Online shop and Charity or nonprofit now, grouped by sector as real headings
+  rather than a "Sector · Label" prefix, and the placeholder that read "Pick your trade…" while
+  secretly being the freelancer template is gone.
+- **A line under the chooser says what the choice decides** — "Sets up ANUPRESS Store: receipts ·
+  Minimal layout · prices include tax · numbered R20260904-0001" — and the sample document below
+  the notice is drawn with the chosen trade's kind, layout, wording and business and redrawn as
+  the choice changes. It used to be drawn once, from the stored settings, whatever was picked.
+  Settings → Change of trade says the same line before applying.
+- **An online shop starts with invoices.** Its template started with the packing slip, which
+  built a shop whose five sample documents were slips marked overdue and part paid — a slip that
+  demands payment is not a thing. Packing slips are made from an invoice with Convert and keep
+  their own PS- numbering.
+- **Nothing to edit, add to or send before there is a table.** The bar offered Edit, New and Send
+  over the setup notice, and New opened a composer that could not save. They are hidden until an
+  invoice table exists; the sidebar's copies are greyed and say why.
+- The README no longer claims the write path has never run against a live document. It has, for
+  some time.
+
 ## 1.20.2 — print prints the invoice
 
 - **Print produces the invoice and nothing else.** The browser used to add its own furniture —

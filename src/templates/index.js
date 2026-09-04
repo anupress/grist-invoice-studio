@@ -8,6 +8,9 @@
 // Each one is deliberately small. A template that fills in twenty fields is a template somebody has
 // to undo; these set the handful that differ by trade and leave the rest alone.
 
+import { documentKind } from '../doc/kinds.js';
+import { LAYOUTS } from '../doc/layouts.js';
+
 const T = (id, label, sector, spec) => ({ id, label, sector, ...spec });
 
 export const TEMPLATES = [
@@ -36,7 +39,7 @@ export const TEMPLATES = [
     lines: [{ description: 'Team plan — monthly, per seat', quantity: 12, unitPrice: 15 }],
   }),
 
-  T('retail', 'Retail — a till receipt', 'Goods', {
+  T('retail', 'Retail shop', 'Goods', {
     kind: 'receipt',
     // A shop advertises the price on the shelf, and that is the price the customer pays.
     money: { pricesIncludeTax: true },
@@ -55,12 +58,20 @@ export const TEMPLATES = [
     ],
   }),
 
-  T('ecommerce', 'Online shop — packing slip', 'Goods', {
-    kind: 'packing_slip',
-    document: { layout: 'classic' },
+  T('ecommerce', 'Online shop', 'Goods', {
+    // A shop's document is the order invoice — what was bought, what it cost, what was paid. The
+    // packing slip is the same document with the prices taken off, made from it with one press
+    // (Convert), and it keeps its own numbering here so the two never share a sequence. This
+    // template once STARTED with the packing slip, which built a shop whose five sample documents
+    // were slips marked overdue and part paid: a slip that demands payment is not a thing.
+    kind: 'invoice',
+    document: { layout: 'classic', closingText: 'Thank you for your order.' },
     numbering: { prefixes: { packing_slip: 'PS-{YYYY}-' } },
-    note: 'Please check the contents against this slip. Anything missing or damaged, tell us within 14 days.',
-    lines: [{ description: 'Product name (SKU)', quantity: 2, unitPrice: 0 }],
+    terms: 'Paid online at checkout.',
+    lines: [
+      { description: 'Linen cushion cover, 45cm', quantity: 2, unitPrice: 32 },
+      { description: 'Tracked delivery', quantity: 1, unitPrice: 4.95 },
+    ],
   }),
 
   T('construction', 'Construction and trades', 'Trades', {
@@ -110,7 +121,7 @@ export const TEMPLATES = [
     lines: [{ description: 'Tuition — autumn term', quantity: 1, unitPrice: 1250 }],
   }),
 
-  T('nonprofit', 'Charity — donation receipt', 'Nonprofit', {
+  T('nonprofit', 'Charity or nonprofit', 'Nonprofit', {
     kind: 'receipt',
     // A donation is not a sale, and a receipt that charges tax on one is wrong in a way a regulator
     // notices.
@@ -203,6 +214,33 @@ export function applyTemplate(template, settings) {
     },
   };
   return next;
+}
+
+/**
+ * What picking a trade decides, in a few words the chooser can show beside it.
+ *
+ * The chooser used to say part of this in the label — "Retail — a till receipt" — and nothing of
+ * the rest, so a person could not tell a trade from a document type or see that a charity's
+ * template also switches tax off. The label names the trade; this names the consequences: the
+ * document it opens with, the layout, the tax stance, and how its numbers run.
+ */
+export function templateSummary(template, now = new Date()) {
+  if (!template) return [];
+  const out = [];
+  const kind = documentKind(template.kind || 'invoice');
+  out.push(kind.label.toLowerCase() + 's');
+  const layout = LAYOUTS.find((l) => l.id === template.document?.layout);
+  if (layout) out.push(`${layout.label} layout`);
+  if (template.money?.taxEnabled === false) out.push('no tax');
+  else if (template.money?.pricesIncludeTax) out.push('prices include tax');
+  const prefix = (template.numbering?.prefixes || {})[template.kind];
+  if (prefix) {
+    const y = String(now.getFullYear()), mm = String(now.getMonth() + 1).padStart(2, '0'), dd = String(now.getDate()).padStart(2, '0');
+    out.push(`numbered ${prefix.replace('{YYYY}', y).replace('{MM}', mm).replace('{DD}', dd)}0001`);
+  }
+  if (template.numbering?.resetPeriod === 'monthly') out.push('numbers restart monthly');
+  if (template.document?.referenceLabel) out.push(`asks for the ${template.document.referenceLabel.toLowerCase()}`);
+  return out;
 }
 
 /** The starter document a template describes, for someone who wants to see it filled in. */

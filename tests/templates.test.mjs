@@ -48,7 +48,24 @@ eq('a shop issues receipts, not invoices', T.findTemplate('retail').kind, 'recei
 // A donation is not a sale, and charging tax on one is wrong in a way a regulator notices.
 eq('a charity charges no tax', T.findTemplate('nonprofit').money.taxEnabled, false);
 ok('and says no goods were given in return', /No goods or services/.test(T.findTemplate('nonprofit').note));
-eq('an online shop starts with a packing slip', T.findTemplate('ecommerce').kind, 'packing_slip');
+// A shop's document is the order invoice; the packing slip is made from it. The template once
+// started with the slip, which built five sample slips marked overdue and part paid.
+eq('an online shop starts with an invoice', T.findTemplate('ecommerce').kind, 'invoice');
+eq('and keeps its own numbering for the packing slips it makes', T.findTemplate('ecommerce').numbering.prefixes.packing_slip, 'PS-{YYYY}-');
+ok('its starter lines carry prices', T.findTemplate('ecommerce').lines.every((l) => l.unitPrice > 0));
+// The label names the trade; what the trade decides is said separately.
+ok('labels name the trade, not a document type', T.TEMPLATES.every((t) => !/—|receipt|slip/i.test(t.label)));
+
+// What picking a trade decides, in a few words.
+{
+  const now = new Date('2026-09-04T12:00:00Z');
+  const words = (id) => T.templateSummary(T.findTemplate(id), now);
+  eq('a shop: receipts, minimal, tax-inclusive, numbered by the day', words('retail'), ['receipts', 'Minimal layout', 'prices include tax', 'numbered R20260904-0001']);
+  eq('a charity: receipts with no tax', words('nonprofit'), ['receipts', 'Banded layout', 'no tax', 'numbered DON-2026-0001']);
+  eq('rent restarts monthly and asks for the agreement', words('rental'), ['invoices', 'Classic layout', 'numbered RENT-202609-0001', 'numbers restart monthly', 'asks for the agreement number']);
+  ok('a freelancer says little, because the template sets little', words('freelancer').length <= 2);
+  eq('no template, no words', T.templateSummary(null), []);
+}
 eq('a legal practice numbers matters', T.findTemplate('legal').document.referenceLabel, 'Matter reference');
 eq('a garage asks for the registration', T.findTemplate('auto').document.referenceLabel, 'Registration');
 eq('rent restarts its numbering monthly', T.findTemplate('rental').numbering.resetPeriod, 'monthly');

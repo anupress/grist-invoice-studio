@@ -82,12 +82,16 @@ export function textArea(value, onInput, opts = {}) {
 }
 
 export function selectInput(options, value, onChange, opts = {}) {
+  const option = (o) => el('option', {
+    value: String(o.value),
+    selected: String(o.value) === String(value) ? true : null,
+    text: o.label,
+  });
+  // An entry with `options` of its own is a group — a real <optgroup>, which the browser draws
+  // as a heading rather than as something that can be picked, instead of the "Sector · Label"
+  // prefix that used to stand in for one.
   const sel = el('select', { class: 'cmp-input cmp-input--select', 'aria-label': opts.ariaLabel || null },
-    options.map((o) => el('option', {
-      value: String(o.value),
-      selected: String(o.value) === String(value) ? true : null,
-      text: o.label,
-    })));
+    options.map((o) => (Array.isArray(o.options) ? el('optgroup', { label: o.label }, o.options.map(option)) : option(o))));
   sel.addEventListener('change', () => onChange(sel.value));
   return sel;
 }
