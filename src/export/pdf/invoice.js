@@ -227,6 +227,7 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
   };
   meta(kind.dateLabels.issued, date(draft.issued));
   if (fields.showSecondDate) meta(kind.dateLabels.second, date(draft.due));
+  if (fields.showServiceDate) meta(L.serviceDate, date(draft.serviceDate));
   if (fields.showReference) meta(labelOr(settings.referenceLabel, 'Your reference', L.yourReference), draft.reference);
   if (fields.showRelated) meta(L.refersTo, draft.relatedTo);
   if (fields.showTotals) meta(kind.totalLabel, money(fields.showPaid ? t.balance : t.total), true);

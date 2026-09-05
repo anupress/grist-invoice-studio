@@ -127,6 +127,7 @@ ${draft.status ? `<div style="${F};font-size:10px;font-weight:700;letter-spacing
   const metaRows = [
     [kind.dateLabels.issued, date(draft.issued)],
     fields.showSecondDate ? [kind.dateLabels.second, date(draft.due)] : null,
+    fields.showServiceDate ? [L.serviceDate, date(draft.serviceDate)] : null,
     fields.showReference ? [labelOr(settings.referenceLabel, 'Your reference', L.yourReference), draft.reference] : null,
     fields.showRelated ? [L.refersTo, draft.relatedTo] : null,
   ].filter(Boolean);

@@ -101,6 +101,10 @@ export function normaliseDraft(d = {}) {
     numberIsDerived: !!d.numberIsDerived,
     issued: text(d.issued),
     due: text(d.due),
+    // When the work was done or the goods delivered. German law asks for it on every invoice
+    // (§ 14 UStG), and an XRechnung is rejected without a delivery date or a period; the
+    // e-invoice falls back to the issue date when it is empty, the printed document says nothing.
+    serviceDate: text(d.serviceDate),
     status: text(d.status),
     reference: text(d.reference),
     terms: text(d.terms),

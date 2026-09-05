@@ -111,9 +111,10 @@ export function toCii(m) {
         tradeParty('ram:BuyerTradeParty', m.buyer),
       ),
       // Required by the schema even when empty of content; the builder drops an empty element, so
-      // the delivery block carries the issue date as the event, which is what most tools write.
+      // the delivery block carries the delivery date as the event — the document's service date,
+      // or the issue date standing in for it.
       el('ram:ApplicableHeaderTradeDelivery',
-        el('ram:ActualDeliverySupplyChainEvent', el('ram:OccurrenceDateTime', date102(m.issueDate))),
+        el('ram:ActualDeliverySupplyChainEvent', el('ram:OccurrenceDateTime', date102(m.deliveryDate))),
       ),
       el('ram:ApplicableHeaderTradeSettlement',
         opt('ram:PaymentReference', m.payment.reference),

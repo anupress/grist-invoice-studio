@@ -104,6 +104,7 @@ function invoiceValues(draft) {
     status: draft.status,
     note: draft.note,
     reference: draft.reference,
+    serviceDate: draft.serviceDate,
     terms: draft.terms,
     // Currency is the one field where empty is an instruction, not an omission: it means "follow
     // the business currency", and on an existing row that only comes true if the stored override

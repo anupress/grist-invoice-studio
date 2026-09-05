@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.22.1-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.23.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -186,8 +186,21 @@ Before each send a check lists what a receiver's validator would reject, in word
 setting that fixes it: a country spelled out instead of a two-letter code, a VAT number without
 its country prefix, a missing buyer reference (the Leitweg-ID a German public body requires). The
 output follows EN 16931's arithmetic to the cent — VAT categories, the reverse charge as `AE`,
-allowances and charges — and is built to the published schema order; validate a first file with
-your receiver's own validator before relying on it, as every sender does.
+allowances and charges — and is built to the published schema order.
+
+It has been checked against the rules themselves. Twelve sample documents — invoices, credit
+notes, the reverse charge, discounts with shipping and part payment, a service date — run through
+the official EN 16931 validation artefacts (release 1.3.16) and the KoSIT XRechnung 3.0.2
+schematron (2.6.0), in both UBL and CII, with zero failed assertions. The harness is
+`scripts/validate-einvoice.mjs`; it runs the compiled Schematron in Node through Saxon-JS, so no
+Java is needed, and its setup is described in the file. Not yet covered: Peppol's own additional
+rules and PDF/A-3 conformance of the Factur-X file. Validate a first file with your receiver's
+own validator all the same, as every sender does.
+
+A **service date** — when the work was done or the goods delivered — can be set on any document.
+German law asks for it on every invoice, and an XRechnung is refused without a delivery date, so
+the e-invoice carries it as the actual delivery date and uses the issue date when it is empty. It
+prints, in the document's language, only when set.
 
 The widget transmits nothing itself. An e-invoice goes out by whichever route you use today, and
 the Direct route's payload carries XML as `utf8` and Factur-X as `base64`, exactly as it carries

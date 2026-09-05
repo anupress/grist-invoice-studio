@@ -82,7 +82,7 @@ const EN = {
   },
   creditAgainst: 'This credit note reverses charges on {ref}. It is not a request for payment.',
   from: 'From', billTo: 'Bill to', deliverTo: 'Deliver to', shipTo: 'Ship to',
-  taxId: 'Tax ID', yourReference: 'Your reference', refersTo: 'Refers to',
+  taxId: 'Tax ID', yourReference: 'Your reference', refersTo: 'Refers to', serviceDate: 'Service date',
   columns: {
     description: 'Description', hsn: 'HSN/SAC', date: 'Date', reference: 'Reference', charge: 'Charge',
     paid: 'Paid', balance: 'Balance', quantity: 'Qty', unit: 'Unit', unitPrice: 'Unit price',
@@ -121,7 +121,7 @@ const DE = {
   },
   creditAgainst: 'Diese Gutschrift storniert Beträge aus {ref}. Sie ist keine Zahlungsaufforderung.',
   from: 'Von', billTo: 'Rechnungsempfänger', deliverTo: 'Lieferung an', shipTo: 'Lieferadresse',
-  taxId: 'USt-IdNr.', yourReference: 'Ihre Referenz', refersTo: 'Bezug',
+  taxId: 'USt-IdNr.', yourReference: 'Ihre Referenz', refersTo: 'Bezug', serviceDate: 'Leistungsdatum',
   columns: {
     description: 'Beschreibung', hsn: 'HSN/SAC', date: 'Datum', reference: 'Referenz', charge: 'Belastung',
     paid: 'Gezahlt', balance: 'Saldo', quantity: 'Menge', unit: 'Einheit', unitPrice: 'Einzelpreis',
@@ -158,7 +158,7 @@ const FR = {
   },
   creditAgainst: 'Cet avoir annule des montants de {ref}. Il ne constitue pas une demande de paiement.',
   from: 'De', billTo: 'Facturer à', deliverTo: 'Livrer à', shipTo: 'Adresse de livraison',
-  taxId: 'N° TVA', yourReference: 'Votre référence', refersTo: 'Référence',
+  taxId: 'N° TVA', yourReference: 'Votre référence', refersTo: 'Référence', serviceDate: 'Date de prestation',
   columns: {
     description: 'Désignation', hsn: 'HSN/SAC', date: 'Date', reference: 'Référence', charge: 'Débit',
     paid: 'Payé', balance: 'Solde', quantity: 'Qté', unit: 'Unité', unitPrice: 'Prix unitaire',
@@ -195,7 +195,7 @@ const ES = {
   },
   creditAgainst: 'Esta nota de crédito anula importes de {ref}. No es una solicitud de pago.',
   from: 'De', billTo: 'Facturar a', deliverTo: 'Entregar a', shipTo: 'Dirección de envío',
-  taxId: 'NIF', yourReference: 'Su referencia', refersTo: 'Referencia',
+  taxId: 'NIF', yourReference: 'Su referencia', refersTo: 'Referencia', serviceDate: 'Fecha de prestación',
   columns: {
     description: 'Descripción', hsn: 'HSN/SAC', date: 'Fecha', reference: 'Referencia', charge: 'Cargo',
     paid: 'Pagado', balance: 'Saldo', quantity: 'Cant.', unit: 'Unidad', unitPrice: 'Precio unitario',
@@ -232,7 +232,7 @@ const IT = {
   },
   creditAgainst: 'Questa nota di credito storna importi di {ref}. Non è una richiesta di pagamento.',
   from: 'Da', billTo: 'Fatturare a', deliverTo: 'Consegnare a', shipTo: 'Indirizzo di spedizione',
-  taxId: 'P.IVA', yourReference: 'Vostro riferimento', refersTo: 'Riferimento',
+  taxId: 'P.IVA', yourReference: 'Vostro riferimento', refersTo: 'Riferimento', serviceDate: 'Data della prestazione',
   columns: {
     description: 'Descrizione', hsn: 'HSN/SAC', date: 'Data', reference: 'Riferimento', charge: 'Addebito',
     paid: 'Pagato', balance: 'Saldo', quantity: 'Q.tà', unit: 'Unità', unitPrice: 'Prezzo unitario',
@@ -269,7 +269,7 @@ const NL = {
   },
   creditAgainst: 'Deze creditnota maakt bedragen van {ref} ongedaan. Het is geen betalingsverzoek.',
   from: 'Van', billTo: 'Factuuradres', deliverTo: 'Afleveren aan', shipTo: 'Afleveradres',
-  taxId: 'Btw-nummer', yourReference: 'Uw referentie', refersTo: 'Betreft',
+  taxId: 'Btw-nummer', yourReference: 'Uw referentie', refersTo: 'Betreft', serviceDate: 'Leveringsdatum',
   columns: {
     description: 'Omschrijving', hsn: 'HSN/SAC', date: 'Datum', reference: 'Referentie', charge: 'Debet',
     paid: 'Betaald', balance: 'Saldo', quantity: 'Aantal', unit: 'Eenheid', unitPrice: 'Stukprijs',
@@ -306,7 +306,7 @@ const PL = {
   },
   creditAgainst: 'Ta korekta anuluje kwoty z dokumentu {ref}. Nie jest wezwaniem do zapłaty.',
   from: 'Sprzedawca', billTo: 'Nabywca', deliverTo: 'Odbiorca', shipTo: 'Adres dostawy',
-  taxId: 'NIP', yourReference: 'Państwa numer', refersTo: 'Dotyczy',
+  taxId: 'NIP', yourReference: 'Państwa numer', refersTo: 'Dotyczy', serviceDate: 'Data wykonania',
   columns: {
     description: 'Opis', hsn: 'HSN/SAC', date: 'Data', reference: 'Numer', charge: 'Obciążenie',
     paid: 'Zapłacono', balance: 'Saldo', quantity: 'Ilość', unit: 'J.m.', unitPrice: 'Cena jedn.',
@@ -343,7 +343,7 @@ const PT = {
   },
   creditAgainst: 'Esta nota de crédito anula valores de {ref}. Não é um pedido de pagamento.',
   from: 'De', billTo: 'Faturar a', deliverTo: 'Entregar a', shipTo: 'Morada de entrega',
-  taxId: 'NIF', yourReference: 'A sua referência', refersTo: 'Referência',
+  taxId: 'NIF', yourReference: 'A sua referência', refersTo: 'Referência', serviceDate: 'Data da prestação',
   columns: {
     description: 'Descrição', hsn: 'HSN/SAC', date: 'Data', reference: 'Referência', charge: 'Débito',
     paid: 'Pago', balance: 'Saldo', quantity: 'Qtd.', unit: 'Unidade', unitPrice: 'Preço unitário',

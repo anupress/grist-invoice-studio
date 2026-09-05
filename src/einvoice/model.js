@@ -201,6 +201,10 @@ export function einvoiceModel(draft, settings = {}) {
     number: text(draft.number),
     issueDate: isoDate(draft.issued),
     dueDate: kind.id === 'invoice' ? isoDate(draft.due) : '',
+    // BT-72, the actual delivery date. XRechnung refuses an invoice that carries neither this nor
+    // an invoicing period, and the document's own service date is what it means; the issue date
+    // stands in when none was entered, which is what most tools write.
+    deliveryDate: isoDate(draft.serviceDate) || isoDate(draft.issued),
     currency,
     language: languageOf(draft, settings),
     buyerReference: text(draft.reference),

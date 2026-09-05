@@ -75,6 +75,7 @@ export function fieldsFor(draft, settings = {}, overrides = {}) {
     showSenderTaxNumber,
     showClientTaxNumber,
     showReference: !!String(draft?.reference || '').trim(),
+    showServiceDate: money_ && !!String(draft?.serviceDate || '').trim(),
     showTerms: !!String(draft?.terms || '').trim(),
     showNote: !!String(draft?.note || '').trim(),
     // Payment details belong on anything that asks for money, and nowhere else — printing bank

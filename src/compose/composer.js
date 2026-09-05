@@ -125,6 +125,12 @@ export function renderComposer(ctx) {
     fields.showSecondDate
       ? field(kind.dateLabels.second, textInput(draft.due, (v) => { draft.due = v; onEdit(); }, { type: 'date' }))
       : null,
+    // When the work was done or the goods delivered — German invoices must say, and an XRechnung
+    // is refused without it. Empty prints nothing; the e-invoice then carries the issue date.
+    kind.showsMoney
+      ? field('Service date', textInput(draft.serviceDate, (v) => { draft.serviceDate = v; onEdit(); }, { type: 'date' }),
+        'When the work was done or delivered. Printed when set; an e-invoice uses the issue date otherwise.')
+      : null,
     // A text input with the document's own statuses as suggestions, not a fixed list: a business
     // that works in "Awaiting approval" gets to say so, and saving registers the new status on the
     // column's choices so Grist stops treating it as a stranger.

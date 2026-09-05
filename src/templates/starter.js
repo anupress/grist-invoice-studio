@@ -58,6 +58,8 @@ const INVOICE_COLUMNS = [
   { id: 'Client', label: 'Client', type: 'Ref:Clients' },
   { id: 'Issued', label: 'Issued', type: 'Date' },
   { id: 'Due', label: 'Due', type: 'Date' },
+  // When the work was done. German invoices must carry it; the sample says the invoice date.
+  { id: 'ServiceDate', label: 'Service date', type: 'Date' },
   { id: 'Status', label: 'Status', type: 'Choice',
     widgetOptions: JSON.stringify({ choices: ['Draft', 'Sent', 'Part paid', 'Paid', 'Overdue', 'Cancelled'], choiceOptions: {} }) },
   // Which kind of document the row is, so one table holds invoices, quotes, credit notes and
@@ -161,6 +163,7 @@ export function starterTablesFor(templateId, { numberPrefix = 'INV-', grossOf = 
       Client: inv.client,
       Issued: issued,
       Due: due,
+      ServiceDate: issued,
       Status: inv.status,
       // The document's own kind where the sample says so — a till receipt for the paid sale, an
       // invoice for the trade account — and the trade's default kind otherwise.

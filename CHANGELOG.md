@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.23.0 — validated against the rules, and a service date
+
+- **The e-invoices pass the official rules.** Every sample — invoice, credit note, reverse
+  charge, discount with shipping and part payment — was run through the EN 16931 validation
+  artefacts (release 1.3.16) and the KoSIT XRechnung 3.0.2 schematron (2.6.0), in both UBL and
+  CII, using Saxon-JS rather than Java: zero failed assertions. `scripts/validate-einvoice.mjs`
+  is the harness, with its setup in the file, so the check can be repeated after any change.
+  Not yet covered: Peppol's own additional rules, and PDF/A-3 conformance of the Factur-X file,
+  both of which need tools this machine has not got.
+- **A service date.** The one XRechnung rule the files broke wanted a delivery date or an
+  invoicing period, and German law wants the date of supply on every invoice regardless. The
+  composer has a Service date field; it prints on the document in the document's language
+  (Leistungsdatum, Date de prestation…) when set; the e-invoice carries it as the actual
+  delivery date, with the issue date standing in when it is empty. A ServiceDate column joins
+  the starter and the upgrade offer, and DeliveryDate, Leistungsdatum, PerformedOn and the like
+  are recognised.
+
 ## 1.22.1 — a widget list
 
 - **A widget list for self-hosted Grist.** `manifest.json`, in the schema of Grist's own

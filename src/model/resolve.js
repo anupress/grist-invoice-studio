@@ -222,6 +222,7 @@ export function resolveInvoice(row, schema, provider, settings = {}) {
     due: str(byRole(row, roles, 'due')),
     status: str(byRole(row, roles, 'status')),
     reference: str(byRole(row, roles, 'reference')),
+    serviceDate: str(byRole(row, roles, 'serviceDate')),
     terms: str(byRole(row, roles, 'terms')),
     note: str(byRole(row, roles, 'note')),
     language: str(byRole(row, roles, 'language')),

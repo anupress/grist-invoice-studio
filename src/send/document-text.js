@@ -38,6 +38,7 @@ export function documentToPlainText(draft, settings = {}) {
 
   const dates = [`${kind.dateLabels.issued} ${date(draft.issued)}`];
   if (fields.showSecondDate && draft.due) dates.push(`${kind.dateLabels.second} ${date(draft.due)}`);
+  if (fields.showServiceDate) dates.push(`${L.serviceDate} ${date(draft.serviceDate)}`);
   out.push(dates.join('  ·  '));
   if (fields.showReference && draft.reference) {
     out.push(`${labelOr(settings.referenceLabel, 'Your reference', L.yourReference)}: ${draft.reference}`);

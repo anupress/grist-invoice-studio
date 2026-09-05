@@ -197,6 +197,7 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
     el('div', { class: 'inv-metas' }, [
       metaField(kind.dateLabels.issued, date(draft.issued)),
       fields.showSecondDate ? metaField(kind.dateLabels.second, date(draft.due)) : null,
+      fields.showServiceDate ? metaField(L.serviceDate, date(draft.serviceDate)) : null,
       // The client's own reference. Accounts payable match on this, not on our number, so an
       // invoice without it can sit unpaid while nobody is doing anything wrong.
       fields.showReference ? metaField(labelOr(settings.referenceLabel, 'Your reference', L.yourReference), draft.reference) : null,

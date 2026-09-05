@@ -96,6 +96,8 @@ export function toUbl(m) {
     m.precedingInvoice ? el('cac:BillingReference', el('cac:InvoiceDocumentReference', el('cbc:ID', m.precedingInvoice))) : null,
     partyBlock('cac:AccountingSupplierParty', m.seller),
     partyBlock('cac:AccountingCustomerParty', m.buyer),
+    // Schema order: Delivery sits between the customer party and the payment means.
+    m.deliveryDate ? el('cac:Delivery', el('cbc:ActualDeliveryDate', m.deliveryDate)) : null,
     el('cac:PaymentMeans',
       el('cbc:PaymentMeansCode', m.payment.code),
       opt('cbc:PaymentID', m.payment.reference),
