@@ -180,7 +180,8 @@ documents that ask for money, and only while something is owed.
 ## Bringing data in
 
 `docs/import/` holds a CSV per table — clients, products, invoices, invoice items — each as a
-filled sample and as a blank with the headers alone. Grist's own Import from file adds the rows
+filled sample and as a blank with the headers alone, plus a zip of the lot for one download.
+Grist's own Import from file adds the rows
 to a table and matches columns by name; the headers are the widget's column ids, so a table the
 widget set up matches column for column. The README there walks through it, and through moving
 a spreadsheet from another tool.

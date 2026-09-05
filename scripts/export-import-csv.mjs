@@ -7,13 +7,14 @@
 // the client's name, the invoice's number — because that is what a spreadsheet holds, and the
 // widget resolves both.
 //
-//   node scripts/export-import-csv.mjs            writes docs/import/*.csv
+//   node scripts/export-import-csv.mjs            writes docs/import/*.csv, README.md and the zip of them all
 //
 // Everything in the sample is invented: see src/templates/samples.js.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import zlib from 'node:zlib';
 
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
 const OUT = path.join(REPO, 'docs', 'import');
@@ -62,7 +63,7 @@ fs.writeFileSync(path.join(OUT, 'README.md'), `# Importing your data
 
 Four CSV files, one per table the widget uses. Each comes twice: \`*-sample.csv\` filled with the
 construction trade's starter business (every name and address invented), and \`*-blank.csv\` with
-the headers alone for your own data.
+the headers alone for your own data. \`invoice-studio-import-csv.zip\` is all of them in one download.
 
 | File | Table | What each row is |
 |---|---|---|
@@ -96,4 +97,44 @@ rename its headers to the ones in the blank files. Columns the old tool did not 
 empty; columns it had that these files lack can be kept — the widget shows every column of a
 table on its forms and only reads the ones it knows.
 `);
+// A zip of the whole kit, so a web page can offer one download instead of eight files that a
+// browser would rather display than save. Plain zip: local headers, deflate, a central directory.
+function zipFiles(entries) {
+  const crcTable = new Int32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c; }
+  const crc32 = (buf) => { let c = -1; for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ -1) >>> 0; };
+  const dosTime = (d) => ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xffff;
+  const dosDate = (d) => (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xffff;
+  const now = new Date();
+  const locals = [], centrals = [];
+  let offset = 0;
+  for (const { name, data } of entries) {
+    const nameBuf = Buffer.from(name, 'utf8');
+    const deflated = zlib.deflateRawSync(data, { level: 9 });
+    const crc = crc32(data);
+    const head = Buffer.alloc(30);
+    head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(20, 4); head.writeUInt16LE(0x0800, 6); head.writeUInt16LE(8, 8);
+    head.writeUInt16LE(dosTime(now), 10); head.writeUInt16LE(dosDate(now), 12); head.writeUInt32LE(crc, 14);
+    head.writeUInt32LE(deflated.length, 18); head.writeUInt32LE(data.length, 22); head.writeUInt16LE(nameBuf.length, 26); head.writeUInt16LE(0, 28);
+    locals.push(head, nameBuf, deflated);
+    const cen = Buffer.alloc(46);
+    cen.writeUInt32LE(0x02014b50, 0); cen.writeUInt16LE(20, 4); cen.writeUInt16LE(20, 6); cen.writeUInt16LE(0x0800, 8); cen.writeUInt16LE(8, 10);
+    cen.writeUInt16LE(dosTime(now), 12); cen.writeUInt16LE(dosDate(now), 14); cen.writeUInt32LE(crc, 16);
+    cen.writeUInt32LE(deflated.length, 20); cen.writeUInt32LE(data.length, 24); cen.writeUInt16LE(nameBuf.length, 28);
+    cen.writeUInt16LE(0, 30); cen.writeUInt16LE(0, 32); cen.writeUInt16LE(0, 34); cen.writeUInt16LE(0, 36); cen.writeUInt32LE(0, 38); cen.writeUInt32LE(offset, 42);
+    centrals.push(cen, nameBuf);
+    offset += head.length + nameBuf.length + deflated.length;
+  }
+  const cenSize = centrals.reduce((n, b) => n + b.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(0, 4); end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10); end.writeUInt32LE(cenSize, 12); end.writeUInt32LE(offset, 16); end.writeUInt16LE(0, 20);
+  return Buffer.concat([...locals, ...centrals, end]);
+}
+
+const ZIP = 'invoice-studio-import-csv.zip';
+const kit = fs.readdirSync(OUT).filter((f) => f.endsWith('.csv') || f === 'README.md').sort()
+  .map((name) => ({ name, data: fs.readFileSync(path.join(OUT, name)) }));
+fs.writeFileSync(path.join(OUT, ZIP), zipFiles(kit));
+console.log(`${ZIP}: ${kit.length} files`);
 console.log('wrote', OUT);

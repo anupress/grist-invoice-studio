@@ -2,7 +2,7 @@
 
 Four CSV files, one per table the widget uses. Each comes twice: `*-sample.csv` filled with the
 construction trade's starter business (every name and address invented), and `*-blank.csv` with
-the headers alone for your own data.
+the headers alone for your own data. `invoice-studio-import-csv.zip` is all of them in one download.
 
 | File | Table | What each row is |
 |---|---|---|
