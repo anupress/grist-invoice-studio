@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.24.0 — accepted by the official validators
+
+- **The official tools now run, and accept everything.** A portable Java runtime downloaded into
+  the scratch folder made three checks possible that the machine had lacked: the KoSIT validator
+  with the XRechnung 3.0.2 configuration accepts every XRechnung file (UBL invoice, UBL credit
+  note, CII); Peppol BIS Billing 3.0's own Schematron, compiled with Saxon HE and the ISO
+  skeleton, passes; and Mustang confirms every Factur-X file as PDF/A-3b conformant (veraPDF
+  inside) with valid XMP and XML. `scripts/validate-einvoice.mjs official` repeats all three.
+- **Peppol addresses.** Peppol's scheme list has no entry for email, so a Peppol file addressed
+  by EM was refused. Under the Peppol profile a VAT number now stands in under its country's
+  scheme (9930 for Germany, 9957 for France…), a Peppol ID typed as scheme:identifier wins
+  everywhere — Settings → Electronic invoices for you, a Peppol ID field on the client record for
+  them, with PeppolId, ElectronicAddress and EndpointId columns recognised — and the pre-send
+  check says in words what to type when a party has neither.
+- **A credit note's Factur-X was refused** for saying CREDITNOTE in its XMP, a value the schema
+  does not know; it says INVOICE now, and the credit note is told by the type code inside the
+  XML, as the standard intends.
+- Every profile now carries the business process id (BT-23), which readers applying the Peppol
+  or XRechnung rules to a plain EN 16931 file otherwise report missing.
+
 ## 1.23.0 — validated against the rules, and a service date
 
 - **The e-invoices pass the official rules.** Every sample — invoice, credit note, reverse

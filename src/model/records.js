@@ -32,6 +32,7 @@ export const CLIENT_FORM = [
   { role: 'postcode', label: 'Postcode' },
   { role: 'country', label: 'Country', code: true, placeholder: 'GB', suggest: 'country', hint: 'Two letters. Decides the tax rate, and an e-invoice will not accept anything else.' },
   { role: 'taxNumber', label: 'Tax number', placeholder: 'GB 123 4567 89', hint: 'With its country prefix, if it is a VAT number.' },
+  { role: 'peppolId', label: 'Peppol ID', code: true, placeholder: '0208:0123456789', hint: 'For Peppol e-invoices only: scheme and identifier. Left empty, their VAT number stands in where Peppol has a scheme for its country.' },
   { role: 'language', label: 'Language', type: 'language', hint: 'The language their documents are written in.' },
 ];
 

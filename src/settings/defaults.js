@@ -23,6 +23,9 @@ export const DEFAULT_BUSINESS = {
    * Stripe or PayPal page the business already has — serves everything else. All optional.
    */
   iban: '', bic: '', accountHolder: '', upiId: '', paymentLink: '',
+  // The Peppol participant id, "scheme:identifier" — 0204:991-12345-67, 9930:DE123456789. Only
+  // the Peppol profile uses it; left empty, the VAT number stands in where Peppol has a scheme.
+  peppolId: '',
   /**
    * The legal line at the foot of every document: registration number and court, managing
    * director, share capital, whatever the jurisdiction requires. Germany and France both do.

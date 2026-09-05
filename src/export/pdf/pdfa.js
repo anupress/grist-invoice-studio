@@ -101,7 +101,7 @@ function xmpPacket({ title, author, created, producer, facturx }) {
 /**
  * The plugin.
  *
- *   attachment   { bytes, fileName, description, documentType: 'INVOICE' | 'CREDITNOTE', conformance }
+ *   attachment   { bytes, fileName, description, documentType: 'INVOICE', conformance }
  *                or null for a PDF/A-3 with nothing embedded
  *
  * Objects, in order: XMP metadata, the ICC stream, the output intent, then — when there is an

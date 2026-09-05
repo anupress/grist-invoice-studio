@@ -424,6 +424,8 @@ export function renderSettingsPanel(ctx) {
       ...Object.values(PROFILES).map((p) => opt(p.id, p.label)),
     ], ei.profile || '', (v) => { ei.profile = v; if (!v && ['facturx', 'ubl', 'cii'].includes(del.attachFormat)) del.attachFormat = 'pdf'; if (ctx.onRebuild) ctx.onRebuild(); }),
       'EN 16931 is the European standard every profile is built on; XRechnung and Peppol add their own required fields, which the check will ask for. Your VAT number, with its country prefix, goes in Business → Tax number.'),
+    field('Peppol ID', textInput(b.peppolId, (v) => { b.peppolId = v.replace(/\s+/g, ''); touched(); }, { class: 'cmp-input--code', placeholder: '9930:DE123456789' }),
+      'Your Peppol participant id as scheme:identifier — 0204 for a German Leitweg-ID, 9930 for a German VAT number, 0208 for a Belgian enterprise number. Only the Peppol profile uses it. Left empty, your VAT number stands in where Peppol has a scheme for its country; Sweden, Denmark and Norway address by organisation number and need it typed here.'),
   ]);
 
   const deliverySection = section('Sending', [

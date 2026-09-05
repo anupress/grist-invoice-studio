@@ -22,7 +22,7 @@ const clientRoles = { name: 'Name', email: 'Email', city: 'City', country: 'Coun
 
 {
   const f = rec.formFields('client', clientRoles, clientCols);
-  eq('every client field is asked for, in order', f.map((x) => x.role), ['name', 'email', 'phone', 'street1', 'street2', 'city', 'state', 'postcode', 'country', 'taxNumber', 'language']);
+  eq('every client field is asked for, in order', f.map((x) => x.role), ['name', 'email', 'phone', 'street1', 'street2', 'city', 'state', 'postcode', 'country', 'taxNumber', 'peppolId', 'language']);
   ok('a mapped field knows its column', f.find((x) => x.role === 'email').colId === 'Email' && f.find((x) => x.role === 'email').writable);
   ok('an unmapped field is present in the form but not writable', !f.find((x) => x.role === 'street1').present && !f.find((x) => x.role === 'street1').writable);
   ok('a formula column is present but not writable', f.find((x) => x.role === 'phone').present && !f.find((x) => x.role === 'phone').writable);

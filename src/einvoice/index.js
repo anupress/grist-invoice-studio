@@ -34,7 +34,9 @@ export function facturXPdf(draft, settings = {}, opts = {}) {
       bytes: xml,
       fileName: 'factur-x.xml',
       description: 'Factur-X / ZUGFeRD invoice (EN 16931)',
-      documentType: model.kind === 'credit_note' ? 'CREDITNOTE' : 'INVOICE',
+      // Always INVOICE: the Factur-X XMP schema knows no other value, and Mustang refuses a file
+      // that says CREDITNOTE. The credit note is told by the type code inside the XML.
+      documentType: 'INVOICE',
       conformance: model.profile.facturx,
     },
   }));

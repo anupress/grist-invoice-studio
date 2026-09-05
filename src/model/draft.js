@@ -33,6 +33,8 @@ export function normaliseParty(p = {}) {
     email: text(p.email),
     phone: text(p.phone),
     taxNumber: text(p.taxNumber),
+    // The Peppol participant id, "scheme:identifier". Only the e-invoice reads it.
+    peppolId: text(p.peppolId),
     website: text(p.website),
     // The language this party reads. On a client it decides the document's words; see doc/lang.js.
     language: text(p.language),

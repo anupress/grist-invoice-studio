@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.23.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.24.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -188,14 +188,23 @@ its country prefix, a missing buyer reference (the Leitweg-ID a German public bo
 output follows EN 16931's arithmetic to the cent — VAT categories, the reverse charge as `AE`,
 allowances and charges — and is built to the published schema order.
 
-It has been checked against the rules themselves. Twelve sample documents — invoices, credit
-notes, the reverse charge, discounts with shipping and part payment, a service date — run through
-the official EN 16931 validation artefacts (release 1.3.16) and the KoSIT XRechnung 3.0.2
-schematron (2.6.0), in both UBL and CII, with zero failed assertions. The harness is
-`scripts/validate-einvoice.mjs`; it runs the compiled Schematron in Node through Saxon-JS, so no
-Java is needed, and its setup is described in the file. Not yet covered: Peppol's own additional
-rules and PDF/A-3 conformance of the Factur-X file. Validate a first file with your receiver's
-own validator all the same, as every sender does.
+It has been checked against the rules and against the official tools. Twelve sample documents —
+invoices, credit notes, the reverse charge, discounts with shipping and part payment, a service
+date — pass the EN 16931 validation artefacts (release 1.3.16) and the KoSIT XRechnung 3.0.2
+schematron (2.6.0) in both UBL and CII with zero failed assertions; the KoSIT validator itself,
+with the XRechnung 3.0.2 configuration German public bodies run, accepts every XRechnung file;
+Peppol BIS Billing 3.0's own rules pass; and Mustang confirms every Factur-X file as PDF/A-3b
+conformant with valid XMP and XML. `scripts/validate-einvoice.mjs` repeats all of it from a
+scratch folder — the Schematron level in Node alone, the official tools with a portable Java
+runtime it downloads — so the claim can be rechecked after any change. Validate a first file with
+your receiver's own validator all the same, as every sender does.
+
+**Peppol addresses.** The Peppol network addresses a party by a scheme and an identifier, and an
+email is not one it knows. Under the Peppol profile a VAT number stands in for most countries
+(9930 for a German one, 9957 for a French one); a Peppol ID typed as scheme:identifier —
+0204:991-12345-67 for a Leitweg-ID, 0208 for a Belgian enterprise number — wins everywhere, in
+Settings → Electronic invoices for you and on the client record for them. Sweden, Denmark and
+Norway address by organisation number and need it typed.
 
 A **service date** — when the work was done or the goods delivered — can be set on any document.
 German law asks for it on every invoice, and an XRechnung is refused without a delivery date, so

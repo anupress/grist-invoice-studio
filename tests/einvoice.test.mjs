@@ -317,9 +317,10 @@ const draft = (over = {}, s = settings()) => recalc(normaliseDraft({
   const info = /\/CreationDate \(D:(\d{14})\)/.exec(text)[1];
   const xmpDate = /<xmp:CreateDate>([^<]+)<\/xmp:CreateDate>/.exec(text)[1];
   ok('Info and XMP carry a creation date', info.length === 14 && /^\d{4}-\d{2}-\d{2}T/.test(xmpDate));
-  // Credit notes say CREDITNOTE.
+  // Credit notes are still typed INVOICE in the XMP — the schema knows no other value, and the
+  // credit note is told by the type code inside the XML. Mustang rejected CREDITNOTE.
   const cn = latin1(ei.facturXPdf(draft({ kind: 'credit_note', relatedTo: 'Rechnung RE-2026-0042' }), settings(), { fonts }));
-  ok('a credit note is typed as one', cn.includes('<fx:DocumentType>CREDITNOTE</fx:DocumentType>'));
+  ok('a credit note keeps the INVOICE document type', cn.includes('<fx:DocumentType>INVOICE</fx:DocumentType>') && !cn.includes('CREDITNOTE'));
   // Without fonts it refuses rather than producing a non-conformant file.
   let threw = false;
   try { ei.facturXPdf(d, settings(), {}); } catch { threw = true; }

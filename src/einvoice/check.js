@@ -44,8 +44,11 @@ export function checkEInvoice(m) {
   } else if (!has(s.vatId) && !m.exempt) {
     warn('BR-CO-26', `Your tax number "${s.taxId}" does not start with a country prefix, so it is written as a national registration rather than a VAT identifier. If it is a VAT number, add the prefix.`);
   }
-  if (profile === 'xrechnung' || profile === 'peppol') {
-    if (!s.endpoint) err('BR-DE-2', 'Your email is missing: it is the seller’s electronic address, which this profile requires. Settings → Business → Email.');
+  if (profile === 'xrechnung' && !s.endpoint) {
+    err('BR-DE-2', 'Your email is missing: it is the seller’s electronic address, which this profile requires. Settings → Business → Email.');
+  }
+  if (profile === 'peppol' && !s.endpoint) {
+    err('PEPPOL-EN16931-R020', 'Peppol needs an electronic address for you, and an email is not one it knows. Enter your Peppol ID as scheme:identifier in Settings → Electronic invoices, or a VAT number with its country prefix under Business → Tax number, which stands in for most countries.');
   }
   if (profile === 'xrechnung') {
     if (!has(s.phone) && !has(s.email)) err('BR-DE-5', 'XRechnung requires a seller contact: a phone number or an email. Settings → Business.');
@@ -55,8 +58,11 @@ export function checkEInvoice(m) {
   const b = m.buyer;
   if (!has(b.name)) err('BR-07', 'The client has no name.');
   if (!has(b.country)) err('BR-11', `The client’s country must be a two-letter code such as FR. On the client record${has(b.country) ? '' : ', it is empty'}.`);
-  if (profile === 'xrechnung' || profile === 'peppol') {
-    if (!b.endpoint) err('BR-DE-3', 'The client has no email, and this profile requires a buyer electronic address. Add one to the client record.');
+  if (profile === 'xrechnung' && !b.endpoint) {
+    err('BR-DE-3', 'The client has no email, and this profile requires a buyer electronic address. Add one to the client record.');
+  }
+  if (profile === 'peppol' && !b.endpoint) {
+    err('PEPPOL-EN16931-R010', 'Peppol needs an electronic address for the client, and an email is not one it knows. Put their Peppol ID (scheme:identifier) or their VAT number, with its country prefix, on the client record.');
   }
   if (profile === 'xrechnung' && !has(m.buyerReference)) {
     err('BR-DE-15', 'XRechnung requires a buyer reference — the Leitweg-ID for a public body, or the reference the client gave you. Type it in "Their reference".');

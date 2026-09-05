@@ -144,6 +144,7 @@ export function sanitise(settings) {
   b.upiId = String(b.upiId || '').trim().slice(0, 64);
   b.paymentLink = /^https:\/\/\S+$/i.test(String(b.paymentLink || '').trim()) ? String(b.paymentLink).trim().slice(0, 500) : '';
   b.legalText = String(b.legalText || '').trim().slice(0, 600);
+  b.peppolId = String(b.peppolId || '').replace(/\s+/g, '').slice(0, 80);
 
   if (!['', 'small_business'].includes(m.exemption)) m.exemption = '';
   m.exemptionText = String(m.exemptionText || '').trim().slice(0, 300);

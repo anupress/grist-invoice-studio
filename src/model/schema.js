@@ -36,7 +36,7 @@ export const INVOICE_ROLES = [
 export const LINE_ROLES = ['invoiceLink', 'description', 'quantity', 'unitPrice', 'lineTotal', 'product', 'taxClass', 'lineDiscount', 'hsn', 'unit'];
 
 /** Roles on a client row. */
-export const CLIENT_ROLES = ['name', 'email', 'phone', 'taxNumber', 'street1', 'street2', 'city', 'state', 'postcode', 'country', 'language'];
+export const CLIENT_ROLES = ['name', 'email', 'phone', 'taxNumber', 'peppolId', 'street1', 'street2', 'city', 'state', 'postcode', 'country', 'language'];
 
 /**
  * The roles without which there is no invoice at all.
@@ -204,6 +204,7 @@ const CLIENT_PATTERNS = {
   email:     [/^email$/i, /^e_?mail$/i, /email/i],
   phone:     [/^phone$/i, /^tel(ephone)?$/i, /^mobile$/i, /phone/i],
   taxNumber: [/^tax_?(id|number)$/i, /^vat_?(no|number)$/i, /^gstin?$/i, /^trn$/i, /^abn$/i],
+  peppolId:  [/^peppol_?id$/i, /^peppol$/i, /^electronic_?address$/i, /^endpoint_?id$/i, /^participant_?id$/i],
   street1:   [/^street1$/i, /^address1$/i, /^address_?line_?1$/i, /^street$/i, /^address$/i],
   street2:   [/^street2$/i, /^address2$/i, /^address_?line_?2$/i],
   city:      [/^city$/i, /^town$/i],

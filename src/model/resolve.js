@@ -90,6 +90,7 @@ export function clientParty(row, roles) {
     email: str(row[roles.email]),
     phone: str(row[roles.phone]),
     taxNumber: str(row[roles.taxNumber]),
+    peppolId: str(row[roles.peppolId]),
     language: str(row[roles.language]),
     found: true,
   };

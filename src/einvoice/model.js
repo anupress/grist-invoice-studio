@@ -23,7 +23,10 @@ export const PROFILES = {
   en16931: {
     id: 'en16931', label: 'EN 16931 — the European standard',
     customization: 'urn:cen.eu:en16931:2017',
-    profileId: '',
+    // BT-23, the business process. Optional in the core standard, and the Peppol billing id is
+    // what every reader expects to find there; a validator applying the Peppol or XRechnung
+    // rules to a plain EN 16931 file otherwise reports it missing.
+    profileId: 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0',
     facturx: 'EN 16931',
   },
   xrechnung: {
@@ -64,12 +67,48 @@ export function isoDate(v) {
   return '';
 }
 
+/**
+ * Electronic Address Scheme codes for VAT numbers, per country, from the EAS code list Peppol
+ * accepts. A Peppol participant is addressed by a scheme and an identifier, and the VAT number
+ * under its country's scheme is the identifier most businesses have without asking anyone. Sweden,
+ * Denmark, Norway and Iceland address by organisation number instead, so they are absent: a
+ * business there enters its Peppol ID.
+ */
+const EAS_VAT = {
+  AD: '9922', AL: '9923', AT: '9914', BA: '9924', BE: '9925', BG: '9926', CH: '9927', CY: '9928',
+  CZ: '9929', DE: '9930', EE: '9931', ES: '9920', FI: '0213', FR: '9957', GB: '9932', GR: '9933',
+  HR: '9934', HU: '9910', IE: '9935', IT: '0211', LI: '9936', LT: '9937', LU: '9938', LV: '9939',
+  MC: '9940', ME: '9941', MK: '9942', MT: '9943', NL: '9944', PL: '9945', PT: '9946', RO: '9947',
+  RS: '9948', SI: '9949', SK: '9950', SM: '9951', TR: '9952', VA: '9953',
+};
+
+/**
+ * A party's electronic address (BT-34 / BT-49).
+ *
+ * A Peppol ID typed as "scheme:identifier" wins everywhere. Under the Peppol profile an email is
+ * not an address the network knows — its scheme list has no EM — so the VAT number stands in
+ * under its country's scheme, and a party with neither has no address, which the check reports.
+ * Every other profile takes the email under EM, which XRechnung accepts and a business without
+ * a Peppol registration can honestly claim.
+ */
+function endpointFor(p, profile, country, vat) {
+  const typed = text(p.peppolId);
+  const m = /^([0-9A-Za-z]{2,4}):(.+)$/.exec(typed);
+  if (m) return { scheme: m[1].toUpperCase(), value: m[2].trim() };
+  if (profile?.id === 'peppol') {
+    const scheme = EAS_VAT[country];
+    return scheme && vat ? { scheme, value: vat } : null;
+  }
+  return text(p.email) ? { scheme: 'EM', value: text(p.email) } : null;
+}
+
 /** A party — seller or buyer — in the standard's terms. */
-function party(p = {}) {
+function party(p = {}, profile = null) {
   const tax = text(p.taxNumber);
   // A number beginning with two letters is a VAT identifier (DE123456789, FR12345678901); anything
   // else is a national tax registration and goes in the other slot.
   const looksVat = /^[A-Za-z]{2}[\s.-]*[A-Za-z0-9]/.test(tax) && vatId(tax).length >= 4;
+  const country = iso2(p.country);
   return {
     name: text(p.name),
     street: text(p.street1),
@@ -83,9 +122,7 @@ function party(p = {}) {
     email: text(p.email),
     phone: text(p.phone),
     legalText: text(p.legalText),
-    // The electronic address (BT-34 / BT-49): an email under the EM scheme, which is what a
-    // business without a Peppol participant id can honestly claim.
-    endpoint: text(p.email) ? { scheme: 'EM', value: text(p.email) } : null,
+    endpoint: endpointFor(p, profile, country, looksVat ? vatId(tax) : ''),
   };
 }
 
@@ -126,8 +163,8 @@ export function einvoiceModel(draft, settings = {}) {
   // engine writes when it applies the rule. Anything else exempt is the seller's own status.
   const exemptKind = exempt && /196|reverse|autoliquidation|verlegd|steuerschuldnerschaft|inversione|inversión|odwrotne|autoliquidação/i.test(exempt.reason) ? 'reverse' : 'other';
 
-  const seller = party(draft.sender);
-  const buyer = party(draft.client);
+  const seller = party(draft.sender, profile);
+  const buyer = party(draft.client, profile);
   const currency = text(draft.currency || t.currency || settings.money?.currency).toUpperCase() || 'EUR';
 
   // Lines: the draft's words with the engine's figures, paired by position, which is how the
