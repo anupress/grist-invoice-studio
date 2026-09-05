@@ -102,6 +102,8 @@ export function sanitise(settings) {
   const simple = Number(m.simpleRate);
   // A rate is a percentage, and a percentage over a hundred is a typo rather than a tax regime.
   m.simpleRate = isFinite(simple) ? Math.max(0, Math.min(100, simple)) : 0;
+  const late = Number(m.lateFeeRate);
+  m.lateFeeRate = isFinite(late) ? Math.max(0, Math.min(100, late)) : 8;
   m.simpleName = String(m.simpleName || 'Tax').trim().slice(0, 24) || 'Tax';
 
   m.taxRates = Array.isArray(m.taxRates) ? m.taxRates.filter((r) => r && isFinite(Number(r.rate))) : [];

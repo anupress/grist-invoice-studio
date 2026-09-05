@@ -1,0 +1,7 @@
+SKU,Name,Price,Unit,Stock,TaxClass,HSN
+SURVEY,Site survey and measurement,320,,25,,
+LABOUR,Labour,280,day,25,,
+DUCT,"Extraction ductwork, supply and fit",145,m,25,,
+ELEC,Electrical certification,210,,25,,
+MAT,"Materials, as scheduled",1450,,25,,
+SKIP,Skip hire and waste removal,240,,25,,

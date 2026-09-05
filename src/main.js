@@ -14,7 +14,8 @@ import * as bridge from './core/grist/bridge.js';
 import { DummyProvider, GristProvider } from './core/data/provider.js';
 import { SAMPLE_DATA, SAMPLE_SENDER, SAMPLE_MONEY } from './data/sample.js';
 import { detectSchema, upgradeChecklist, widgetColumns, detectProducts, productOptions, statusOptions } from './model/schema.js';
-import { listInvoices, listClients, resolveInvoice, borrowCatalogueImages } from './model/resolve.js';
+import { listInvoices, listClients, resolveInvoice, borrowCatalogueImages, clientParty } from './model/resolve.js';
+import { nextDocument, lateFee, lateFeeLine, buildStatement, aging } from './model/lifecycle.js';
 import { emptyDraft, normaliseDraft, recalc, convertDraft } from './model/draft.js';
 import { buildWritePlan, describePlan, existingNumbers } from './model/write.js';
 import { buildUpgradePlan } from './model/migrate.js';
@@ -36,7 +37,7 @@ import { missingFrom } from './templates/starter.js';
 import { ensureFullAccess } from './grist/access.js';
 import { computeTotals } from './money/totals.js';
 import { assignNumber } from './money/numbering.js';
-import { renderDocument } from './doc/render.js';
+import { renderDocument, docDate } from './doc/render.js';
 import { DOCUMENT_KINDS, documentKind, kindFromCell } from './doc/kinds.js';
 import { languageOf, localiseKind } from './doc/lang.js';
 import { LAYOUTS } from './doc/layouts.js';
@@ -113,6 +114,9 @@ const app = {
   hidden: [],
   // The draft most recently drawn on the page, whatever mode drew it — what Print prints.
   painted: null,
+  // A document drawn from the ledger rather than read from a row — a client's statement of
+  // account. Shown, printed and sent like any other; never saved. Cleared by choosing a row.
+  transient: null,
 };
 
 const root = () => document.getElementById('studio-root');
@@ -299,6 +303,7 @@ function currentRow() {
 function startCompose(row) {
   const settings = settingsNow();
   app.unlocked = false;
+  app.transient = null;
   if (row) {
     app.draft = resolveInvoice(row, app.schema, app.provider, settings);
     // The same borrow the view applies, or a line's picture would vanish the moment Edit opened.
@@ -591,7 +596,8 @@ function paintPreview() {
   applyPaperSize(app.stored.document.paperSize);
   let draft = app.mode === 'compose'
     ? (app.draft = recalc(app.draft, settings))
-    : (currentRow() ? resolveInvoice(currentRow(), app.schema, app.provider, settings) : sampleDraft(settings));
+    : app.transient ? recalc(app.transient, settings)
+      : (currentRow() ? resolveInvoice(currentRow(), app.schema, app.provider, settings) : sampleDraft(settings));
   // Lines without pictures borrow the catalogue's, matched by name — the catalogue is where a
   // business keeps its product photos, and an invoice line for that product should show it.
   if (app.products) draft = { ...draft, lines: borrowCatalogueImages(draft.lines, app.products, app.provider) };
@@ -724,7 +730,7 @@ function renderSidebar() {
             i.status ? statusChip(i.status) : null,
           ]),
         ]);
-        row.addEventListener('click', () => { app.currentRowId = i.id; app.mode = 'view'; app.record = null; render(); });
+        row.addEventListener('click', () => { app.currentRowId = i.id; app.mode = 'view'; app.record = null; app.transient = null; render(); });
         listHost.appendChild(row);
       }
       return;
@@ -788,6 +794,7 @@ function renderSidebar() {
       editBtn,
       newBtn,
     ]),
+    which === 'invoices' ? agingStrip(fmt) : null,
     el('div', { class: 'studio-side__tools' }, [search]),
     listHost,
   ]);
@@ -852,7 +859,7 @@ function renderDrawer() {
     const settings = settingsNow();
     const row = currentRow();
     panel = renderSendPanel({
-      draft: resolveInvoice(row, app.schema, app.provider, settings),
+      draft: app.transient ? recalc(app.transient, settings) : resolveInvoice(row, app.schema, app.provider, settings),
       settings,
       live: app.live,
       canWrite: canWrite(),
@@ -882,7 +889,7 @@ function renderBar() {
       value: String(i.id), selected: i.id === app.currentRowId ? true : null,
       text: [i.number, i.client].filter(Boolean).join(' · '),
     })));
-  picker.addEventListener('change', () => { app.currentRowId = Number(picker.value); app.mode = 'view'; render(); });
+  picker.addEventListener('change', () => { app.currentRowId = Number(picker.value); app.mode = 'view'; app.transient = null; render(); });
 
   const chooser = (label, options, current, onChange) => {
     const sel = el('select', { class: 'studio-select studio-select--sm', 'aria-label': label },
@@ -950,7 +957,7 @@ function renderBar() {
       b.classList.add('studio-bar__narrow');
       return b;
     })(),
-    app.mode !== 'send' && app.mode !== 'record' && !gated && currentRow() ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
+    app.mode !== 'send' && app.mode !== 'record' && !gated && (app.transient || currentRow()) ? btn('Send', () => { app.mode = 'send'; render(); }, 'primary') : null,
     btn(app.mode === 'data' ? 'Close data' : 'Data', () => {
       app.mode = app.mode === 'data' ? 'view' : 'data';
       render();
@@ -1288,7 +1295,7 @@ function renderRecordEditor() {
   if (!row && kind === 'client') values.country = app.stored.money.defaultCustomerCountry || '';
   const money = settingsNow().money;
 
-  return renderRecordForm({
+  const form = renderRecordForm({
     kind, rowId, values, resolveImage, canWrite: canWrite(),
     roles: src.roles, columns,
     suggestions: recordSuggestions(),
@@ -1315,6 +1322,68 @@ function renderRecordEditor() {
     },
     onCancel: () => { app.mode = 'view'; app.record = null; render(); },
   });
+  // A saved client can have a statement drawn up: every open document on one page.
+  if (kind !== 'client' || rowId == null || !app.schema?.invoice) return form;
+  const statementBtn = el('button', { class: 'studio-btn studio-btn--sm', type: 'button', text: 'Draw up a statement of account' });
+  statementBtn.addEventListener('click', () => openStatement(rowId));
+  return el('div', {}, [
+    el('div', { class: 'studio-hintbar' }, [
+      el('span', { text: 'Every open document for this client on one page, oldest first, with a running balance.' }),
+      statementBtn,
+    ]),
+    form,
+  ]);
+}
+
+/**
+ * A client's statement of account, drawn from the ledger.
+ *
+ * Every invoice row that names this client — by reference or by name — is resolved as the
+ * document it is, and the open ones become the statement's lines. It is a transient document:
+ * shown, printed and sent, never written back, because it is a view of the ledger rather than
+ * an entry in it.
+ */
+function openStatement(clientRowId) {
+  const s = app.schema;
+  if (!s?.invoice || !s.client) return;
+  const settings = settingsNow();
+  const clientRow = (app.provider.records(s.client.table) || []).find((r) => r.id === clientRowId);
+  if (!clientRow) return;
+  const name = String(clientRow[s.client.roles.name] || '').trim().toLowerCase();
+  const mine = (app.provider.records(s.invoice.table) || []).filter((r) => {
+    const raw = r[s.invoice.roles.client];
+    return raw === clientRowId || (typeof raw === 'string' && raw.trim().toLowerCase() === name);
+  });
+  const documents = mine.map((r) => resolveInvoice(r, s, app.provider, settings));
+  const number = assignNumber('', { existingNumbers: [], format: numberFormatFor(app.stored, 'statement'), date: new Date() }).number;
+  app.transient = buildStatement({
+    client: documents[0]?.client || clientParty(clientRow, s.client.roles),
+    documents, number,
+    sender: settings.sender, currency: settings.money?.currency, layout: settings.layout,
+  });
+  app.mode = 'view';
+  app.record = null;
+  render();
+}
+
+/**
+ * One line above the invoice list: what is still owed, and how much of it is late.
+ *
+ * Every open document is resolved for its real balance, which is cheap up to a few hundred rows
+ * and pointless beyond, so a large document gets no line rather than a slow one.
+ */
+function agingStrip(fmt) {
+  const s = app.schema;
+  if (!s?.invoice) return null;
+  const rows = app.provider.records(s.invoice.table) || [];
+  if (!rows.length || rows.length > 400) return null;
+  const settings = settingsNow();
+  const ag = aging(rows.map((r) => resolveInvoice(r, s, app.provider, settings)));
+  if (!ag.count) return null;
+  return el('div', { class: 'studio-side__aging', title: 'Open documents: what is still owed, and how much of it is past its due date' }, [
+    el('span', { text: `Owed ${fmt(ag.outstanding)} · ${ag.count}` }),
+    ag.overdueCount ? el('span', { class: 'is-overdue', text: `Overdue ${fmt(ag.overdue)} · ${ag.overdueCount}` }) : null,
+  ]);
 }
 
 /** What we worked out about this document, said plainly rather than buried in a console log. */
@@ -1547,6 +1616,11 @@ function renderHintStrip() {
   const s = app.schema;
   if (!s?.invoice) return null;
 
+  if (app.transient) {
+    const t = app.transient;
+    return hintStrip(`Statement of account for ${t.client?.name || 'the client'} as at ${docDate(t.issued)}: every open document, oldest first, with a running balance. Drawn from the ledger, not saved — print it, or Send it as a PDF.`, 'Back to the invoices', () => { app.transient = null; render(); });
+  }
+
   if (app.live && !app.stored.business.name) {
     return hintStrip('Your business details are empty — the From block, logo and tax are set once, in Settings.', 'Open settings', () => { app.mode = 'settings'; render(); });
   }
@@ -1674,6 +1748,20 @@ function renderBody() {
           if (res.ok) render();
         } : null,
         newDoc: () => startCompose(null),
+        // The same document for the next period: a new draft, every date moved on, nothing paid.
+        repeat: (period) => {
+          app.draft = nextDocument(app.draft, period);
+          app.unlocked = false;
+          toast(`Raised for ${period === 'week' ? 'next week' : 'the next ' + period}. Save it when it is right.`, 'ok');
+          render();
+        },
+        addLateFee: () => {
+          const fee = lateFee(app.draft, { rate: app.stored.money.lateFeeRate });
+          if (!fee) { toast('Nothing to charge: the document is not past its due date, or nothing is owed on it.', 'warn'); return; }
+          app.draft.lines.push(lateFeeLine(fee));
+          toast(`Added ${fee.days} day${fee.days === 1 ? '' : 's'} at ${fee.rate}% a year on the balance.`, 'ok');
+          render();
+        },
         duplicate: () => {
           app.draft = normaliseDraft({ ...app.draft, rowId: null, number: '', status: 'Draft' });
           app.draft.lines = app.draft.lines.map((l) => ({ ...l, rowId: undefined }));

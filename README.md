@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.24.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.25.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -161,6 +161,29 @@ SEPA transfer with the amount and the invoice number; a rupee document with a UP
 code; a payment link serves any currency. The code is drawn on screen and in the PDF, and the
 account lines are printed beside it, in the email and in the plain text. It appears only on
 documents that ask for money, and only while something is owed.
+
+## The month after
+
+- **Repeat a document.** On any saved invoice, choose Next week, month, quarter or year and press
+  Raise it: a new draft with every date moved on by the period, the lines copied, nothing paid.
+  Rent billed on the 31st is billed on the 28th in February and the 31st again in March.
+- **Interest on a late payment.** On an overdue invoice, Add interest puts a line on it for the
+  days since the due date, at the yearly rate in Settings → Getting paid, on the balance still
+  owed. The rate is yours to set, because the law sets it differently everywhere.
+- **A statement of account.** From any client's record, Draw up a statement: every open document
+  for that client on one page, oldest first, with a running balance and the closing balance owed.
+  It prints, exports and emails like any other document and is never saved, because it is a view
+  of the ledger rather than an entry in it.
+- **What is owed, at a glance.** Above the invoice list: the total still open, and how much of it
+  is past its due date.
+
+## Bringing data in
+
+`docs/import/` holds a CSV per table — clients, products, invoices, invoice items — each as a
+filled sample and as a blank with the headers alone. Grist's own Import from file adds the rows
+to a table and matches columns by name; the headers are the widget's column ids, so a table the
+widget set up matches column for column. The README there walks through it, and through moving
+a spreadsheet from another tool.
 
 ## Issued documents
 

@@ -1,0 +1,13 @@
+Invoice,Description,Quantity,Price,Total,TaxClass,HSN,Unit
+INV-2026-0001,Site survey and measurement,1,320,320,,,
+INV-2026-0001,"Extraction ductwork, supply and fit",6,145,870,,,m
+INV-2026-0001,Electrical certification,1,210,210,,,
+INV-2026-0002,Labour,3,280,840,,,day
+INV-2026-0002,"Materials, as scheduled",1,1450,1450,,,
+INV-2026-0003,Labour,5,280,1400,,,day
+INV-2026-0003,"Materials, as scheduled",1,1450,1450,,,
+INV-2026-0003,Skip hire and waste removal,1,240,240,,,
+INV-2026-0004,Site survey and measurement,1,320,320,,,
+INV-2026-0004,Labour,2,280,560,,,day
+INV-2026-0005,Labour,4,280,1120,,,day
+INV-2026-0005,Electrical certification,1,210,210,,,

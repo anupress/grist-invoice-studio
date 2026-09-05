@@ -51,6 +51,10 @@ export const DEFAULT_MONEY = {
   taxMode: 'simple',
   simpleRate: 20,
   simpleName: 'VAT',
+  // Interest on late payment, per cent a year, charged on request from the composer. The law
+  // sets it differently everywhere — eight points over a base rate in the UK and the EU directive,
+  // nine over the Basiszinssatz between German businesses — so it is a setting, not a rule.
+  lateFeeRate: 8,
 
   // A preset id, or null when the rate table has been edited by hand. Storing the id rather than
   // the rows means a preset stays current; storing rows means a snapshot that quietly goes stale.

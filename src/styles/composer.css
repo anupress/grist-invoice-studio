@@ -203,4 +203,7 @@
   .cmp-btn:active:not(:disabled) { transform: none; }
 }
 
+.cmp-repeat { display: inline-flex; align-items: center; gap: 6px; }
+.cmp-repeat .cmp-input--select { width: auto; padding-top: 6px; padding-bottom: 6px; }
+
 @media print { .cmp { display: none !important; } }

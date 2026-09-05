@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.25.0 — the month after
+
+What a professional invoicing tool is judged on is the month after the invoice, and three of
+those things were missing.
+
+- **Repeat a document.** A saved invoice can be raised again for next week, month, quarter or
+  year: a new draft with every date moved on, the lines copied, nothing paid. The day of the
+  month is clamped, never carried — rent due on the 31st falls on the 28th in February.
+- **Interest on a late payment.** An overdue invoice gets a line for the days past its due date,
+  on the balance still owed, at the yearly rate in Settings → Getting paid (eight per cent by
+  default; the law sets it differently everywhere, so it is a setting).
+- **A statement of account.** Every open document for a client on one page, oldest first, with a
+  running balance — drawn from the ledger with one press on the client's record, shown, printed
+  and sent like any other document, never saved.
+- **What is owed, at a glance.** Above the invoice list: the total still open and how much of it
+  is late.
+- **CSV files for bringing data in**, one per table, sample and blank, with a guide to Grist's
+  importer and to moving a spreadsheet from another tool: `docs/import/`.
+
 ## 1.24.0 — accepted by the official validators
 
 - **The official tools now run, and accept everything.** A portable Java runtime downloaded into

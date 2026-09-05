@@ -245,6 +245,8 @@ export function renderSettingsPanel(ctx) {
       'A Stripe payment link, PayPal.me, or your bank\u2019s own request page. Must be https.'),
     field('Payment code', selectInput([opt('yes', 'Shown when a way to pay is set up'), opt('no', 'Never shown')],
       s.document.showPayQr === false ? 'no' : 'yes', (v) => { s.document.showPayQr = v === 'yes'; touched(); })),
+    field('Late payment interest', textInput(String(m.lateFeeRate ?? 8), (v) => { m.lateFeeRate = Number(v) || 0; touched(); }, { type: 'number', min: 0, max: 100, step: 0.5, class: 'cmp-input--code', ariaLabel: 'Late payment interest, per cent a year' }),
+      'Per cent a year, charged on the balance for the days since the due date when you press "Add interest" on an overdue invoice. Set the rate your country\u2019s law allows: eight points over the base rate in the UK and under the EU directive, nine over the Basiszinssatz between German businesses.'),
   ], { grid: true });
 
   const ratesSection = section('Tax rates', [

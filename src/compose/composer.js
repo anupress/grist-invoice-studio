@@ -12,6 +12,7 @@
 import { el, toast } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
 import { documentKind, DOCUMENT_KINDS, conversionsFor } from '../doc/kinds.js';
+import { PERIODS } from '../model/lifecycle.js';
 import { fieldsFor } from '../doc/fields.js';
 import { renderLinesGrid, blankLine, duplicateLines, combineDuplicates } from './lines-grid.js';
 import { field, textInput, numberInput, textArea, selectInput, suggestInput, button, section } from './ui.js';
@@ -67,6 +68,14 @@ export function renderComposer(ctx) {
     el('div', { class: 'cmp-bar__spacer' }),
     button('New', () => actions.newDoc(), { icon: '+' }),
     draft.rowId != null ? button('Duplicate', () => actions.duplicate()) : null,
+    // The same document, raised again for the next period: rent, retainers, subscriptions.
+    draft.rowId != null && kind.demandsPayment && actions.repeat ? (() => {
+      let period = 'month';
+      return el('span', { class: 'cmp-repeat' }, [
+        selectInput(PERIODS.map((p) => ({ value: p.id, label: p.label })), period, (v) => { period = v; }, { ariaLabel: 'Repeat period' }),
+        button('Raise it', () => actions.repeat(period), { title: 'A new draft with every date moved on by the period, the lines copied, nothing paid' }),
+      ]);
+    })() : null,
     ...conversions.map((k) => button(`Make ${k.label.toLowerCase()}`, () => actions.convert(k.id))),
     button('Save', () => actions.save(), { variant: 'primary', disabled: !canWrite || locked }),
   ]);
@@ -187,6 +196,13 @@ export function renderComposer(ctx) {
     field('Discount', numberInput(draft.discountAmount, (v) => { draft.discountAmount = v; edited(); }, { ariaLabel: 'Order discount' })),
     field('Shipping', numberInput(draft.shippingAmount, (v) => { draft.shippingAmount = v; edited(); }, { ariaLabel: 'Shipping charge' })),
     field('Already paid', numberInput(draft.amountPaid, (v) => { draft.amountPaid = v; edited(); }, { ariaLabel: 'Amount already paid' })),
+    // Interest for the days past the due date, added as a line that can be edited or removed.
+    // Offered on a saved document that asks for money; the function itself decides whether
+    // anything is owed, and says so.
+    draft.rowId != null && kind.demandsPayment && actions.addLateFee
+      ? field('Late payment', button('Add interest for the days overdue', () => actions.addLateFee(), { disabled: locked }),
+        'On the balance, at the rate in Settings \u2192 Getting paid, for the days since the due date. It becomes a line you can edit or remove.')
+      : null,
     field('Currency', suggestInput(draft.currency, (v) => {
       draft.currency = v.toUpperCase();
       // Empty falls back to the business currency, so clearing this field is how a document
