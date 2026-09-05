@@ -53,6 +53,7 @@ export const ICONS = {
   code: S('<path d="m8 6-5 6 5 6M16 6l5 6-5 6"/>'),
   qrcode: S('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3" fill="currentColor" stroke="none"/><rect x="18" y="18" width="3" height="3" fill="currentColor" stroke="none"/><rect x="14" y="19" width="2" height="2" fill="currentColor" stroke="none"/><rect x="19" y="14" width="2" height="2" fill="currentColor" stroke="none"/>'),
   barcode: S('<path d="M3 5v14M6 5v14M9 5v10M12 5v14M15 5v10M18 5v14M21 5v14"/>'),
+  filter: S('<path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/>'),
   countdown: S('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>'),
   timeline: S('<path d="M4 4v16"/><circle cx="4" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="4" cy="13" r="2" fill="currentColor" stroke="none"/><circle cx="4" cy="20" r="2" fill="currentColor" stroke="none"/><path d="M9 6h11M9 13h11M9 20h11"/>'),
   divider: S('<path d="M4 12h4M10 12h4M16 12h4"/>'),

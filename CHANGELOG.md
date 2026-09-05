@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.25.1 — a demo inside any iframe
+
+Embedded in a web page's iframe without `?demo`, the widget stayed blank. The shared Grist bridge
+took `grist.ready()` resolving as proof of a Grist host, but `ready()` returns nothing at all: it
+posts "ready" to whatever the parent window is and returns at once. So inside any iframe the app
+went live, and its first real request waited for a host that was never there. The handshake is
+now what a Grist host actually does on ready, at every access level: it answers with a message.
+No answer within four seconds means no Grist, and the demo is drawn. `?demo=1` still skips the
+wait and is the right thing to put in an embed. Fixed upstream in Advanced Charts and synced.
+
 ## 1.25.0 — the month after
 
 What a professional invoicing tool is judged on is the month after the invoice, and three of

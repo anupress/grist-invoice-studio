@@ -23,15 +23,24 @@ export const hasGrist = () => _connected;        // kept for callers; now means 
 export const accessLevel = () => _access;
 
 function withTimeout(promise, ms, label) {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout:' + (label || ''))), ms)),
-  ]);
+  // The timer is cleared once the race settles: a two-minute timer left running kept every test
+  // process alive for two minutes after its last assertion.
+  let timer;
+  const clock = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('timeout:' + (label || ''))), ms); });
+  return Promise.race([Promise.resolve(promise), clock]).finally(() => clearTimeout(timer));
 }
 
-// Probe whether we're embedded in a responsive Grist. Resolves quickly to false when the
-// page is opened standalone (GitHub Pages / preview) so the app can render Demo mode.
-export async function connect(timeoutMs = 1500) {
+// Probe whether we're embedded in a responsive Grist. Resolves to false when the page is opened
+// standalone (GitHub Pages / preview) so the app can render Demo mode.
+//
+// grist.ready() returns nothing — it posts "ready" to the parent window and returns synchronously,
+// whatever that parent is. So awaiting it proves nothing: inside an iframe on any web page it
+// "succeeded" at once, the app went live, and the first real call (settings, tables) waited
+// forever for a host that was never there — a blank widget on every blog post that embedded the
+// demo without ?demo. What proves a Grist host is a message FROM it: Grist answers ready with its
+// settings and theme straight away, at every access level, before the user has allowed anything.
+// That reply, within the timeout, is the handshake.
+export async function connect(timeoutMs = 4000) {
   if (_connected) return true;
   if (!apiPresent()) return false;
   // Explicit demo flag (?demo) — preview the editor anywhere without touching Grist.
@@ -39,7 +48,14 @@ export async function connect(timeoutMs = 1500) {
   // Top-level (not in an iframe) => definitely not embedded in Grist.
   try { if (window.self === window.top) return false; } catch { /* cross-origin => in a frame */ }
   try {
-    await withTimeout(g().ready({ requiredAccess: 'read table' }), timeoutMs, 'ready');
+    const api = g();
+    const hostAnswered = new Promise((resolve) => {
+      try { api.on('message', () => resolve(true)); } catch { /* no event bus: only ready() can tell us */ }
+    });
+    // ready() may itself return a promise in a future API; accept either, but never rely on it.
+    const readyRet = api.ready({ requiredAccess: 'read table' });
+    const proof = typeof api.on === 'function' ? hostAnswered : Promise.resolve(readyRet);
+    await withTimeout(proof, timeoutMs, 'host');
     _connected = true; _access = 'read table';
     return true;
   } catch (e) { return false; }

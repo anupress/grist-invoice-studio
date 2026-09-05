@@ -1,6 +1,6 @@
 {
   "source": "grist-advanced-charts",
-  "syncedAt": "2026-09-04T13:39:55.795Z",
+  "syncedAt": "2026-09-05T11:27:04.348Z",
   "files": {
     "src/util.js": {
       "target": "src/core/util.js",
@@ -19,8 +19,8 @@
     },
     "src/grist/bridge.js": {
       "target": "src/core/grist/bridge.js",
-      "sha256": "13ca2c2a2d1237d9",
-      "bytes": 34438
+      "sha256": "e17c7e5f96798edb",
+      "bytes": 35706
     },
     "src/data/provider.js": {
       "target": "src/core/data/provider.js",
@@ -44,8 +44,8 @@
     },
     "src/assets/icons.js": {
       "target": "src/core/assets/icons.js",
-      "sha256": "03c3b76db3e029d2",
-      "bytes": 13381
+      "sha256": "0bb01ef65359f4e0",
+      "bytes": 13441
     },
     "src/qr/encoder.js": {
       "target": "src/core/qr/encoder.js",
