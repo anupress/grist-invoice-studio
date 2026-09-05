@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.22.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.22.1-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -34,6 +34,13 @@ one, so the widget says so rather than reporting that you have no invoices.
 Try it on a copy of your document first. Everything the widget writes is additive — rows it
 creates, columns it adds, never a rename or a removal — but a copy costs nothing and a mistake in
 a billing table does.
+
+**Self-hosted Grist** can offer Invoice Studio and Advanced Charts in its Custom widget picker,
+with nothing to paste: start Grist with `GRIST_WIDGET_LIST_URL` set to
+`https://anupress.github.io/grist-invoice-studio/manifest.json`. The variable takes one URL and
+replaces Grist's own list, so an installation that wants both copies the two entries into a list
+of its own. [docs/gallery.md](docs/gallery.md) has the entries and the other places the widgets
+can be listed.
 
 ## An empty document
 

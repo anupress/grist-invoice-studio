@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.22.1 — a widget list
+
+- **A widget list for self-hosted Grist.** `manifest.json`, in the schema of Grist's own
+  gallery, lists Invoice Studio and Advanced Charts and is served from both Pages sites. A Grist
+  started with `GRIST_WIDGET_LIST_URL` pointing at it offers both in its Custom widget picker
+  with nothing to paste. `docs/gallery.md` holds the ready-to-paste entries for the gallery
+  itself and the two community-kept lists.
+
 ## 1.22.0 — each document is what it says it is
 
 - **A stored Kind.** The document kind — invoice, quote, credit note, receipt — was the bar's

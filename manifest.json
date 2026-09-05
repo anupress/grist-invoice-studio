@@ -1,0 +1,22 @@
+[
+  {
+    "widgetId": "@anupress/widget-invoice-studio",
+    "name": "Invoice Studio",
+    "url": "https://anupress.github.io/grist-invoice-studio/index.html",
+    "published": true,
+    "accessLevel": "full",
+    "description": "Create, render and send invoices, quotes, receipts, credit notes, statements and delivery notes from the tables you already keep. PDF with embedded fonts, eight document languages, EU reverse charge and small-business exemptions, SEPA/UPI/payment-link QR codes, Factur-X, XRechnung and UBL e-invoices. Runs entirely in the browser: no server, nothing leaves your document.",
+    "authors": [{ "name": "ANUPRESS", "url": "https://anupress.com" }],
+    "lastUpdatedAt": "2026-09-05T00:19:10+02:00"
+  },
+  {
+    "widgetId": "@anupress/widget-advanced-charts",
+    "name": "Advanced Charts",
+    "url": "https://anupress.github.io/grist-advanced-charts/index.html",
+    "published": true,
+    "accessLevel": "full",
+    "description": "Turn a Grist table into a website-style dashboard: KPI cards, every ECharts chart type, group breakdowns, live tables, slicers and maps, edited in place. The design saves into your own Grist document, and your data is never sent anywhere: there is no server. Map blocks fetch tiles from public map providers.",
+    "authors": [{ "name": "ANUPRESS", "url": "https://anupress.com" }],
+    "lastUpdatedAt": "2026-09-05T00:15:43+02:00"
+  }
+]

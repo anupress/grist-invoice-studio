@@ -83,6 +83,9 @@ copyIfExists('vendor', path.join(OUT, 'vendor'));
 // fonts cannot draw. Their URLs carry the version, so they are re-fetched on a release like
 // everything else.
 copyIfExists('fonts', path.join(OUT, 'fonts'));
+// The widget list: a self-hosted Grist pointed at it by GRIST_WIDGET_LIST_URL offers both
+// ANUPRESS widgets in its Custom widget picker, with no URL to paste.
+copyIfExists('manifest.json', path.join(OUT, 'manifest.json'));
 copyIfExists('src/styles', path.join(OUT, 'assets/styles'));
 
 // 4. Production index.html — the obfuscated entry chunk, and nothing else.
