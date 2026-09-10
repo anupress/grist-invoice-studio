@@ -44,22 +44,32 @@ export function checkEInvoice(m) {
   } else if (!has(s.vatId) && !m.exempt) {
     warn('BR-CO-26', `Your tax number "${s.taxId}" does not start with a country prefix, so it is written as a national registration rather than a VAT identifier. If it is a VAT number, add the prefix.`);
   }
-  if (profile === 'xrechnung' && !s.endpoint) {
-    err('BR-DE-2', 'Your email is missing: it is the seller’s electronic address, which this profile requires. Settings → Business → Email.');
-  }
   if (profile === 'peppol' && !s.endpoint) {
     err('PEPPOL-EN16931-R020', 'Peppol needs an electronic address for you, and an email is not one it knows. Enter your Peppol ID as scheme:identifier in Settings → Electronic invoices, or a VAT number with its country prefix under Business → Tax number, which stands in for most countries.');
   }
+  // XRechnung, checked against KoSIT's own Schematron (release 2.6.0, for XRechnung 3.0).
+  // BR-DE-2 makes the SELLER CONTACT group mandatory and BR-DE-5/6/7 make its three children
+  // mandatory in their own right: contact name, telephone AND email. They are separate fatal rules,
+  // not alternatives, which an earlier version of this file got wrong by accepting either one.
+  // BR-DE-5 cannot fail here because the UBL writer fills the contact name from the business name,
+  // and BR-06 already catches an empty business name.
+  // Note what is deliberately NOT an error: neither EN 16931 nor XRechnung makes the electronic
+  // address (BT-34/BT-49) mandatory — only Peppol does — so a missing one must not block a download.
   if (profile === 'xrechnung') {
-    if (!has(s.phone) && !has(s.email)) err('BR-DE-5', 'XRechnung requires a seller contact: a phone number or an email. Settings → Business.');
+    if (!has(s.phone)) err('BR-DE-6', 'XRechnung requires a seller telephone number, separately from the email. Settings → Business → Phone.');
+    if (!has(s.email)) err('BR-DE-7', 'XRechnung requires a seller email address, separately from the phone number. Settings → Business → Email.');
+    if (!has(s.city)) err('BR-DE-3', 'XRechnung requires your town or city. Settings → Business.');
+    if (!has(s.postcode)) err('BR-DE-4', 'XRechnung requires your post code. Settings → Business.');
   }
 
   // ---- the buyer ---------------------------------------------------------------------------
   const b = m.buyer;
   if (!has(b.name)) err('BR-07', 'The client has no name.');
   if (!has(b.country)) err('BR-11', `The client’s country must be a two-letter code such as FR. On the client record${has(b.country) ? '' : ', it is empty'}.`);
-  if (profile === 'xrechnung' && !b.endpoint) {
-    err('BR-DE-3', 'The client has no email, and this profile requires a buyer electronic address. Add one to the client record.');
+  if (profile === 'xrechnung') {
+    // BR-DE-8 and BR-DE-9. Both fatal, and both were unchecked before.
+    if (!has(b.city)) err('BR-DE-8', 'XRechnung requires the client’s town or city. Add it to the client record.');
+    if (!has(b.postcode)) err('BR-DE-9', 'XRechnung requires the client’s post code. Add it to the client record.');
   }
   if (profile === 'peppol' && !b.endpoint) {
     err('PEPPOL-EN16931-R010', 'Peppol needs an electronic address for the client, and an email is not one it knows. Put their Peppol ID (scheme:identifier) or their VAT number, with its country prefix, on the client record.');

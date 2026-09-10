@@ -237,8 +237,31 @@ const draft = (over = {}, s = settings()) => recalc(normaliseDraft({
   ok('a missing VAT id is an error', noVat.errors.some((e) => e.code === 'BR-CO-26'));
   const xr = ei.checkEInvoice(ei.einvoiceModel(draft({ reference: '' }), settings({ einvoice: { profile: 'xrechnung' } })));
   ok('XRechnung insists on a buyer reference', xr.errors.some((e) => e.code === 'BR-DE-15'));
-  const xrNoMail = ei.checkEInvoice(ei.einvoiceModel(draft({ client: { name: 'C', country: 'DE' } }), settings({ einvoice: { profile: 'xrechnung' } })));
-  ok('and a buyer email', xrNoMail.errors.some((e) => e.code === 'BR-DE-3'));
+  // The German rules, as KoSIT publishes them in its own Schematron (release 2.6.0, XRechnung 3.0).
+  // This block used to assert that a missing buyer EMAIL raised BR-DE-3, which was wrong twice
+  // over: BR-DE-3 is the SELLER's city, and neither EN 16931 nor XRechnung makes an electronic
+  // address (BT-34/BT-49) mandatory at all — only Peppol does. The old rule blocked valid invoices
+  // and let invalid ones through, so the assertions now follow the published rules.
+  const xrOf = (over) => ei.checkEInvoice(ei.einvoiceModel(draft(over), settings({ einvoice: { profile: 'xrechnung' } })));
+  const codes = (r) => r.errors.map((e) => e.code);
+  const deSeller = {
+    name: 'Zimmerei Hartmann GmbH', street1: 'Bahnhofstraße 12', city: 'Freiburg', postcode: '79098',
+    country: 'DE', email: 'rechnung@hartmann.example', phone: '+49 761 1234', taxNumber: 'DE 123 456 789',
+  };
+  const bareBuyer = { name: 'C', country: 'DE' };
+  ok('XRechnung insists on a buyer city (BR-DE-8)', codes(xrOf({ client: bareBuyer })).includes('BR-DE-8'));
+  ok('XRechnung insists on a buyer post code (BR-DE-9)', codes(xrOf({ client: bareBuyer })).includes('BR-DE-9'));
+  // BR-DE-6 and BR-DE-7 are separate fatal rules, not alternatives: an email alone is not enough.
+  ok('a seller telephone is required in its own right (BR-DE-6)', codes(xrOf({ sender: { ...deSeller, phone: '' } })).includes('BR-DE-6'));
+  ok('a seller email is required in its own right (BR-DE-7)', codes(xrOf({ sender: { ...deSeller, email: '' } })).includes('BR-DE-7'));
+  ok('seller city and post code are fatal, not warnings (BR-DE-3/4)',
+    ['BR-DE-3', 'BR-DE-4'].every((c) => codes(xrOf({ sender: { ...deSeller, city: '', postcode: '' } })).includes(c)));
+  // The false positive that used to block a legitimate download.
+  ok('a missing electronic address is not an XRechnung error',
+    !xrOf({ sender: deSeller }).errors.some((e) => /electronic address|Peppol ID/i.test(e.text)));
+  ok('a complete German seller and buyer raise no BR-DE error',
+    !codes(xrOf({ sender: deSeller, client: { name: 'C', street1: 'Weg 1', city: 'Hamburg', postcode: '20095', country: 'DE' } }))
+      .some((c) => c.startsWith('BR-DE-')));
   const fine = ei.checkEInvoice(ei.einvoiceModel(draft(), settings({ einvoice: { profile: 'xrechnung' } })));
   eq('a complete XRechnung passes', fine.errors, []);
   const zeroQty = ei.checkEInvoice(ei.einvoiceModel(draft({ lines: [{ description: 'X', quantity: 0, unitPrice: 10 }] }), settings()));
