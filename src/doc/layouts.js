@@ -31,6 +31,7 @@
 // same way, and no further.
 
 import { el } from '../core/util.js';
+import { placeLine } from './address.js';
 
 export const LAYOUTS = [
   { id: 'classic', label: 'Classic' },
@@ -324,14 +325,12 @@ function din(ctx, form) {
 
 /**
  * The return line: the sender in one small line above the address, so an undeliverable letter
- * comes back. Name, street, then the postcode and town in the order the language writes them.
+ * comes back. Name, street, then the postcode and town in the order the sender's own country
+ * writes them (doc/address.js) — a British business writing in German is still in Bristol.
  */
 export function returnLine(sender = {}, lang = 'en') {
   const text = (v) => String(v == null ? '' : v).trim();
-  const place = lang === 'en'
-    ? [sender.city, sender.postcode]
-    : [sender.postcode, sender.city];
-  return [sender.name, sender.street1, place.map(text).filter(Boolean).join(' ')].map(text).filter(Boolean).join(' · ');
+  return [sender.name, sender.street1, placeLine(sender, lang)].map(text).filter(Boolean).join(' · ');
 }
 
 /** A wordmark for a business with no uploaded logo — better than an empty box on the right. */

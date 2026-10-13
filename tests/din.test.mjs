@@ -93,6 +93,10 @@ eq('the lines, in order', addressLines({ street1: 'Unter den Linden 1', street2:
 eq('the return line: name, street, postcode and town', returnLine({ name: 'Muster GmbH', street1: 'Hauptstr. 1', postcode: '10115', city: 'Berlin' }, 'de'), 'Muster GmbH · Hauptstr. 1 · 10115 Berlin');
 eq('in English, town then postcode', returnLine({ name: 'ANUPRESS Works', street1: '4 Quarry Street', postcode: 'BS1 5TF', city: 'Bristol' }, 'en'), 'ANUPRESS Works · 4 Quarry Street · Bristol BS1 5TF');
 eq('missing parts are left out, not dotted', returnLine({ name: 'Solo', city: 'Bristol' }, 'en'), 'Solo · Bristol');
+// The sender's country, not the document's language: a British business writing to Germany is
+// still in Bristol, and a German one writing in English is still in Berlin.
+eq('a British sender in a German document keeps its own order', returnLine({ name: 'ANUPRESS Works', street1: '4 Quarry Street', postcode: 'BS1 5TF', city: 'Bristol', country: 'GB' }, 'de'), 'ANUPRESS Works · 4 Quarry Street · Bristol BS1 5TF');
+eq('and a German sender in an English one', returnLine({ name: 'Muster GmbH', street1: 'Hauptstr. 1', postcode: '10115', city: 'Berlin', country: 'DE' }, 'en'), 'Muster GmbH · Hauptstr. 1 · 10115 Berlin');
 
 // ---------------------------------------------------------------------------------------------
 // A document to measure
@@ -218,7 +222,7 @@ const markAt = (pdf, page, mmY, mmLen) => {
   ok('the subject says Rechnung', T.some((o) => o.text === 'Rechnung INV-2026-0042'));
   ok('the block says Nummer and Rechnungsdatum', T.some((o) => o.text === 'Nummer') && T.some((o) => o.text === 'Rechnungsdatum'));
   ok('the client’s VAT number is in the block, not the window', T.some((o) => o.text === 'DE123456789' && o.x > 125 * MM));
-  ok('the British sender’s return line keeps its own order', T.some((o) => /Bristol BS1 5TF$/.test(o.text)));
+  ok('the British sender’s return line keeps its own order', T.some((o) => o.text === 'ANUPRESS Works · 4 Quarry Street · Bristol BS1 5TF'));
   ok('the totals say netto and brutto', T.some((o) => /\(netto\)$/.test(o.text)) && T.some((o) => /\(brutto\)$/.test(o.text)));
   const email = documentToEmailHtml(draft, settings);
   ok('the email writes the German address the German way too', email.includes('10115 Berlin') && !email.includes('Berlin 10115'));

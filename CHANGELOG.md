@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.26.1 — the return line stays home
+
+The return line above a DIN 5008 address wrote the sender's postcode first whenever the document
+was in German, whatever country the sender was in. It now follows the sender's own country, as
+every other address line does: a British business writing to Germany is still in Bristol.
+
 ## 1.26.0 — the German letter
 
 A German company asked for three things: a sheet that fits its envelopes, numbers that carry the
