@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — the German letter
+## 1.26.0 — the German letter
 
 A German company asked for three things: a sheet that fits its envelopes, numbers that carry the
 ledger account, and a list that can still be read with years of invoices in it.
