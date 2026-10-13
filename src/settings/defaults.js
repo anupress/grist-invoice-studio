@@ -23,6 +23,10 @@ export const DEFAULT_BUSINESS = {
    * Stripe or PayPal page the business already has — serves everything else. All optional.
    */
   iban: '', bic: '', accountHolder: '', upiId: '', paymentLink: '',
+  // The country's own account numbers, for businesses whose accounts are not IBANs: the UK's sort
+  // code and account number, a US routing number, an Australian BSB, an Indian IFSC. Which ones a
+  // form shows is decided by the business's country — see doc/banking.js.
+  accountNumber: '', bankCode: '', bankName: '',
   // The Peppol participant id, "scheme:identifier" — 0204:991-12345-67, 9930:DE123456789. Only
   // the Peppol profile uses it; left empty, the VAT number stands in where Peppol has a scheme.
   peppolId: '',
@@ -147,6 +151,28 @@ export const DEFAULT_DOCUMENT = {
   lockIssued: true,
   /** Whether the payment code is drawn when a way to pay has been set up. */
   showPayQr: true,
+  /**
+   * How the logo sits in the masthead.
+   *
+   *   logoPlate  a white plate behind it on the coloured layouts (banded, letterhead, slate). On by
+   *              default because a logo drawn for white paper vanishes on a navy band; a logo drawn
+   *              light for dark grounds wants it off, and the upload works out which it is.
+   *   logoSize   small | normal | large — the height it is drawn at.
+   *   logoOnly   the mark carries the name, so the masthead prints no business name beside it.
+   */
+  logoPlate: true,
+  logoSize: 'normal',
+  logoOnly: false,
+  /**
+   * One small line at the foot of the document naming the tool that made it.
+   *
+   * Off here, and on in the free web version, which is deliberate rather than inconsistent. A
+   * person who installed the widget on their own document is not paying us in advertising space
+   * on their invoices; a person using the free generator is, and the line is what keeps that tool
+   * free rather than limited. In both places it is a checkbox, never a watermark and never a
+   * condition of use.
+   */
+  creditLine: false,
 };
 
 /**

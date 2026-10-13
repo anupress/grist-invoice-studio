@@ -89,10 +89,24 @@ async function liveSave(plan) {
   const actions = [];
   if (inv.rowId != null) actions.push(['UpdateRecord', inv.table, rowId, inv.fields]);
 
+  // Lines that link by number, to an invoice whose number a formula works out: the number is read
+  // back now that the row exists. Saving them with an empty link would orphan them silently, so a
+  // formula that has produced nothing yet is reported instead.
+  let number = '';
+  if (plan.lines && needsNumber(plan.lines)) {
+    number = await readCell(inv.table, rowId, inv.numberColumn);
+    if (!number) {
+      return {
+        ok: false, stage: 'lines', rowId,
+        error: `The invoice was saved, but its ${inv.numberColumn || 'number'} formula has not produced a number yet, so its lines could not be linked to it. Fill in whatever the formula needs, then save again.`,
+      };
+    }
+  }
+
   if (plan.lines) {
     const L = plan.lines;
-    for (const fields of L.adds) actions.push(['AddRecord', L.table, null, resolveLink(fields, rowId)]);
-    for (const u of L.updates) actions.push(['UpdateRecord', L.table, u.id, resolveLink(u.fields, rowId)]);
+    for (const fields of L.adds) actions.push(['AddRecord', L.table, null, resolveLink(fields, rowId, number)]);
+    for (const u of L.updates) actions.push(['UpdateRecord', L.table, u.id, resolveLink(u.fields, rowId, number)]);
     if (L.removes.length) actions.push(['BulkRemoveRecord', L.table, L.removes]);
   }
 
@@ -101,10 +115,32 @@ async function liveSave(plan) {
   return { ok: true, rowId };
 }
 
-/** Fill in the placeholder the plan leaves where a brand-new invoice's row id will go. */
-function resolveLink(fields, rowId) {
+/** Do any of these lines wait for a number a formula works out? */
+function needsNumber(L) {
+  return [...L.adds, ...L.updates.map((u) => u.fields)].some((f) => Object.values(f).includes('__INVOICE_NUMBER__'));
+}
+
+/** One cell of one row, as text, read straight from Grist. Empty when it cannot be read. */
+async function readCell(table, rowId, colId) {
+  if (!colId) return '';
+  try {
+    const tbl = await g().docApi.fetchTable(table);
+    const i = (tbl.id || []).indexOf(rowId);
+    const v = i >= 0 && tbl[colId] ? tbl[colId][i] : null;
+    return v == null ? '' : String(v).trim();
+  } catch (e) {
+    console.warn('[Invoice Studio] could not read the new invoice number back', e);
+    return '';
+  }
+}
+
+/** Fill in the placeholders the plan leaves where a brand-new invoice's row id, or its number, will go. */
+function resolveLink(fields, rowId, number = '') {
   const out = { ...fields };
-  for (const [k, v] of Object.entries(out)) if (v === '__INVOICE_ROW_ID__') out[k] = rowId;
+  for (const [k, v] of Object.entries(out)) {
+    if (v === '__INVOICE_ROW_ID__') out[k] = rowId;
+    else if (v === '__INVOICE_NUMBER__') out[k] = number;
+  }
   return out;
 }
 
@@ -158,6 +194,9 @@ function demoSave(plan, data) {
   if (plan.lines) {
     const L = plan.lines;
     const lt = data.tables[L.table];
+    // The demo has no formula engine, so a formula number is whatever the row holds, if anything.
+    const stored = table.records.find((r) => r.id === rowId);
+    const number = inv.numberColumn && stored && stored[inv.numberColumn] != null ? String(stored[inv.numberColumn]) : '';
     if (lt) {
       if (L.removes.length) {
         const drop = new Set(L.removes);
@@ -165,10 +204,10 @@ function demoSave(plan, data) {
       }
       for (const u of L.updates) {
         const row = lt.records.find((r) => r.id === u.id);
-        if (row) Object.assign(row, asStored(resolveLink(u.fields, rowId), lt.columns));
+        if (row) Object.assign(row, asStored(resolveLink(u.fields, rowId, number), lt.columns));
       }
       for (const fields of L.adds) {
-        lt.records.push({ id: nextId(lt.records), ...asStored(resolveLink(fields, rowId), lt.columns) });
+        lt.records.push({ id: nextId(lt.records), ...asStored(resolveLink(fields, rowId, number), lt.columns) });
       }
     }
   }

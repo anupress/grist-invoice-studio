@@ -1,5 +1,6 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve as _resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const ROOT = _resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const fonts = await import(pathToFileURL(_resolve(ROOT, 'src/export/pdf/fonts.js')).href);
@@ -265,6 +266,27 @@ eq('and so is nothing', new PdfWriter({}).addImage(null), null);
   // A PNG in logoData with no JPEG copy stays off the PDF rather than corrupting it.
   const png = normaliseDraft({ ...withLogo, sender: { name: 'T', logoData: 'data:image/png;base64,AAAA', logoJpeg: null } });
   ok('a PNG-only logo is skipped, not spliced', !latin1(invoiceToPdf(png, {})).includes('/XObject'));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Object references survive a hostile minifier
+// ---------------------------------------------------------------------------------------------
+// A website's page optimiser (LiteSpeed Cache on anupress.com) re-minifies the bundle and strips
+// the space after `}` inside a template literal nested in another one. The writer's "3 0 R"
+// became "30 R" and Gmail refused every PDF the page built. So the references are concatenated,
+// and this checks both the output and the source: no nested template literal may build one.
+{
+  const b64 = Buffer.from(fakeJpeg()).toString('base64');
+  const draft = normaliseDraft({
+    kind: 'invoice', number: 'INV-9', lines: [{ description: 'Work', quantity: 1, unitPrice: 100, amount: 100 }],
+    sender: { name: 'Thornbury Works', logoJpeg: `data:image/jpeg;base64,${b64}` },
+  });
+  const out = latin1(invoiceToPdf(draft, {}));
+  ok('the page tree refers to its page with a space in the reference', /\/Kids \[ 3 0 R \]/.test(out));
+  ok('the image resource does too', /\/XObject << \/Im1 \d+ 0 R >>/.test(out));
+  const source = readFileSync(new URL('../src/export/pdf/writer.js', import.meta.url), 'utf8');
+  const nested = [...source.matchAll(/`[^`\n]*\$\{[^`\n]*`[^`\n]*`[^`\n]*\}[^`\n]*`/g)].map((m) => m[0]);
+  ok('the writer builds no reference inside a nested template literal', !nested.some((s) => /\d 0 R|0 R`/.test(s)));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -115,11 +115,35 @@ export function button(label, onClick, opts = {}) {
     disabled: opts.disabled || null,
   }, [
     // The icon is decorative when there is also a label; hidden so it is not read out as "plus New".
-    opts.icon ? el('span', { class: 'cmp-btn__icon', 'aria-hidden': 'true', text: opts.icon }) : null,
+    // `iconHtml` takes one of our own inline SVGs (web/icons.js); `icon` takes a character.
+    opts.iconHtml
+      ? el('span', { class: 'cmp-btn__icon cmp-btn__icon--svg', 'aria-hidden': 'true', html: opts.iconHtml })
+      : (opts.icon ? el('span', { class: 'cmp-btn__icon', 'aria-hidden': 'true', text: opts.icon }) : null),
     label ? el('span', { text: label }) : null,
   ]);
   b.addEventListener('click', onClick);
   return b;
+}
+
+/**
+ * The control for one of a table's own columns, from the type the schema worked out for it
+ * (model/records.js, extraFields): a choice list, a tick, a figure, a date, or a text box.
+ *
+ * Figures come back as the text typed rather than as a number, so a cleared box clears the cell
+ * when it is saved — a 0 written where somebody meant "nothing" is a wrong ledger entry.
+ */
+export function columnControl(f, value, set) {
+  if (f.type === 'choice') {
+    return selectInput([{ value: '', label: '—' }, ...(f.choices || []).map((c) => ({ value: c, label: c }))], value || '', set, { ariaLabel: f.label });
+  }
+  if (f.type === 'bool') {
+    const box = el('input', { type: 'checkbox', class: 'rec-check', checked: value ? true : null, 'aria-label': f.label });
+    box.addEventListener('change', () => set(box.checked));
+    return box;
+  }
+  if (f.type === 'number') return textInput(value, set, { inputmode: 'decimal', class: 'cmp-input--num', ariaLabel: f.label });
+  if (f.type === 'date') return textInput(value, set, { type: 'date', ariaLabel: f.label });
+  return textInput(value, set, { ariaLabel: f.label });
 }
 
 export function section(title, children, opts = {}) {

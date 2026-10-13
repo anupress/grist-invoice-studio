@@ -65,7 +65,9 @@ export const TEMPLATES = [
     // template once STARTED with the packing slip, which built a shop whose five sample documents
     // were slips marked overdue and part paid: a slip that demands payment is not a thing.
     kind: 'invoice',
-    document: { layout: 'classic', closingText: 'Thank you for your order.' },
+    // The ledger: the shop invoice every online order arrives with — numbered lines, a ruled
+    // table, the delivery address beside the totals.
+    document: { layout: 'ledger', closingText: 'Thank you for your order.' },
     numbering: { prefixes: { packing_slip: 'PS-{YYYY}-' } },
     terms: 'Paid online at checkout.',
     lines: [

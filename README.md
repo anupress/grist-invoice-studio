@@ -143,6 +143,35 @@ The logo is uploaded in Settings and stored inside the document as a scaled-down
 nothing is hosted anywhere. It appears on every layout, in the email body, and in the downloaded
 PDF. Only PNG and JPEG survive storage; anything else is dropped rather than rendered.
 
+## Numbers
+
+A number is assigned once, when a document is first saved, and never recomputed — deleting an
+earlier invoice must not renumber the later ones. Settings → Numbering sets the prefix per kind of
+document, the digits, where the count starts and when it restarts. Besides `{YYYY}` `{YY}` `{MM}`
+`{DD}`, a prefix or suffix can carry `{reference}` (the client's reference on the document),
+`{client.Konto}` (any column of the client's record, named by its column id) and `{Konto}` (a column
+of the invoice row, filled in on the composer). A business that numbers by ledger account writes
+`RE-{YYYY}-{client.Konto}-`, and the sequence then runs per account. A token the document cannot fill
+in stays in the number as typed and is said when the number is assigned, so a half-built number is
+noticed before it is sent.
+
+A document whose Number column is a Grist formula keeps that numbering: the composer shows the box
+read-only and says why, nothing is assigned over the formula, and the number Grist works out
+appears the moment the row is saved.
+
+Columns of the invoice table that no role claims — a Konto, a cost centre, a project code — appear
+on the composer under "Also in this table", with a control for their type, and are written back
+with the row. Formula columns are never written, and a role's column is never reached this way.
+
+## The list
+
+The invoice list is newest first. A chooser under the search offers Oldest first, Last created
+first, Highest number first, Client A to Z, Largest amount first and the table's own order, and the
+choice is remembered in the browser. A status and a year narrow the list, and the count then reads
+"12 of 1,243". The list scrolls inside the sidebar and the document inside the body, each on its
+own; the list keeps its scroll position when a document is chosen, and the bar's picker on narrow
+screens follows the same order, so the widget opens on the newest document.
+
 ## Languages
 
 The document's own words — Invoice, Due, Subtotal, the legends, the reverse-charge sentence — are
@@ -321,8 +350,26 @@ that lacks one; until it has one, every row shows as whatever the bar's kind cho
 is what every row meant before there was a column to say otherwise. A column called Type or
 DocumentType is recognised as the same thing.
 
-Eight document kinds and eight layouts — Classic, Banded, Letterhead, Minimal, Slate, Headline, Rail and Centred. Layouts differ in the masthead and share one body, so every layout benefits from every future fix. A delivery note and a packing slip show no prices; a quote
+Eight document kinds and eleven layouts — Classic, Banded, Letterhead, Minimal, Slate, Headline, Rail, Centred, Ledger, and DIN 5008 in Form B and Form A. Layouts differ in the masthead and share one body, so every layout benefits from every future fix. Ledger is the shop invoice: the client in the window-envelope position, a grid of dates and numbers, numbered lines in a ruled table, the delivery address beside the totals, and the sender's registrations in a three-column foot. A delivery note and a packing slip show no prices; a quote
 carries an expiry rather than a due date; a receipt shows no payment details.
+
+**DIN 5008** is the German business letter, and the point of it is the envelope: fold the sheet at
+its marks, put it in a DIN lang window envelope, and the address — all of it and nothing else —
+shows through the window. Everything the standard fixes is fixed: the address field 20mm from the
+left edge and 45mm from the top (27mm on Form A), 85 × 45mm, with a return line, three lines for
+remarks and six address lines at 12pt; the information block at 125mm carrying the number, the
+dates, the references and the client's VAT number; the subject two lines below the field; text at
+25mm with a 20mm right margin; fold marks at 105 and 210mm (87 and 192 on Form A) and the punch
+mark at 148.5mm. Form B, with its 45mm letterhead, is the usual commercial sheet; Form A gives the
+letterhead 27mm and moves everything else up by 18mm. The PDF draws the sheet in millimetres, the
+screen shows it at scale and prints it at size, and the HTML file does the same. The lines are
+numbered and the totals say netto and brutto, and the sender's registrations go to the foot, as on
+the ledger.
+
+Addresses are written in their country's order on every layout, in the PDF and in the email:
+"10115 Berlin" for Germany, Austria, France and most of the world, "Bristol BS1 4QA" for Britain,
+Ireland, the United States and the rest. The country on the record decides; the document's
+language decides when there is no country.
 
 Paper: A4, US Letter, US Legal, A5, and 80mm or 58mm till rolls, which switch to a single-column
 layout. Three densities. The choice applies to the PDF and to browser printing.

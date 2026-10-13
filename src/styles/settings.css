@@ -102,3 +102,6 @@
   padding: 2px 7px; border-radius: 3px;
   background: var(--accent-soft); color: var(--accent);
 }
+
+/* A lead paragraph inside a grid section reads across the whole width, not inside one cell. */
+.cmp-section__body.is-grid > .set-lead { grid-column: 1 / -1; }

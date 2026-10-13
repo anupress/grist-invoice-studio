@@ -15,7 +15,7 @@ import { documentKind, DOCUMENT_KINDS, conversionsFor } from '../doc/kinds.js';
 import { PERIODS } from '../model/lifecycle.js';
 import { fieldsFor } from '../doc/fields.js';
 import { renderLinesGrid, blankLine, duplicateLines, combineDuplicates } from './lines-grid.js';
-import { field, textInput, numberInput, textArea, selectInput, suggestInput, button, section } from './ui.js';
+import { field, textInput, numberInput, textArea, selectInput, suggestInput, button, section, columnControl } from './ui.js';
 import { asOptions, CURRENCIES, PAYMENT_TERMS } from '../model/suggest.js';
 import { LANGUAGES, normaliseLanguage } from '../doc/lang.js';
 import { renderRecordForm } from './record-form.js';
@@ -123,10 +123,20 @@ export function renderComposer(ctx) {
         { ariaLabel: 'Client' })
     : textInput(draft.client?.name, (v) => { draft.client = { ...draft.client, name: v }; edited(); }, { placeholder: 'Client name' });
 
+  // A Number column that is a formula numbers the document itself, as the row lands in Grist —
+  // a business whose formula builds the number from its ledger account keeps doing exactly that.
+  // The box then shows what Grist decided and takes nothing, rather than inviting a number that
+  // could never be written.
+  const numberField = ctx.numberFormula
+    ? field('Number', textInput(draft.number, () => {}, {
+        readOnly: true, placeholder: draft.rowId == null ? 'Worked out by Grist when you save' : '',
+      }), `The ${ctx.numberFormula} column is a formula, so your document numbers this itself the moment the row is saved.`)
+    : field('Number', textInput(draft.number, (v) => { draft.number = v; onEdit(); }, {
+        placeholder: draft.rowId == null ? 'Assigned when you save' : '',
+      }), draft.rowId == null ? 'Left blank, the next number in your sequence is used.' : null);
+
   const details = section('Document', [
-    field('Number', textInput(draft.number, (v) => { draft.number = v; onEdit(); }, {
-      placeholder: draft.rowId == null ? 'Assigned when you save' : '',
-    }), draft.rowId == null ? 'Left blank, the next number in your sequence is used.' : null),
+    numberField,
     field('Kind', selectInput(DOCUMENT_KINDS.map((k) => ({ value: k.id, label: k.label })), draft.kind,
       (v) => { draft.kind = v; onRebuild(); })),
     field('Client', clientControl),
@@ -226,6 +236,15 @@ export function renderComposer(ctx) {
     field('Note on the document', textArea(draft.note, (v) => { draft.note = v; onEdit(); }, { rows: 2 })),
   ], { grid: true });
 
+  // The invoice table's own columns — a Konto, a cost centre, a project code — asked for here, so
+  // the widget is not the one place in the document where they cannot be filled in. A column the
+  // numbering builds the number from ({Konto} in Settings → Numbering) is typed here too.
+  const extras = ctx.extras || [];
+  if (!draft.extra) draft.extra = {};
+  const extraSection = extras.length ? section(`Also in ${ctx.invoiceTable || 'this table'}`, [
+    ...extras.map((f) => field(f.label, columnControl(f, draft.extra[f.colId], (v) => { draft.extra[f.colId] = v; onEdit(); }))),
+  ], { grid: true }) : null;
+
   paintTotals();
 
   // Everything a person types into, in one box, so the lock can hold all of it at once.
@@ -235,6 +254,7 @@ export function renderComposer(ctx) {
     section(kind.showsMoney ? 'Lines' : 'Items', [dupeNotice, gridHost]),
     kind.showsMoney ? el('div', { class: 'cmp-moneyrow' }, [moneyBits, totalsBox]) : null,
     words,
+    extraSection,
   ]);
   if (locked) for (const n of form.querySelectorAll('input, select, textarea, button')) n.disabled = true;
 

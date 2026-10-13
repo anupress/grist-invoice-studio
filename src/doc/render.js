@@ -18,9 +18,10 @@ import { el, fromHTML } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
 import { fieldsFor, lineColumns, totalLabels } from './fields.js';
 import { labelOr, localiseStatus, formatDate } from './lang.js';
-import { paymentCode, qrSvg } from './payment.js';
+import { paymentCode, accountLines, qrSvg } from './payment.js';
 import { firstAttachmentId } from '../core/grist/bridge.js';
-import { renderMasthead } from './layouts.js';
+import { renderMasthead, isWindowed } from './layouts.js';
+import { addressLines } from './address.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -93,15 +94,13 @@ function totalRow(label, value, cls) {
   ]);
 }
 
-const addressLines = (p) => [
-  p.street1, p.street2,
-  [p.city, p.state, p.postcode].map(text).filter(Boolean).join(' '),
-  p.country,
-].map(text).filter(Boolean);
+// The address lines come from ./address.js, which knows which countries write the postcode
+// before the town — shared with the PDF and the email so the three cannot disagree.
 
 /** One cell of the lines table, by column id. */
-function lineCell(line, col, M, lang) {
+function lineCell(line, col, M, lang, index = 0) {
   switch (col.id) {
+    case 'position': return String(index + 1);
     case 'description': return text(line.description) || '—';
     case 'hsn': return text(line.hsn) || '—';
     case 'quantity': return String(line.quantity ?? '');
@@ -176,34 +175,54 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
       })
     : null;
 
+  // The ledger and the DIN sheets: the client in the window, the sender in the foot.
+  const windowed = isWindowed(draft.layout);
+  const address = (p) => addressLines(p, lang);
+  const clientLabel = kind.showsMoney ? L.billTo : L.deliverTo;
+  const clientMeta = [
+    client.email, client.phone,
+    fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : '',
+  ].filter(Boolean);
+
+  // What the reader looks up: dates, references, the amount. One list, so the meta column of the
+  // usual layouts and the grid of the ledger cannot disagree about what is on the document.
+  const metas = [
+    { label: kind.dateLabels.issued, value: date(draft.issued) },
+    fields.showSecondDate ? { label: kind.dateLabels.second, value: date(draft.due) } : null,
+    fields.showServiceDate ? { label: L.serviceDate, value: date(draft.serviceDate) } : null,
+    // The client's own reference. Accounts payable match on this, not on our number, so an
+    // invoice without it can sit unpaid while nobody is doing anything wrong.
+    fields.showReference ? { label: labelOr(settings.referenceLabel, 'Your reference', L.yourReference), value: draft.reference } : null,
+    fields.showRelated ? { label: L.refersTo, value: draft.relatedTo } : null,
+    fields.showTotals ? { label: kind.totalLabel, value: M(fields.showPaid ? t.balance : t.total), cls: 'is-total' } : null,
+  ].filter(Boolean);
+
   const head = renderMasthead(draft.layout, {
-    sender, word: kind.word, number: draft.number, statusPill, numberWarning,
+    logoPlate: settings.logoPlate !== false,
+    logoOnly: !!settings.logoOnly,
+    sender, word: kind.word, number: draft.number, statusPill, numberWarning, lang,
+    // For the windowed layouts only: the client goes in the window and the number joins the
+    // grid, first, because the reference the ledger copies keeps "Rechnungsnummer" there and
+    // not in a title, and a DIN information block starts with it for the same reason.
+    client, clientLabel, clientLines: address(client), clientMeta,
+    clientTax: fields.showClientTaxNumber ? { label: taxIdLabel, value: client.taxNumber } : null,
+    metas: windowed ? [{ label: L.number || 'Number', value: draft.number || '—', extra: numberWarning }, ...metas] : metas,
   });
 
   // Ship-to only when it differs from bill-to. Printing the same address twice under two headings
   // makes a reader check whether they have misread one of them.
   const shipTo = draft.shipTo && draft.shipTo.name && draft.shipTo.name !== client.name ? draft.shipTo : null;
 
-  const parties = el('section', { class: 'inv-parties' + (shipTo ? ' has-shipto' : '') }, [
-    party(L.from, sender.name, addressLines(sender), [
+  // The ledger's masthead has already said who the client is and what the numbers are, and its
+  // foot will say who the sender is; the spread would repeat all three.
+  const parties = windowed ? null : el('section', { class: 'inv-parties' + (shipTo ? ' has-shipto' : '') }, [
+    party(L.from, sender.name, address(sender), [
       sender.email, sender.phone,
       fields.showSenderTaxNumber ? `${taxIdLabel}: ${sender.taxNumber}` : '',
     ]),
-    party(kind.showsMoney ? L.billTo : L.deliverTo, client.name, addressLines(client), [
-      client.email, client.phone,
-      fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : '',
-    ]),
-    shipTo ? party(L.shipTo, shipTo.name, addressLines(shipTo), []) : null,
-    el('div', { class: 'inv-metas' }, [
-      metaField(kind.dateLabels.issued, date(draft.issued)),
-      fields.showSecondDate ? metaField(kind.dateLabels.second, date(draft.due)) : null,
-      fields.showServiceDate ? metaField(L.serviceDate, date(draft.serviceDate)) : null,
-      // The client's own reference. Accounts payable match on this, not on our number, so an
-      // invoice without it can sit unpaid while nobody is doing anything wrong.
-      fields.showReference ? metaField(labelOr(settings.referenceLabel, 'Your reference', L.yourReference), draft.reference) : null,
-      fields.showRelated ? metaField(L.refersTo, draft.relatedTo) : null,
-      fields.showTotals ? metaField(kind.totalLabel, M(fields.showPaid ? t.balance : t.total), 'is-total') : null,
-    ]),
+    party(clientLabel, client.name, address(client), clientMeta),
+    shipTo ? party(L.shipTo, shipTo.name, address(shipTo), []) : null,
+    el('div', { class: 'inv-metas' }, metas.map((m) => metaField(m.label, m.value, m.cls))),
   ]);
 
   // The thumbnail column exists only when there is at least one thumbnail to put in it, so a
@@ -212,13 +231,13 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
   const table = el('table', { class: 'inv-lines' }, [
     el('thead', {}, [el('tr', {}, [
       showImages ? el('th', { scope: 'col', class: 'is-img', 'aria-label': L.columns.image }) : null,
-      ...cols.map((c) => el('th', { scope: 'col', class: c.numeric ? 'is-num' : null, text: c.label })),
+      ...cols.map((c) => el('th', { scope: 'col', class: c.numeric ? 'is-num' : c.id === 'position' ? 'is-pos' : null, text: c.label })),
     ])]),
-    el('tbody', {}, (draft.lines || []).map((line) => {
+    el('tbody', {}, (draft.lines || []).map((line, index) => {
       const src = showImages ? imageSrc(line.image, overrides.resolveImage) : null;
       return el('tr', {}, [
         showImages ? el('td', { class: 'is-img' }, src ? [el('img', { class: 'inv-lines__img', src, alt: '', loading: 'lazy' })] : []) : null,
-        ...cols.map((c) => el('td', { class: c.numeric ? 'is-num' : null, text: lineCell(line, c, M, lang) })),
+        ...cols.map((c) => el('td', { class: c.numeric ? 'is-num' : c.id === 'position' ? 'is-pos' : null, text: lineCell(line, c, M, lang, index) })),
       ]);
     })),
   ]);
@@ -258,6 +277,15 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
       ]),
     ]));
   }
+  // The account in words when no code carried it: an IBAN on a non-euro document, or beside a
+  // payment link. The EPC block above already prints these lines, so it is skipped there.
+  const bank = accountLines(draft, settings, fields);
+  if (bank && !(pay && pay.kind === 'epc')) {
+    foot.push(el('div', { class: 'inv-foot__item inv-bank' }, [
+      el('div', { class: 'inv-party__label', text: bank.caption }),
+      ...bank.lines.map((l) => el('div', { class: 'inv-pay__line', text: l })),
+    ]));
+  }
   if (fields.showSignature) {
     foot.push(el('div', { class: 'inv-sign' }, [
       el('div', { class: 'inv-sign__rule' }),
@@ -268,22 +296,67 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
   const closing = text(settings.closingText)
     ? el('p', { class: 'inv-closing', text: settings.closingText }) : null;
   // The legal line last and smallest: registration, court, director — read by the people who
-  // look for it and invisible to everyone else.
-  const legal = text(sender.legalText) ? el('p', { class: 'inv-legal', text: sender.legalText }) : null;
+  // look for it and invisible to everyone else. The ledger carries it in its foot instead.
+  const legal = text(sender.legalText) && !windowed ? el('p', { class: 'inv-legal', text: sender.legalText }) : null;
 
-  return el('article', {
+  // The ledger's foot: the sender in three columns the way commercial stationery prints it —
+  // who and where, the registrations, how to reach them. This is where its masthead's missing
+  // From block went, so nothing a reader needs about the sender has left the document.
+  const colophon = windowed ? el('footer', { class: 'inv-colophon' }, [
+    el('div', { class: 'inv-colophon__col' }, [
+      el('div', { class: 'inv-colophon__name', text: sender.name || 'Your business' }),
+      ...address(sender).map((l) => el('div', { text: l })),
+    ]),
+    el('div', { class: 'inv-colophon__col' }, [
+      text(sender.taxNumber) ? el('div', { text: `${taxIdLabel}: ${sender.taxNumber}` }) : null,
+      ...text(sender.legalText).split(/\n+/).filter(Boolean).map((l) => el('div', { text: l })),
+    ]),
+    el('div', { class: 'inv-colophon__col' }, [
+      sender.email ? el('div', { text: sender.email }) : null,
+      sender.phone ? el('div', { text: sender.phone }) : null,
+      sender.website ? el('div', { text: sender.website }) : null,
+    ]),
+  ]) : null;
+
+  // On the ledger the totals share a row with the delivery address, the way a shop's invoice
+  // closes: where it went on the left, what it cost on the right.
+  const close = windowed && (shipTo || totals)
+    ? el('section', { class: 'inv-ledger__close' }, [
+        shipTo ? party(L.shipTo, shipTo.name, address(shipTo), []) : el('div'),
+        totals,
+      ])
+    : totals;
+  // Who made the tool, in the document's own language, smaller than the legal line and last of
+  // all. Off unless the shell asks for it: the free web version turns it on because that is what
+  // it is paid in, and the widget leaves it alone because somebody else's invoice is not our
+  // advertising hoarding. Either way it is one setting away from gone.
+  const credit = settings.creditLine ? el('p', { class: 'inv-credit', text: L.madeWith }) : null;
+
+  const article = el('article', {
     class: `inv-doc is-${draft.layout || 'classic'} is-kind-${kind.id}`,
     lang,
-    style: settings.accent ? { '--doc-accent': settings.accent } : null,
   }, [
     head,
     parties,
     el('section', { class: 'inv-linesbox' }, [table]),
-    totals,
+    close,
     foot.length ? el('section', { class: 'inv-foot' }, foot) : null,
     closing,
     legal,
+    colophon,
+    credit,
   ]);
+
+  // setProperty, not el()'s style prop: a CSS CUSTOM property assigned through Object.assign onto
+  // a style declaration is silently dropped — it becomes a plain JS property on the object and
+  // never reaches the element. That is why a chosen accent colour used to render as the
+  // stylesheet's default. (The shared el() has been fixed upstream too; this stays because it is
+  // the one line that has to be right whichever version of the core is in place.)
+  if (settings.accent) article.style.setProperty('--doc-accent', settings.accent);
+  // The logo's height, one variable every masthead reads.
+  const logoH = { small: '32px', normal: '46px', large: '68px' }[settings.logoSize];
+  if (logoH) article.style.setProperty('--logo-h', logoH);
+  return article;
 }
 
 function block(label, body) {

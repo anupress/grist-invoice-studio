@@ -208,10 +208,23 @@ html, body {
 /* ---- the app frame -------------------------------------------------------------------------
  * Bar on top, sidebar and content side by side, each scrolling on its own. The frame fills the
  * iframe exactly; nothing scrolls the page itself, which is what makes it feel like an
- * application rather than a document. */
+ * application rather than a document.
+ *
+ * The mount point has to carry the height too. `.studio { height: 100% }` is a percentage of its
+ * parent, and the parent was a plain div with no height of its own — so the frame was as tall as
+ * its content, the page grew past the iframe, and the invoice list and the document scrolled
+ * together as one long page: choose a document at the bottom of a long list and the document
+ * was out of sight at the top. With the mount point at 100%, the list scrolls inside the sidebar
+ * and the document inside the body, each on its own. */
+#studio-root { height: 100%; }
 .studio { height: 100%; }
 .studio-main { flex: 1 1 auto; display: flex; min-height: 0; }
 .studio-body { overflow-y: auto; min-width: 0; }
+/* The body is a column of flex items inside a box that now has a height. Flex items shrink to
+ * fit such a box, and one that hides its overflow — the composer, a record form — can shrink to
+ * nothing: the composer collapsed to a pixel the moment the frame got its height. Nothing in the
+ * body shrinks; the body scrolls instead, which is what it is for. */
+.studio-body > * { flex-shrink: 0; }
 
 .studio-side__kind { font-size: 11px; color: var(--muted); white-space: nowrap; padding: 0 6px; border: 1px solid var(--rule); border-radius: 999px; }
 
@@ -361,7 +374,7 @@ html, body {
 
 @media print {
   .studio-side, .studio-drawer { display: none !important; }
-  .studio, .studio-main { display: block; height: auto; }
+  #studio-root, .studio, .studio-main { display: block; height: auto; }
   .studio-body { overflow: visible; margin-right: 0 !important; }
 }
 
@@ -397,3 +410,17 @@ html, body {
 /* The head does not wrap: the buttons are trimmed to fit instead, above. A long count clips
  * before anything moves — the buttons are what a person aims at. */
 .studio-side__head { flex-wrap: nowrap; }
+
+/* The DIN 5008 sheets measure from the paper's edge, so on paper the side margins are theirs to
+ * draw and the frame keeps only its top and bottom. main.js sets the attribute while one is shown. */
+@media print { [data-din] .studio-body { padding-left: 0; padding-right: 0; } }
+
+/* The order and the filters, under the search: three small choosers in one row. */
+.studio-side__filters { display: flex; gap: 6px; padding: 0 14px 10px; }
+.studio-side__pick {
+  flex: 1 1 0; min-width: 0; font: inherit; font-size: 12px;
+  padding: 4px 6px;
+  color: var(--ink-2); background: var(--paper);
+  border: 1px solid var(--rule-2); border-radius: var(--radius);
+}
+.studio-side__pick:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice generator — ANUPRESS</title>
+  <!-- Development entry: src/ runs directly as native ES modules, no build step. The production
+       page is built into dist/web/ and loaded by the WordPress plugin. Note what is NOT here:
+       vendor/grist-plugin-api.js. The web version never talks to Grist, so it never loads it. -->
+  <link rel="stylesheet" href="src/styles/tokens.css" />
+  <link rel="stylesheet" href="src/styles/composer.css" />
+  <link rel="stylesheet" href="src/styles/document.css" />
+  <link rel="stylesheet" href="src/styles/web.css" />
+  <style>
+    body { margin: 0; background: var(--paper); }
+    .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- The mount point the WordPress shortcode will render. Attributes fix the page's choices:
+         data-kind, data-lang, data-country, data-currency, data-trade, data-example. -->
+    <div data-apiv></div>
+  </div>
+  <!-- Development only: ?ui=de&kind=quote&lang=de&country=DE&einvoice=xrechnung&trade=construction
+       become the mount's data attributes, so every page the plugin will render can be tried here
+       without a WordPress. The plugin writes the attributes itself. -->
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search), m = document.querySelector('[data-apiv]');
+      ['ui', 'kind', 'lang', 'country', 'currency', 'trade', 'example', 'einvoice', 'credit', 'send', 'turnstile'].forEach(function (k) {
+        if (p.has(k)) m.setAttribute('data-' + k, p.get(k));
+      });
+    })();
+  </script>
+  <script type="module" src="src/web/app.js"></script>
+</body>
+</html>

@@ -45,6 +45,10 @@ export function normaliseParty(p = {}) {
     iban: text(p.iban),
     bic: text(p.bic),
     accountHolder: text(p.accountHolder),
+    // The country's own account numbers — sort code, routing number, BSB, IFSC — see doc/banking.js.
+    accountNumber: text(p.accountNumber),
+    bankCode: text(p.bankCode),
+    bankName: text(p.bankName),
     upiId: text(p.upiId),
     paymentLink: text(p.paymentLink),
     legalText: text(p.legalText),
@@ -129,6 +133,10 @@ export function normaliseDraft(d = {}) {
     taxName: text(d.taxName),
     sentAt: text(d.sentAt),
     sentTo: text(d.sentTo),
+    // The invoice table's own columns, by column id — a Konto, a project code — carried as typed
+    // and written back as such. Nothing downstream reads them except the write plan and the
+    // numbering, which may build the number from one; see money/numbering.js.
+    extra: d.extra && typeof d.extra === 'object' && !Array.isArray(d.extra) ? { ...d.extra } : {},
     // Empty is a real state, not a gap to fill: it means "the business currency, whatever that
     // is set to". Forcing 'USD' here was how every draft became permanently dollar-fixed the
     // moment it existed, and why changing the currency setting visibly did nothing.

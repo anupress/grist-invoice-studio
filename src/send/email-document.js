@@ -16,7 +16,8 @@ import { formatMoney } from '../money/currency.js';
 import { fieldsFor, lineColumns, totalLabels } from '../doc/fields.js';
 import { docDate, imageSrc, taxLabel } from '../doc/render.js';
 import { labelOr, localiseStatus } from '../doc/lang.js';
-import { paymentCode } from '../doc/payment.js';
+import { paymentCode, accountLines } from '../doc/payment.js';
+import { addressLines } from '../doc/address.js';
 import { linkify } from './clipboard.js';
 
 const esc = (s) => String(s == null ? '' : s)
@@ -49,12 +50,8 @@ function logoTag(sender) {
 const label = (text) => `<td style="${F};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding:0 0 4px">${esc(text)}</td>`;
 
 /** One party as a stacked block. */
-function party(heading, p, extra) {
-  const lines = [
-    p.street1, p.street2,
-    [p.city, p.state, p.postcode].map((x) => String(x || '').trim()).filter(Boolean).join(' '),
-    p.country,
-  ].map((x) => String(x || '').trim()).filter(Boolean);
+function party(heading, p, extra, lang = 'en') {
+  const lines = addressLines(p, lang);
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
 <tr>${label(heading)}</tr>
@@ -65,8 +62,9 @@ ${(extra || []).filter(Boolean).map((l) => `<tr><td style="${F};font-size:12px;c
 }
 
 /** A cell of the lines table, as the string it prints as. */
-function cell(line, col, money, lang) {
+function cell(line, col, money, lang, index = 0) {
   switch (col.id) {
+    case 'position': return String(index + 1);
     case 'description': {
       // Only a stable source — https or a data URI — ever reaches an email. An attachment's token
       // URL would die within minutes of the message arriving, which is worse than no picture.
@@ -135,10 +133,10 @@ ${draft.status ? `<div style="${F};font-size:10px;font-weight:700;letter-spacing
   const parties = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:18px 0 0">
 <tr>
 <td valign="top" width="46%">${party(L.from, sender, [sender.email, sender.phone,
-    fields.showSenderTaxNumber ? `${taxIdLabel}: ${sender.taxNumber}` : ''])}</td>
+    fields.showSenderTaxNumber ? `${taxIdLabel}: ${sender.taxNumber}` : ''], lang)}</td>
 <td width="4%"></td>
 <td valign="top" width="50%">${party(kind.showsMoney ? L.billTo : L.deliverTo, client, [client.email,
-    fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : ''])}</td>
+    fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : ''], lang)}</td>
 </tr>
 </table>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:16px 0 0">
@@ -148,7 +146,7 @@ ${fields.showTotals ? `<td style="${F};font-size:17px;font-weight:700;color:${ac
 </table>`;
 
   // ---- the lines --------------------------------------------------------------------------------
-  const lineRows = (draft.lines || []).map((line) => `<tr>${cols.map((c) => `<td align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:13px;color:${INK};padding:8px 6px;border-bottom:1px solid ${RULE}">${cell(line, c, money, lang)}</td>`).join('')}</tr>`).join('');
+  const lineRows = (draft.lines || []).map((line, index) => `<tr>${cols.map((c) => `<td align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:13px;color:${INK};padding:8px 6px;border-bottom:1px solid ${RULE}">${cell(line, c, money, lang, index)}</td>`).join('')}</tr>`).join('');
 
   const table = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:20px 0 0;border-collapse:collapse">
 <tr>${cols.map((c) => `<th align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding:0 6px 6px;border-bottom:1px solid ${RULE}">${esc(c.label)}</th>`).join('')}</tr>
@@ -189,7 +187,12 @@ ${heading ? `<tr>${label(heading)}</tr>` : ''}
     // The account lines and the link, as text. No code in an email: Gmail strips inline images,
     // and a payment link a client can tap is worth more than a code they cannot scan on the
     // screen they are reading it on.
-    (() => { const pay = paymentCode(draft, settings, fields); return pay ? block(pay.caption, pay.lines.join('\n')) : ''; })(),
+    (() => {
+      const pay = paymentCode(draft, settings, fields);
+      const bank = accountLines(draft, settings, fields);
+      return (pay ? block(pay.caption, pay.lines.join('\n')) : '')
+        + (bank && !(pay && pay.kind === 'epc') ? block(bank.caption, bank.lines.join('\n')) : '');
+    })(),
     sender.legalText ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:14px 0 0"><tr><td style="${F};font-size:11px;color:${MUTED};line-height:1.5">${esc(sender.legalText)}</td></tr></table>` : '',
   ].join('');
 

@@ -1,0 +1,592 @@
+/* Invoice Studio Web — the shell around the document.
+ *
+ * Scoped to `.apiv` throughout, with no bare element selectors, because this stylesheet is loaded
+ * into somebody else's page by a WordPress plugin. A rule on `body` or `h3` here would reach the
+ * whole article around the tool. The one exception is the print block at the foot, which has to
+ * reach the page: printing an invoice must produce the invoice and nothing else.
+ *
+ * The document's own look lives in document.css and the form controls in composer.css; both are
+ * shared with the Grist widget, so a fix to either reaches both products.
+ */
+
+.apiv {
+  --apiv-gap: 20px;
+  color: var(--ink);
+  /* The shell wears the host page's typeface, so it reads as part of the article rather than a
+   * box dropped into it. The document keeps its own faces (--font-doc, --font), because what is
+   * on the invoice must match what the PDF draws. */
+  font: 400 14px/1.5 inherit;
+  font-family: inherit;
+  container-type: inline-size;
+}
+.apiv *, .apiv *::before, .apiv *::after { box-sizing: border-box; }
+
+/* ---- the palette follows the PAGE, not the visitor's system ----------------------------------
+ * tokens.css switches the whole palette to dark under prefers-color-scheme, which is right for the
+ * widget (it paints its own ground inside an iframe) and wrong here: a visitor with a dark phone
+ * got a dark tool sitting on a white article. The light values are pinned on the mount and the
+ * dialog, and `color-scheme: light` keeps the browser's own select and checkbox chrome light too.
+ * A host page that is itself dark sets data-scheme="dark" on the mount and gets the dark set. */
+.apiv, .apiv-modal {
+  color-scheme: light;
+  --paper: #f7f8fa; --surface: #ffffff; --sunk: #eef1f5;
+  --ink: #14202b; --ink-2: #3d4f60; --muted: #64768a;
+  --rule: #dde4ec; --rule-2: #c3cedb;
+  --accent: #14509b; --accent-ink: #ffffff; --accent-soft: #e6eefa;
+  --ok: #16704a; --ok-soft: #e2f2eb; --warn: #8a5a08; --warn-soft: #f8efdc; --risk: #a33830; --risk-soft: #f8e8e6;
+  --shadow: 0 1px 2px rgba(20, 32, 43, .06), 0 10px 30px -20px rgba(20, 32, 43, .35);
+}
+[data-scheme="dark"] .apiv, [data-scheme="dark"] .apiv-modal, .apiv[data-scheme="dark"] {
+  color-scheme: dark;
+  --paper: #0e151c; --surface: #16202a; --sunk: #111a22;
+  --ink: #e7eef5; --ink-2: #b3c2d0; --muted: #8496a8;
+  --rule: #243240; --rule-2: #314253;
+  --accent: #6ba5f0; --accent-ink: #0b1219; --accent-soft: #17293f;
+  --ok: #62c08d; --ok-soft: #12291e; --warn: #d5a257; --warn-soft: #2a2114; --risk: #e58b83; --risk-soft: #2c1a18;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 34px -22px rgba(0, 0, 0, .9);
+}
+
+/* ---- controls people can hit -------------------------------------------------------------------
+ * The composer's buttons are sized for a mouse. On a finger they need 44px, and the dock's need
+ * more. `pointer: coarse` catches touch screens of every width; the phone breakpoint below catches
+ * small screens whatever the pointer. */
+.apiv .cmp-btn { touch-action: manipulation; }
+@media (pointer: coarse), (max-width: 899px) {
+  .apiv .cmp-btn { min-height: 44px; padding-left: 14px; padding-right: 14px; }
+  .apiv .cmp-btn--ghost { padding-left: 10px; padding-right: 10px; }
+  .apiv .cmp-input, .apiv select.cmp-input { min-height: 44px; font-size: 16px; }
+}
+/* An outlined action: as visible as the primary, clearly second to it. One primary per screen. */
+.apiv .cmp-btn--outline { background: transparent; border-color: var(--accent); color: var(--accent); }
+.apiv .cmp-btn--outline:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+
+/* ---- the form's sections fold ----------------------------------------------------------------
+ * Seven sections is a long scroll on a phone, and the money and wording sections are the ones a
+ * first invoice can leave alone. Each section is a <details>; app.js decides which start open. */
+.apiv-sec { border: 1px solid var(--rule); border-radius: var(--radius-lg, 10px); background: var(--surface); margin: 0 0 12px; padding: 0 14px; }
+.apiv-sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 11px 0; min-height: 44px; }
+.apiv-sec > summary::-webkit-details-marker { display: none; }
+.apiv-sec > summary::marker { content: ''; }
+.apiv-sec > summary .cmp-section__title { margin: 0; }
+
+/* The badge: one drawing per section, so the seven heads are told apart at a glance rather than
+ * read one by one. A ring, not a filled block — it marks the section without shouting over it. */
+.apiv-sec__icon {
+  flex: none; display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+}
+.apiv-sec__icon svg { width: 17px; height: 17px; }
+.apiv-sec[open] > summary .apiv-sec__icon { background: var(--accent); color: var(--accent-ink); }
+.apiv-sec__head { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* What this section is holding, in its own words: the business name, the client, the total. A
+ * folded form then still reads as a summary of the document. */
+.apiv-sec__says {
+  font-size: 12.5px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.apiv-sec__says[hidden] { display: none; }
+.apiv-sec[open] > summary .apiv-sec__says { display: none; }
+.apiv-sec > summary::after {
+  content: ''; flex: none; width: 12px; height: 12px; opacity: .6;
+  background: linear-gradient(var(--accent), var(--accent)) center/12px 2px no-repeat, linear-gradient(var(--accent), var(--accent)) center/2px 12px no-repeat;
+}
+.apiv-sec[open] > summary::after { background: linear-gradient(var(--accent), var(--accent)) center/12px 2px no-repeat; }
+.apiv-sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.apiv-sec > .cmp-section__body { padding: 2px 0 14px; }
+.apiv-sec .apiv-sec__hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+/* ---- icons on controls -------------------------------------------------------------------- */
+.apiv .cmp-btn { display: inline-flex; align-items: center; gap: 7px; }
+.apiv .cmp-btn__icon--svg { display: inline-flex; flex: none; }
+.apiv .cmp-btn__icon--svg svg { width: 16px; height: 16px; display: block; }
+.apiv .cmp-btn--primary .cmp-btn__icon--svg, .apiv .cmp-btn--outline .cmp-btn__icon--svg { opacity: 1; }
+.apiv .cmp-btn--ghost .cmp-btn__icon--svg { color: var(--muted); }
+.apiv .cmp-btn--ghost:hover .cmp-btn__icon--svg { color: var(--accent); }
+.apiv-choose__label { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.apiv-choose__label > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apiv-choose__icon { display: inline-flex; flex: none; color: var(--muted); }
+.apiv-choose__icon svg { width: 13px; height: 13px; display: block; }
+
+/* Icons earn their keep when the bar is tight: Print and HTML file keep the drawing and drop the
+ * word, which is what stops the bar breaking into a second line on a 1,152px article — the two
+ * actions nobody hunts for are also the two a drawing explains on its own. Their names stay on
+ * the button for a screen reader and in the tooltip for a mouse. */
+@container (max-width: 1199px) {
+  .apiv-bar__actions .cmp-btn--ghost > span:not(.cmp-btn__icon) { display: none; }
+  .apiv-bar__actions .cmp-btn--ghost { padding-left: 11px; padding-right: 11px; }
+}
+/* Tighter still: sending keeps its envelope, downloading keeps its words. One action on the bar
+ * is always spelled out, and it is the one nearly everyone came for. */
+@container (max-width: 1049px) {
+  .apiv-bar__actions .cmp-btn--outline > span:not(.cmp-btn__icon) { display: none; }
+  .apiv-bar__actions .cmp-btn--outline { padding-left: 11px; padding-right: 11px; }
+}
+
+/* ---- paper and spacing, behind one button -----------------------------------------------------
+ * Two choosers that are set once and then left alone. In the row they squeezed the three that are
+ * not; in a panel of their own they are a click away and labelled in full. */
+.apiv-more { position: relative; flex: none; align-self: flex-end; }
+.apiv-more__btn {
+  list-style: none; cursor: pointer;
+  width: 38px; height: 38px;
+  border: 1px solid var(--rule-2); border-radius: 8px;
+  background: var(--surface); color: var(--muted);
+}
+/* The host theme gives every <summary> its own padding and display — Blocksy's is `15px 0`, which
+ * squashed the drawing inside this button to a sliver. The button is a fixed square with the icon
+ * in the middle of it and nothing else, whatever the theme has to say. */
+.apiv .apiv-more__btn { display: grid !important; place-items: center !important; padding: 0 !important; margin: 0 !important; }
+.apiv details.apiv-more { background: none; border: 0; padding: 0; margin: 0; }
+/* The host theme draws its own marker on every <summary> — Blocksy's accordions put a "+" there —
+ * and it landed inside this button, and beside it once the button was not the positioned parent.
+ * A summary of ours shows what WE drew and nothing else; the weight is needed because the rule
+ * being beaten belongs to the site, not to this file. */
+.apiv .apiv-more__btn { list-style: none !important; }
+.apiv .apiv-more__btn::-webkit-details-marker { display: none !important; }
+.apiv .apiv-more__btn::marker { content: '' !important; }
+.apiv .apiv-more__btn::before, .apiv .apiv-more__btn::after { content: none !important; display: none !important; }
+.apiv .apiv-sec > summary::before { content: none !important; display: none !important; }
+.apiv-more__btn:hover { color: var(--accent); border-color: var(--accent); }
+.apiv-more__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.apiv-more[open] .apiv-more__btn { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.apiv-more__icon { display: inline-flex; }
+.apiv-more__icon svg { width: 18px; height: 18px; display: block; }
+.apiv-more__panel {
+  position: absolute; z-index: 25; right: 0; top: calc(100% + 8px);
+  display: flex; flex-direction: column; gap: 12px;
+  width: 232px; padding: 14px;
+  border: 1px solid var(--rule-2); border-radius: var(--radius-lg, 10px);
+  background: var(--surface); box-shadow: var(--shadow);
+}
+.apiv-more__panel .apiv-choose select { width: 100%; max-width: none; }
+@media (pointer: coarse), (max-width: 899px) { .apiv-more__btn { width: 44px; height: 44px; } }
+/* A 232px panel hanging off a button in the middle of a 375px screen ran past the left edge.
+ * On a phone it spans the bar instead, which is where there is room. */
+@container (max-width: 639px) {
+  .apiv .apiv-bar { position: relative; }
+  .apiv .apiv-more { position: static; }
+  .apiv .apiv-more__panel { left: 0; right: 0; width: auto; top: calc(100% + 6px); }
+  /* One chooser to a row, each the full width: a phone has room for the whole word ("Lieferschein"
+   * is not a word to truncate), and the two selects then line up with the form's own boxes below.
+   * The settings button and the language pill drop to a line of their own rather than being
+   * wedged beside a select. */
+  .apiv .apiv-bar__choices { flex: 1 1 100%; }
+  .apiv .apiv-bar .apiv-choose { flex: 1 1 100%; min-width: 0; max-width: none; }
+  .apiv .apiv-lang { margin-left: auto; }
+  /* The dock's top row: three labels and a select do not fit across a phone, and shrinking them
+   * all gave "HTM…" and "E-Rechn…". Print and HTML keep their drawing and drop their word — the
+   * same trade the bar makes when it is tight — and the e-invoice menu keeps the words it needs
+   * to say which file it builds. Both buttons still carry their name for a screen reader. */
+  .apiv .apiv-dock .apiv-actions { grid-template-columns: auto auto minmax(0, 1fr); }
+  .apiv .apiv-dock .cmp-btn--ghost > span:not(.cmp-btn__icon) { display: none; }
+  .apiv .apiv-dock .cmp-btn--ghost { min-width: 46px; padding-left: 12px; padding-right: 12px; }
+}
+
+/* ---- the tool's own language ------------------------------------------------------------------
+ * EN | DE as a pill, the same control the site's calculators and PDF tools carry, so a visitor who
+ * has met one tool already knows this one. It sits at the end of the setup row: the bar above is
+ * about the document, and this is about the tool. */
+.apiv-lang {
+  flex: none; display: inline-flex; align-items: center; gap: 2px;
+  align-self: flex-end;
+  padding: 3px 3px 3px 9px;
+  border: 1px solid var(--rule-2); border-radius: 999px; background: var(--surface);
+}
+.apiv-lang__icon { display: inline-flex; margin-right: 3px; color: var(--muted); }
+.apiv-lang__icon svg { width: 15px; height: 15px; display: block; }
+.apiv-lang__btn {
+  min-height: 28px; padding: 4px 10px;
+  border: 0; border-radius: 999px; background: transparent;
+  color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  cursor: pointer; touch-action: manipulation;
+}
+.apiv-lang__btn:hover { color: var(--accent); }
+.apiv-lang__btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.apiv-lang__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) { .apiv-lang__btn { min-height: 34px; } }
+/* On a narrow bar the globe goes and the two letters stay: EN | DE needs no explaining. */
+@container (max-width: 1199px) { .apiv .apiv-lang__icon { display: none; } .apiv .apiv-lang { padding-left: 3px; } }
+
+/* ---- help that waits to be asked for ----------------------------------------------------------
+ * The long explanations — the reverse charge, the Leitweg-ID, the plate behind a logo — live
+ * behind an (i) beside their label and open over the fields below, so opening one never pushes
+ * the form around. Short hints stay printed under their box. */
+.apiv-field--tip, .apiv-check { position: relative; }
+.apiv-field__head { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.apiv-field__head > .cmp-field__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.apiv-tipbtn {
+  display: inline-grid; place-items: center; position: relative;
+  width: 24px; height: 24px; margin: -4px 0 -4px 4px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--accent);
+  cursor: pointer; touch-action: manipulation; vertical-align: middle;
+}
+.apiv-tipbtn svg { width: 16px; height: 16px; display: block; }
+.apiv-tipbtn:hover { background: var(--accent-soft); }
+.apiv-tipbtn[aria-expanded="true"] { background: var(--accent); color: var(--accent-ink); }
+.apiv-tipbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) { .apiv-tipbtn::after { content: ''; position: absolute; inset: -10px; } }
+.apiv-tip {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 8px);
+  padding: 10px 12px;
+  border: 1px solid var(--rule-2); border-radius: var(--radius-lg, 10px);
+  background: var(--surface); box-shadow: var(--shadow);
+  font-size: 13px; font-weight: 400; line-height: 1.5; color: var(--ink);
+  white-space: normal; cursor: default;
+}
+.apiv-tip[hidden] { display: none; }
+.apiv-tip[data-up="true"] { top: auto; bottom: calc(100% + 8px); }
+.apiv-check__head { display: inline-flex; align-items: center; gap: 2px; }
+
+/* ---- what the tool just did -------------------------------------------------------------------
+ * Only the one-line message is a row with a mark beside it; the e-invoice findings list is a block
+ * and keeps its own shape. */
+p.apiv-status { display: flex; align-items: flex-start; gap: 8px; }
+.apiv-status__icon { flex: none; display: inline-flex; margin-top: 1px; }
+.apiv-status__icon svg { width: 16px; height: 16px; display: block; }
+
+/* ---- the bar ------------------------------------------------------------------------------- */
+
+.apiv-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg, 10px);
+}
+.apiv-bar__choices, .apiv-bar__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+/* The actions keep their natural width at the right edge; the choosers share whatever is left and
+ * squeeze before the bar ever breaks into two lines. A flex basis of zero matters here: flex
+ * wrapping is decided on the basis, not on the shrunk size, so a basis of "auto" (five selects at
+ * their widest) pushed the actions onto a second line and left the right half of the bar empty. */
+.apiv-bar__choices { flex: 1 1 0; min-width: 0; }
+.apiv-bar__actions { flex: 0 0 auto; justify-content: flex-end; align-self: flex-end; margin-left: auto; }
+
+/* A theme's own form rules reach in here: the host site gave every <label> a bottom margin except
+ * the last child, which put the last chooser eight pixels lower than its neighbours. The tool's
+ * labels carry no margin of their own. */
+.apiv label, .apiv-modal label { margin: 0; }
+.apiv-choose { display: flex; flex-direction: column; gap: 3px; }
+/* Each chooser is an equal share of the row, between a width that still shows "Delivery note" and
+ * one that stops a theme's 100%-wide selects from swallowing the actions. */
+.apiv-bar .apiv-choose { flex: 1 1 0; min-width: 100px; max-width: 200px; }
+.apiv-bar .apiv-choose select { width: 100%; min-width: 0; padding-left: 8px; padding-right: 22px; text-overflow: ellipsis; }
+.apiv-choose__label {
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.apiv-einv { display: flex; gap: 6px; align-items: center; }
+
+/* ---- the setup strip ----------------------------------------------------------------------- */
+
+.apiv-setup {
+  display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end;
+  padding: 12px 14px; margin-bottom: 14px;
+  background: var(--sunk); border: 1px solid var(--rule); border-radius: var(--radius-lg, 10px);
+}
+.apiv-setup__actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.apiv-setup__minor { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--rule-2); }
+.apiv-setup__minor .cmp-btn--ghost { color: var(--muted); }
+.apiv-setup__says { flex: 1 0 100%; margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* ---- the two columns ----------------------------------------------------------------------- */
+
+.apiv-body { display: grid; grid-template-columns: 1fr; gap: var(--apiv-gap); margin-top: var(--apiv-gap); }
+@media (min-width: 900px) {
+  .apiv-body { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; }
+  /* The document keeps pace with the form: it stays in view while the page scrolls, and when it
+   * is taller than the screen it scrolls INSIDE its own column rather than running off the
+   * bottom. --apiv-header is measured by the script from whatever fixed header the host page
+   * has, so the document is never tucked under one. */
+  .apiv-col--doc {
+    position: sticky; top: calc(var(--apiv-header, 0px) + 16px);
+    max-height: calc(100vh - var(--apiv-header, 0px) - 32px);
+    overflow: auto; overscroll-behavior: contain;
+    padding: 2px 6px 6px 2px; margin: -2px -6px -6px -2px;
+    scrollbar-width: thin; scrollbar-color: var(--rule-2) transparent;
+  }
+  .apiv-col--doc::-webkit-scrollbar { width: 10px; }
+  .apiv-col--doc::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+  .apiv-col--doc::-webkit-scrollbar-track { background: transparent; }
+}
+.apiv-col { min-width: 0; }
+
+/* ---- the line editor in a narrow column ------------------------------------------------------
+ * The composer's grid was sized for a Grist panel. In the form column here the description got
+ * eighty pixels once the unit column arrived, so each line becomes two rows: the description
+ * across the top, then quantity, unit, price, the amount and the controls. The header row goes;
+ * the inputs carry their own placeholders. */
+.apiv .cmp-grid__head { display: none; }
+.apiv .cmp-grid__row, .apiv .cmp-grid__row.has-hsn { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 8px 0 10px; border-bottom: 1px solid var(--rule); }
+.apiv .cmp-grid__row:last-of-type { border-bottom: 0; }
+.apiv .cmp-grid__row > :first-child { flex: 1 1 100%; }
+.apiv .cmp-grid__row > .cmp-input--num { flex: 0 0 88px; }
+.apiv .cmp-grid__row > .cmp-input--code { flex: 0 0 96px; }
+.apiv .cmp-grid__row > .cmp-suggest { flex: 0 0 112px; }
+.apiv .cmp-grid__row > .cmp-grid__amount { flex: 1 1 auto; text-align: right; font-size: 14px; }
+.apiv .cmp-grid__row > .cmp-grid__gutter { flex: 0 0 auto; }
+
+/* ---- a rate table of your own -------------------------------------------------------------- */
+.apiv-rates { display: grid; gap: 6px; }
+.apiv-rates__head, .apiv-rates__row { display: grid; grid-template-columns: 1.1fr 1fr .7fr 1fr auto; gap: 6px; align-items: center; }
+.apiv-rates__head { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 0 2px; }
+.apiv-rates__row .cmp-suggest { min-width: 0; }
+.apiv-rates__row .cmp-input { min-width: 0; width: 100%; }
+@media (max-width: 599px) {
+  .apiv-rates__head { display: none; }
+  .apiv-rates__row { grid-template-columns: 1fr 1fr; padding: 8px; border: 1px solid var(--rule); border-radius: 8px; }
+  .apiv-rates__row > :first-child, .apiv-rates__row > :nth-child(4) { grid-column: 1 / -1; }
+}
+
+/* The document sits on its own paper, as it does in the widget. */
+.apiv .studio-page {
+  max-width: 820px; margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg, 10px);
+  box-shadow: var(--shadow, 0 1px 2px rgba(20, 32, 43, .06));
+  overflow: hidden;
+}
+
+/* ---- odds and ends ------------------------------------------------------------------------- */
+
+/* The logo: shown on a checkerboard so transparency reads as transparency, not as a white box. */
+.apiv-logo { display: flex; flex-direction: column; gap: 10px; }
+.apiv-logo__stage {
+  align-self: flex-start; padding: 10px; border: 1px solid var(--rule); border-radius: 8px;
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #e6e9ee 25%, transparent 25%), linear-gradient(-45deg, #e6e9ee 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e6e9ee 75%), linear-gradient(-45deg, transparent 75%, #e6e9ee 75%);
+  background-size: 14px 14px; background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+}
+.apiv-logo__img { display: block; max-width: 260px; max-height: 90px; }
+.apiv-logo__options { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+.apiv-logo__options .apiv-choose { flex-direction: row; align-items: center; gap: 10px; }
+.apiv-logo__options .apiv-choose select { width: auto; }
+.apiv-logo__controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.apiv-logo__file { font-size: 13px; color: var(--ink-2); min-width: 0; }
+.apiv-logo .cmp-field__hint:empty { display: none; }
+
+.apiv-accent { display: flex; gap: 8px; align-items: center; }
+.apiv-accent__pick { width: 46px; height: 30px; padding: 2px; border: 1px solid var(--rule-2); border-radius: 6px; background: var(--surface); cursor: pointer; }
+
+.apiv-check { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; cursor: pointer; }
+/* A checkbox with a sentence of hint under it wants the whole row of a two-column section, not
+ * half of it with the other half empty. */
+.apiv .cmp-section__body.is-grid > .apiv-check { grid-column: 1 / -1; }
+/* A section's first line saying what it is set for ("the boxes for a business banking in …"). */
+.apiv .cmp-section__body > .apiv-sec__note { grid-column: 1 / -1; margin: 0 0 2px; }
+.apiv-check__box { margin-top: 3px; flex: none; }
+.apiv-check__text { display: flex; flex-direction: column; gap: 2px; }
+
+.apiv-statusbar:empty { display: none; }
+.apiv-status {
+  margin: 10px 0 0; padding: 9px 12px; font-size: 13px; border-radius: 8px;
+  background: var(--ok-soft); color: var(--ok); border: 1px solid currentColor;
+}
+.apiv-status--err { background: var(--risk-soft); color: var(--risk); }
+.apiv-status--warn { background: var(--warn-soft); color: var(--warn); }
+/* A check's findings: one line each, the code small beside it so a receiver's rejection can be matched to it. */
+.apiv-status ul { margin: 6px 0 0; padding-left: 18px; }
+.apiv-status li { margin: 2px 0; }
+.apiv-status code { font-size: 11px; opacity: .8; background: transparent; color: inherit; padding: 0 4px 0 0; }
+.apiv-kit { display: none; }
+
+.apiv-foot { margin: var(--apiv-gap) 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+
+/* ---- the send dialog ----------------------------------------------------------------------- */
+.apiv-modal {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 24px 12px; overflow: auto;
+  background: rgba(20, 32, 43, .55);
+}
+.apiv-modal__card {
+  width: min(720px, 100%); background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: var(--radius-lg, 10px); box-shadow: var(--shadow);
+  padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.apiv-modal__head { display: flex; justify-content: space-between; align-items: center; }
+.apiv-modal__title { margin: 0; font-size: 17px; font-weight: 700; }
+.apiv-modal__intro { margin: 0; padding: 10px 12px; background: var(--sunk); border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.apiv-modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.apiv-modal__grid > .cmp-field--wide, .apiv-modal__grid > .apiv-check, .apiv-modal__grid > p, .apiv-modal__grid > .apiv-modal__turnstile { grid-column: 1 / -1; }
+.apiv-modal__row { display: flex; gap: 8px; align-items: center; }
+.apiv-modal__row .cmp-input { flex: 1; }
+.apiv-modal__note:empty { display: none; }
+.apiv-modal__note { padding: 9px 12px; border-radius: 8px; font-size: 13px; background: var(--ok-soft); color: var(--ok); border: 1px solid currentColor; }
+.apiv-modal__note--err { background: var(--risk-soft); color: var(--risk); }
+.apiv-modal__actions { display: flex; justify-content: flex-end; gap: 8px; }
+.apiv-modal__turnstile:empty { display: none; }
+/* The field component sets its own display, which beats the [hidden] attribute: the code row showed before any code was asked for. */
+.apiv-modal [hidden] { display: none !important; }
+@media (max-width: 600px) { .apiv-modal { padding: 0; } .apiv-modal__card { border-radius: 0; min-height: 100%; } .apiv-modal__grid { grid-template-columns: 1fr; } }
+
+/* The actions: one list, two homes. In the bar on a wide screen; docked to the foot of a phone. */
+.apiv-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+/* The e-invoice menu is a <select> dressed as a ghost button: same height and type as its
+ * neighbours, its own arrow glyph, none of the browser's select chrome. */
+.apiv select.apiv-einv {
+  appearance: none; -webkit-appearance: none; background: transparent; border-color: transparent;
+  width: auto; max-width: none; padding-right: 8px; cursor: pointer; font: inherit; color: var(--muted);
+}
+.apiv select.apiv-einv:hover { background: var(--sunk); color: var(--accent); }
+.apiv select.apiv-einv option { color: var(--ink); background: var(--surface); }
+.apiv-dock { display: none; }
+
+/* Edit and Preview: a phone shows one column at a time. The tabs stay at the top of the screen
+ * while the form scrolls, under whatever fixed header the site has, so switching to the document
+ * never means scrolling back up first. */
+.apiv-tabs { display: flex; gap: 8px; margin-top: 12px; }
+@media (min-width: 900px) { .apiv-tabs { display: none; } }
+@media (max-width: 899px) {
+  .apiv-tabs {
+    position: sticky; top: var(--apiv-header, 0px); z-index: 6;
+    margin: 12px -4px 0; padding: 8px 4px; background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .apiv-tabs .cmp-btn { flex: 1; justify-content: center; }
+  .apiv[data-tab="edit"] .apiv-col--doc { display: none; }
+  .apiv[data-tab="preview"] .apiv-col--form { display: none; }
+  /* The bar's copy goes; the dock stays in reach of a thumb wherever the page has scrolled. */
+  .apiv-bar__actions { display: none; }
+  .apiv-dock {
+    display: block; position: sticky; bottom: 0; z-index: 5;
+    margin: 12px -4px 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 1px solid var(--rule);
+    box-shadow: 0 -6px 18px rgba(20, 32, 43, .08);
+  }
+  /* Three rows, not four: the two quiet actions share a row, the e-invoice chooser and its
+   * button share the next, and the PDF has the last to itself, nearest the thumb. */
+  /* `1fr` is `minmax(auto, 1fr)`, so a track never shrinks below its content — three labels and a
+   * select came to 340px on a 278px row, and because this row inherits the bar's right alignment
+   * the whole thing hung off the LEFT edge of the screen. `minmax(0, 1fr)` lets the tracks
+   * shrink, `justify-content: stretch` puts the row back under its own box, and `min-width: 0`
+   * lets a long label ellipsis instead of forcing the track wide again. */
+  .apiv-dock .apiv-actions {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+    justify-content: stretch; justify-items: stretch;
+  }
+  .apiv-dock .apiv-actions > * { min-width: 0; }
+  .apiv-dock .cmp-btn { width: 100%; justify-content: center; min-height: 46px; padding-left: 6px; padding-right: 6px; overflow: hidden; }
+  .apiv-dock .cmp-btn > span:not(.cmp-btn__icon) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .apiv-dock select.apiv-einv { width: 100%; max-width: none; text-align: center; text-align-last: center; text-overflow: ellipsis; }
+  .apiv-dock .cmp-btn--primary, .apiv-dock .cmp-btn--outline { grid-column: 1 / -1; }
+  /* The dock is sticky, so the last fields would otherwise hide under it at the end of the scroll. */
+  .apiv-body { padding-bottom: 8px; }
+  .apiv-foot { padding-bottom: 8px; }
+  /* Save/Load/Forget are rarer than Example/New: on a phone they step back visually. */
+  .apiv-setup__minor .cmp-btn { font-size: 13px; }
+}
+
+/* ---- the printing frame ---------------------------------------------------------------------
+ * A one-cell table around the page whose header and footer rows are the printed margins — see
+ * print.js for why the sheet's own margin is zero. On screen it is plain blocks, and the two
+ * margin rows are not shown. Repeated from studio.css rather than shared, because that stylesheet
+ * also carries the widget's own frame and cannot be loaded into a page on somebody's website. */
+.studio-printframe, .studio-printframe > thead, .studio-printframe > tbody, .studio-printframe > tfoot,
+.studio-printframe > * > tr, .studio-printframe__cell { display: block; width: 100%; }
+.studio-printframe { max-width: 820px; margin: 0 auto; border-collapse: collapse; border-spacing: 0; }
+.studio-printframe__cell { padding: 0; }
+.studio-printframe__gap { display: none; }
+
+/* ---- the phone's fitted preview ---------------------------------------------------------------
+ * Under 900px the document is laid out at a desk's width and scaled down to the column, the way a
+ * PDF viewer shows a page, instead of reflowing until the lines table runs off the right edge of
+ * the screen. The script sets the width, the scale and the column's height; a transform does not
+ * take part in layout, so without the height the column kept the unscaled document's. */
+.apiv-col--doc.is-fitted { overflow: hidden; }
+.apiv-col--doc.is-fitted .studio-printframe { transform-origin: 0 0; max-width: none; margin: 0; }
+/* The document's own narrow layout keys on the SCREEN being narrow, and inside the fitted frame
+ * the screen is narrow while the page is not: the parties stacked and the masthead folded on a
+ * 680px sheet. These put the desk layout back; the values are document.css's own. */
+.apiv-col--doc.is-fitted .inv-doc { padding: 40px 44px 48px; --bleed-x: 44px; --bleed-y: 40px; }
+[data-density="compact"] .apiv-col--doc.is-fitted .inv-doc { padding: 28px 32px 32px; }
+[data-density="roomy"] .apiv-col--doc.is-fitted .inv-doc { padding: 52px 56px 60px; }
+.apiv-col--doc.is-fitted .inv-parties { grid-template-columns: 1fr 1fr auto; gap: 28px; }
+.apiv-col--doc.is-fitted .inv-parties.has-shipto { grid-template-columns: 1fr 1fr 1fr auto; gap: 20px; }
+.apiv-col--doc.is-fitted .inv-metas { text-align: right; }
+.apiv-col--doc.is-fitted .inv-head.is-classic, .apiv-col--doc.is-fitted .inv-head.is-minimal { flex-direction: row; }
+.apiv-col--doc.is-fitted .inv-title { text-align: right; }
+.apiv-col--doc.is-fitted .inv-title.is-left { text-align: left; }
+.apiv-col--doc.is-fitted .inv-title__number { justify-content: flex-end; }
+.apiv-col--doc.is-fitted .inv-title.is-left .inv-title__number { justify-content: flex-start; }
+.apiv-col--doc.is-fitted .inv-totals { min-width: 260px; }
+.apiv-col--doc.is-fitted .inv-ledger__top { flex-direction: row; }
+.apiv-col--doc.is-fitted .inv-ledger__brand { flex-direction: row-reverse; text-align: right; max-width: 45%; }
+.apiv-col--doc.is-fitted .inv-ledger__close { flex-direction: row; }
+.apiv-col--doc.is-fitted .inv-colophon { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* ---- the host's table styling ----------------------------------------------------------------
+ * A theme styles every table on the site, and the document has two: its lines and the frame it
+ * prints from. On anupress.com that gave every cell a border on all four sides, the lines table a
+ * frame of its own, and on a phone turned both into scrolling blocks — the lines shrank to their
+ * words inside a full-width box, and an empty quarter of the invoice stared back. A document must
+ * look the same on every site it is embedded in, so these say so with the weight to win. */
+.apiv .inv-lines, .apiv .studio-printframe {
+  border: 0 !important; border-collapse: collapse !important; border-spacing: 0 !important;
+  overflow: visible !important; table-layout: auto !important; margin-bottom: 0;
+}
+/* The frame's width is NOT forced: on a phone the script sets it inline to lay the page out at a
+ * desk's width before scaling, and an !important here would win over that and shrink the
+ * preview to half the screen. The theme's own "table { width: 100% }" agrees with the frame's
+ * screen rule anyway. */
+.apiv .inv-lines { display: table !important; width: 100% !important; max-width: none !important; }
+.apiv .inv-lines thead { display: table-header-group !important; }
+.apiv .inv-lines tbody { display: table-row-group !important; }
+.apiv .inv-lines tr { display: table-row !important; }
+.apiv .inv-lines th, .apiv .inv-lines td {
+  display: table-cell !important; border: 0 !important; border-bottom: 1px solid var(--doc-rule) !important;
+  background: transparent !important; font-size: inherit;
+}
+.apiv .inv-lines th { font-size: 10px; }
+/* The ledger's own rules, said again with the same weight, or the lines above would flatten them. */
+.apiv .is-ledger .inv-lines th { border-top: 2px solid var(--doc-ink) !important; border-bottom: 1px solid var(--doc-ink) !important; }
+.apiv .is-ledger .inv-lines td { border-bottom: 0 !important; }
+.apiv .is-ledger .inv-lines tbody tr:last-child td { border-bottom: 2px solid var(--doc-ink) !important; }
+.apiv .studio-printframe > * > tr > td { border: 0 !important; padding: 0 !important; background: transparent !important; }
+
+/* The frame the Print button prints from: the document alone, as its own page, parked off screen.
+ * Not display:none — a browser will not print what it has not laid out. */
+.apiv-print { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px; border: 0; opacity: 0; pointer-events: none; }
+
+/* ---- print ----------------------------------------------------------------------------------
+ * The Print button prints the document alone from its own frame (see printDocument in app.js), so
+ * these rules are for File → Print and for a browser where the frame could not print. The tool
+ * sits several wrappers deep inside somebody's theme, so hiding the body's other children is not
+ * enough. Everything that neither contains the tool nor is part of it goes; the wrappers on the
+ * way down to it keep nothing of their own. An older browser without :has() drops the first two
+ * rules and falls back to the visibility ones, which print the document with blank pages after
+ * it — the host page's hidden furniture still takes its room. */
+@media print {
+  body *:not(:has(.apiv)):not(.apiv):not(.apiv *) { display: none !important; }
+  body *:has(.apiv) {
+    position: static !important; float: none !important; transform: none !important;
+    padding: 0 !important; margin: 0 !important; border: 0 !important;
+    width: auto !important; max-width: none !important; min-width: 0 !important;
+    height: auto !important; max-height: none !important; min-height: 0 !important;
+    overflow: visible !important; background: transparent !important;
+  }
+  html, body { background: #fff !important; height: auto !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+  body * { visibility: hidden !important; }
+  .apiv-col--doc, .apiv-col--doc * { visibility: visible !important; }
+  .apiv-bar, .apiv-setup, .apiv-tabs, .apiv-statusbar, .apiv-foot, .apiv-col--form, .apiv-dock, .apiv-modal, .apiv-print { display: none !important; }
+  .apiv[data-tab] .apiv-col--doc { display: block !important; }
+  .apiv-body { display: block; margin: 0; }
+  .apiv-col--doc, .apiv-col--doc.is-fitted {
+    position: static !important; max-height: none !important; overflow: visible !important;
+    height: auto !important; padding: 0 !important; margin: 0 !important; width: auto !important;
+  }
+  .apiv-col--doc .studio-printframe { transform: none !important; width: 100% !important; }
+  .apiv .studio-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  .studio-printframe { display: table; width: 100%; max-width: none; }
+  .studio-printframe > thead { display: table-header-group; }
+  .studio-printframe > tbody { display: table-row-group; }
+  .studio-printframe > tfoot { display: table-footer-group; }
+  .studio-printframe > * > tr { display: table-row; }
+  .studio-printframe__cell { display: table-cell; vertical-align: top; }
+  .studio-printframe__gap { display: table-cell; height: var(--print-inset, 14mm); padding: 0; }
+}

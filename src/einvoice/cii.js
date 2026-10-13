@@ -121,9 +121,12 @@ export function toCii(m) {
         el('ram:InvoiceCurrencyCode', cur),
         el('ram:SpecifiedTradeSettlementPaymentMeans',
           el('ram:TypeCode', m.payment.code),
-          m.payment.iban ? el('ram:PayeePartyCreditorFinancialAccount',
-            el('ram:IBANID', m.payment.iban),
+          // Schema order inside the account: IBANID, AccountName, ProprietaryID. An account that
+          // is not an IBAN (a sort code and account number) goes in the proprietary slot.
+          (m.payment.iban || m.payment.account) ? el('ram:PayeePartyCreditorFinancialAccount',
+            m.payment.iban ? el('ram:IBANID', m.payment.iban) : null,
             opt('ram:AccountName', m.payment.accountHolder),
+            !m.payment.iban && m.payment.account ? el('ram:ProprietaryID', m.payment.account) : null,
           ) : null,
           m.payment.bic ? el('ram:PayeeSpecifiedCreditorFinancialInstitution', el('ram:BICID', m.payment.bic)) : null,
         ),

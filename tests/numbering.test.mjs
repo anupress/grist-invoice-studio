@@ -85,5 +85,42 @@ const warned = n.assignNumber('', { existingNumbers: [], format: { ...FMT, prefi
 eq('a doubtful format still produces a number', warned.number, 'INV-0001');
 eq('and carries the warning with it', warned.warnings.length, 1);
 
+
+// ---------------------------------------------------------------------------------------------
+// A number built from the record: the client's ledger account, the reference, an own column
+// ---------------------------------------------------------------------------------------------
+const ok = (name, cond) => { if (cond) pass++; else { fail++; console.log(`  FAIL ${name}`); } };
+const V = { reference: 'PO 5087', 'client.Konto': 10001, Konto: '8400' };
+eq('a client column in the prefix', n.renderTokens('RE-{YYYY}-{client.Konto}-', y2026, V), 'RE-2026-10001-');
+eq('the reference and an own column', n.renderTokens('{Konto}/{reference}/', y2026, V), '8400/PO 5087/');
+eq('a figure is its digits', n.renderTokens('{client.Konto}', y2026, { 'client.Konto': 10001 }), '10001');
+eq('a token nobody can fill stays as typed', n.renderTokens('RE-{client.Konto}-', y2026, {}), 'RE-{client.Konto}-');
+eq('an empty value counts as missing', n.renderTokens('{reference}-', y2026, { reference: '  ' }), '{reference}-');
+eq('no values at all is the old behaviour', n.renderTokens('INV-{YYYY}-', y2026), 'INV-2026-');
+eq('the missing ones are named, once each', n.unresolvedTokens('RE-{client.Konto}-{YYYY}-{reference}-{client.Konto}', { reference: 'x' }), ['client.Konto']);
+eq('date tokens are never missing', n.unresolvedTokens('{YYYY}{MM}{DD}{YY}', {}), []);
+
+// The prefix carries the account, so the sequence runs per account — which is what numbering by
+// ledger account means. Last year's and the other account's numbers do not match this prefix.
+const KF = { prefix: 'RE-{YYYY}-{client.Konto}-', padding: 3, resetPeriod: 'yearly' };
+const perAccount = ['RE-2026-10001-003', 'RE-2026-10002-009', 'RE-2025-10001-044'];
+eq('the sequence runs per account', n.nextNumber(perAccount, KF, y2026, { 'client.Konto': 10001 }).number, 'RE-2026-10001-004');
+eq('and separately for the other account', n.nextNumber(perAccount, KF, y2026, { 'client.Konto': 10002 }).number, 'RE-2026-10002-010');
+eq('a new account starts at the start', n.nextNumber(perAccount, KF, y2026, { 'client.Konto': 10003 }).number, 'RE-2026-10003-001');
+eq('a stored number is read back under its own values', n.parseSequence('RE-2026-10001-003', KF, y2026, { 'client.Konto': 10001 }), 3);
+eq('and not under another account’s', n.parseSequence('RE-2026-10001-003', KF, y2026, { 'client.Konto': 10002 }), null);
+
+const withClient = n.assignNumber('', { existingNumbers: perAccount, format: KF, date: y2026, values: { 'client.Konto': 10001 } });
+eq('assigning with a client fills the account in', withClient.number, 'RE-2026-10001-004');
+eq('and complains about nothing', withClient.warnings, []);
+const noClient = n.assignNumber('', { existingNumbers: perAccount, format: KF, date: y2026, values: {} });
+eq('without a client the token is left in the number, visibly', noClient.number, 'RE-2026-{client.Konto}-001');
+ok('and the warning names the column and says what was done', noClient.warnings.length === 1 && /\{client\.Konto\}/.test(noClient.warnings[0]) && /Konto/.test(noClient.warnings[0]) && /left in the number/.test(noClient.warnings[0]));
+const noRef = n.assignNumber('', { existingNumbers: [], format: { prefix: '{reference}-', padding: 2, resetPeriod: 'never' }, date: y2026, values: {} });
+ok('a missing reference is explained as a reference', /no reference/.test(noRef.warnings[0]));
+const noCol = n.assignNumber('', { existingNumbers: [], format: { prefix: '{Konto}-', padding: 2, resetPeriod: 'never' }, date: y2026, values: {} });
+ok('a missing own column is explained as one', /called Konto/.test(noCol.warnings[0]));
+eq('a held number is still never touched', n.assignNumber('RE-2026-10001-002', { existingNumbers: perAccount, format: KF, date: y2026, values: {} }).number, 'RE-2026-10001-002');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

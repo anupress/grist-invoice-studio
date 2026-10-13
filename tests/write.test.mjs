@@ -293,5 +293,64 @@ ok('conversions come after every table is created',
   eq('a chosen currency is written', set.invoice.fields.Currency, 'USD');
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// The invoice table's own columns, typed in the composer under "Also in this table"
+// ---------------------------------------------------------------------------------------------
+{
+  const schema = { invoice: { table: 'T', roles: { number: 'N', client: 'C' } } };
+  const columns = [
+    { id: 'N', type: 'Text' }, { id: 'C', type: 'Text' }, { id: 'Konto', type: 'Text' },
+    { id: 'Anzahlung', type: 'Numeric' }, { id: 'Gebucht', type: 'Bool' }, { id: 'Berechnet', type: 'Text', isFormula: true },
+  ];
+  const plan = (extra, rowId = null) => w.buildWritePlan(
+    { rowId, number: 'RE-1', client: { name: 'X' }, totals: {}, lines: [], extra },
+    schema, { invoiceColumns: columns });
+
+  const p = plan({ Konto: '8400', Anzahlung: '12.5', Gebucht: true, Berechnet: 'no', N: 'HACK', Missing: 'x' });
+  eq('an own column is written', p.invoice.fields.Konto, '8400');
+  eq('converted to what the column holds', p.invoice.fields.Anzahlung, 12.5);
+  eq('a tick is a boolean', p.invoice.fields.Gebucht, true);
+  eq('a formula column is left alone', p.invoice.fields.Berechnet, undefined);
+  eq('a role’s column cannot be reached this way', p.invoice.fields.N, 'RE-1');
+  eq('a column the table does not have is ignored', p.invoice.fields.Missing, undefined);
+  ok('and none of that is reported as a problem', p.ok && !p.skipped.some((s) => /Berechnet|Missing|HACK/.test(s.role + s.reason)));
+
+  eq('a blank on a new row writes nothing', plan({ Konto: '' }).invoice.fields.Konto, undefined);
+  eq('a blank on an existing row clears the cell', plan({ Konto: '' }, 7).invoice.fields.Konto, '');
+  eq('an unticked box on a new row is still written, as false', plan({ Gebucht: false }).invoice.fields.Gebucht, false);
+  const bad = plan({ Anzahlung: 'abc' });
+  eq('a figure that is not one is not written', bad.invoice.fields.Anzahlung, undefined);
+  ok('and the column is named in the reason', bad.skipped.some((s) => s.role === 'Anzahlung' && /numeric/.test(s.reason)));
+  eq('no extras is no change', Object.keys(plan(undefined).invoice.fields).sort(), ['C', 'N']);
+}
+
+// ---------------------------------------------------------------------------------------------
+// A number a formula works out, and lines that link by number
+// ---------------------------------------------------------------------------------------------
+{
+  const schema = {
+    invoice: { table: 'T', roles: { number: 'N', client: 'C' } },
+    line: { table: 'L', roles: { invoiceLink: 'Inv', description: 'D', unitPrice: 'P' } },
+  };
+  const plan = (numberType, linkType, draft) => w.buildWritePlan(
+    { client: { name: 'X' }, totals: {}, lines: [{ description: 'Work', quantity: 1, unitPrice: 10 }], ...draft },
+    schema, {
+      invoiceColumns: [{ id: 'N', type: 'Text', isFormula: numberType === 'formula' }, { id: 'C', type: 'Text' }],
+      lineColumns: [{ id: 'Inv', type: linkType }, { id: 'D', type: 'Text' }, { id: 'P', type: 'Numeric' }],
+    });
+
+  const later = plan('formula', 'Text', { rowId: null, number: '' });
+  eq('the plan names the number column for the executor', later.invoice.numberColumn, 'N');
+  eq('a new invoice numbered by formula: its lines wait for the number', later.lines.adds[0].Inv, '__INVOICE_NUMBER__');
+  eq('and the number column itself is not written', later.invoice.fields.N, undefined);
+  eq('a stored number links as it always did', plan('stored', 'Text', { rowId: null, number: 'RE-7' }).lines.adds[0].Inv, 'RE-7');
+  eq('an existing formula number is already known', plan('formula', 'Text', { rowId: 4, number: 'RE-10001-3' }).lines.adds[0].Inv, 'RE-10001-3');
+  eq('a reference link waits for the row id, not the number', plan('formula', 'Ref:T', { rowId: null, number: '' }).lines.adds[0].Inv, '__INVOICE_ROW_ID__');
+  const src = (await import('node:fs')).readFileSync(_resolve(ROOT, 'src/grist/writer.js'), 'utf8');
+  ok('the writer reads the number back before linking the lines', /needsNumber\(plan\.lines\)/.test(src) && /readCell\(inv\.table, rowId, inv\.numberColumn\)/.test(src));
+  ok('and refuses to link them to nothing', /has not produced a number yet/.test(src));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -63,7 +63,25 @@ export async function pdfBytesFor(draft, settings = {}, opts = {}) {
   if (wantsEmbeddedFonts(draft, settings, opts)) {
     try { fonts = await loadEmbeddedFonts(); } catch (e) { console.warn('[Invoice Studio] embedded fonts unavailable, using the standard fonts', e); }
   }
-  return invoiceToPdf(draft, settings, { ...opts, fonts });
+  return invoiceToPdf(await withPdfLogo(draft, settings), settings, { ...opts, fonts });
+}
+
+/**
+ * The draft with the logo the PDF should embed.
+ *
+ * The stored JPEG is flattened onto white, right for a mark drawn for paper. A light mark with
+ * the plate turned off would vanish into a white sheet, so for that one case the PNG is
+ * flattened onto the accent — the band it sits on everywhere else — just for this file.
+ */
+async function withPdfLogo(draft, settings) {
+  const light = !!(settings.sender && settings.sender.logoLight);
+  const png = String(draft?.sender?.logoData || '');
+  if (settings.logoPlate !== false || !light || !png.startsWith('data:image/png') || typeof document === 'undefined') return draft;
+  try {
+    const { flattenLogo } = await import('../settings/logo.js');
+    const jpeg = await flattenLogo(png, settings.accent || '#14509b');
+    return jpeg ? { ...draft, sender: { ...draft.sender, logoJpeg: jpeg } } : draft;
+  } catch { return draft; }
 }
 
 export async function downloadPdf(draft, settings = {}, opts = {}) {

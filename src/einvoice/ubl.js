@@ -101,8 +101,9 @@ export function toUbl(m) {
     el('cac:PaymentMeans',
       el('cbc:PaymentMeansCode', m.payment.code),
       opt('cbc:PaymentID', m.payment.reference),
-      m.payment.iban ? el('cac:PayeeFinancialAccount',
-        el('cbc:ID', m.payment.iban),
+      // BT-84 is the IBAN where there is one, else the country's own account identifier.
+      (m.payment.iban || m.payment.account) ? el('cac:PayeeFinancialAccount',
+        el('cbc:ID', m.payment.iban || m.payment.account),
         opt('cbc:Name', m.payment.accountHolder),
         m.payment.bic ? el('cac:FinancialInstitutionBranch', el('cbc:ID', m.payment.bic)) : null,
       ) : null,

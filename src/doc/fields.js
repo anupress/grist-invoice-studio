@@ -12,6 +12,7 @@
 
 import { documentKind } from './kinds.js';
 import { languageOf, labels, localiseKind, fillLabel } from './lang.js';
+import { isWindowed } from './layouts.js';
 
 /**
  * Work out what to show, from the draft and the settings together.
@@ -82,6 +83,14 @@ export function fieldsFor(draft, settings = {}, overrides = {}) {
     // details on a receipt invites a second payment.
     showPaymentDetails: kind.demandsPayment && !!String(settings.paymentDetails || '').trim(),
     showSignature: !!overrides.showSignature,
+    // The ledger layout numbers its lines the way a shop invoice does, and says "(net)" and
+    // "(gross)" on its subtotal and total while tax is being charged — and so do the DIN sheets,
+    // because a German invoice numbers its positions and says netto and brutto. Both are
+    // presentation, but they live here because the columns and the total labels are read from
+    // here by the screen, the PDF and the email alike — a position column the PDF did not know
+    // about would put the header and the rows out of step.
+    showPosition: isWindowed(draft?.layout) && kind.lineMode !== 'documents',
+    showNetGross: isWindowed(draft?.layout) && charging,
     // The document this one refers to — the invoice a credit note corrects, the quote an invoice
     // was raised from. Shown whenever it is known, because that is the link an accounts department
     // matches on.
@@ -117,6 +126,9 @@ export function lineColumns(fields) {
   const kind = fields.kind;
   const C = (fields.L || labels('en')).columns;
   const cols = [{ id: 'description', label: C.description, numeric: false }];
+  // The running number first, before anything else: "1, 2, 3" down the left edge is how a reader
+  // and a supplier refer to a line on the phone.
+  if (fields.showPosition) cols.unshift({ id: 'position', label: C.position || '#', numeric: false });
 
   if (fields.showHsn) cols.push({ id: 'hsn', label: C.hsn, numeric: false });
   if (kind.lineMode === 'documents') {
@@ -140,11 +152,14 @@ export function lineColumns(fields) {
 export function totalLabels(fields, totals = {}) {
   const L = fields.L || labels('en');
   const stock = (v, english, word) => (v && v !== english ? v : word);
+  // "(net)" and "(gross)" only where tax sits between the two lines; without tax they would
+  // claim a difference the numbers do not show.
+  const qualify = (word, how) => (fields.showNetGross && L[how] ? `${word} (${L[how]})` : word);
   return {
-    subtotal: L.subtotal,
+    subtotal: qualify(L.subtotal, 'net'),
     discount: stock(totals.discounts?.[0]?.label, 'Discount', L.discount),
     shipping: stock(totals.shipping?.label, 'Shipping', L.shipping),
-    total: fields.kind.id === 'credit_note' ? L.totalCredit : L.total,
+    total: qualify(fields.kind.id === 'credit_note' ? L.totalCredit : L.total, 'gross'),
     paid: L.paid,
   };
 }

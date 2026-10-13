@@ -16,8 +16,22 @@ let pending = null;
 
 const FILES = { regular: 'DejaVuSans-Regular.ttf', bold: 'DejaVuSans-Bold.ttf' };
 
+// Where the faces live, when that is not beside the page. The widget is served as its own page
+// with fonts/ next to it, so the page's own base is right; the web version is a script loaded into
+// somebody's article, where the page's base is the article's URL and the fonts are wherever the
+// plugin put its assets. Setting this wrong loses no document — the PDF falls back to the standard
+// fonts — but it loses the letters those fonts cannot draw, which is most of central Europe.
+let assetBase = null;
+
+/** Point the loader at the directory that contains `fonts/`. Clears anything already loaded. */
+export function setAssetBase(url) {
+  if (!url) return;
+  assetBase = String(url);
+  pending = null;
+}
+
 function fontUrl(name) {
-  const base = typeof document !== 'undefined' ? document.baseURI : 'http://localhost/';
+  const base = assetBase || (typeof document !== 'undefined' ? document.baseURI : 'http://localhost/');
   return new URL(`fonts/${name}?v=${APP_VERSION}`, base).href;
 }
 

@@ -108,8 +108,10 @@ export function formFields(kind, roles = {}, columns = []) {
  * This is the difference between a form that works on our four tables and a form that works on
  * anybody's: a business that added Supplier, Colour or "Sold by weight" fills those in here.
  */
-export function extraFields(kind, roles = {}, columns = []) {
-  const used = new Set(Object.values(roles || {}).filter(Boolean));
+export function extraFields(kind, roles = {}, columns = [], { exclude = [] } = {}) {
+  // `exclude` is for columns a role deliberately does not claim — the official template's empty
+  // Text Total, which the schema withholds on purpose and nobody should be invited to fill in.
+  const used = new Set([...Object.values(roles || {}).filter(Boolean), ...(exclude || [])]);
   const out = [];
   for (const col of columns || []) {
     if (!col || !col.id || used.has(col.id) || col.isFormula) continue;

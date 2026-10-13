@@ -10,7 +10,7 @@
 // registration thresholds differ, and a business's own circumstances decide more than its country
 // does. The UI states this wherever a preset is applied.
 
-export const RATES_UPDATED = '2026-08';
+export const RATES_UPDATED = '2026-09';
 
 const row = (r) => ({
   country: '*', state: '*', postcode: '', city: '',
@@ -143,6 +143,76 @@ const WORLD_RATES = [
   { country: 'AR', standard: 21, reduced: 10.5, name: 'IVA' },
   { country: 'CL', standard: 19, name: 'IVA' },
   { country: 'CO', standard: 19, reduced: 5, name: 'IVA' },
+
+  // Added 2026-09. Headline rates as published by each tax authority; the same rule applies as
+  // above — one row where one row is the truth, and nothing where the truth needs a table. A
+  // country with no VAT or GST at all (Hong Kong, Qatar, Kuwait, the Cayman Islands…) is not a
+  // zero-rate row here: "No tax at all" is the setting for them.
+  // Europe outside the EU
+  { country: 'LI', standard: 8.1, reduced: 2.6, name: 'MWST' },
+  { country: 'MC', standard: 20, reduced: 5.5, name: 'TVA' },
+  { country: 'AD', standard: 4.5, name: 'IGI' },
+  { country: 'AL', standard: 20, name: 'TVSH' },
+  { country: 'BA', standard: 17, name: 'PDV' },
+  { country: 'ME', standard: 21, reduced: 7, name: 'PDV' },
+  { country: 'MK', standard: 18, reduced: 5, name: 'ДДВ' },
+  { country: 'XK', standard: 18, reduced: 8, name: 'TVSH' },
+  { country: 'MD', standard: 20, reduced: 8, name: 'TVA' },
+  { country: 'GE', standard: 18, name: 'დღგ' },
+  { country: 'AM', standard: 20, name: 'ԱԱՀ' },
+  { country: 'AZ', standard: 18, name: 'ƏDV' },
+  { country: 'JE', standard: 5, name: 'GST' },
+  { country: 'IM', standard: 20, reduced: 5, name: 'VAT' },
+  // Asia
+  { country: 'UZ', standard: 12, name: 'QQS' },
+  { country: 'PK', standard: 18, name: 'Sales Tax' },
+  { country: 'BD', standard: 15, name: 'VAT' },
+  { country: 'LK', standard: 18, name: 'VAT' },
+  { country: 'NP', standard: 13, name: 'VAT' },
+  { country: 'TW', standard: 5, name: '營業稅' },
+  { country: 'MN', standard: 10, name: 'НӨАТ' },
+  { country: 'KH', standard: 10, name: 'VAT' },
+  { country: 'LA', standard: 10, name: 'VAT' },
+  // Middle East and North Africa
+  { country: 'JO', standard: 16, name: 'GST' },
+  { country: 'LB', standard: 11, name: 'VAT' },
+  { country: 'OM', standard: 5, name: 'VAT' },
+  { country: 'BH', standard: 10, name: 'VAT' },
+  { country: 'TN', standard: 19, reduced: 7, name: 'TVA' },
+  { country: 'DZ', standard: 19, reduced: 9, name: 'TVA' },
+  // Sub-Saharan Africa
+  { country: 'GH', standard: 15, name: 'VAT' },
+  { country: 'TZ', standard: 18, name: 'VAT' },
+  { country: 'UG', standard: 18, name: 'VAT' },
+  { country: 'RW', standard: 18, name: 'VAT' },
+  { country: 'ET', standard: 15, name: 'VAT' },
+  { country: 'ZM', standard: 16, name: 'VAT' },
+  { country: 'ZW', standard: 15, name: 'VAT' },
+  { country: 'MZ', standard: 16, name: 'IVA' },
+  { country: 'BW', standard: 14, name: 'VAT' },
+  { country: 'NA', standard: 15, name: 'VAT' },
+  { country: 'MU', standard: 15, name: 'VAT' },
+  { country: 'SN', standard: 18, reduced: 10, name: 'TVA' },
+  { country: 'CI', standard: 18, reduced: 9, name: 'TVA' },
+  { country: 'CM', standard: 19.25, name: 'TVA' },
+  // Latin America and the Caribbean
+  { country: 'PE', standard: 18, name: 'IGV' },
+  { country: 'UY', standard: 22, reduced: 10, name: 'IVA' },
+  { country: 'PY', standard: 10, reduced: 5, name: 'IVA' },
+  { country: 'BO', standard: 13, name: 'IVA' },
+  { country: 'EC', standard: 15, reduced: 5, name: 'IVA' },
+  { country: 'VE', standard: 16, name: 'IVA' },
+  { country: 'CR', standard: 13, name: 'IVA' },
+  { country: 'PA', standard: 7, name: 'ITBMS' },
+  { country: 'GT', standard: 12, name: 'IVA' },
+  { country: 'DO', standard: 18, name: 'ITBIS' },
+  { country: 'JM', standard: 15, name: 'GCT' },
+  { country: 'TT', standard: 12.5, name: 'VAT' },
+  { country: 'BS', standard: 10, name: 'VAT' },
+  { country: 'BB', standard: 17.5, name: 'VAT' },
+  // Oceania
+  { country: 'FJ', standard: 15, name: 'VAT' },
+  { country: 'PG', standard: 10, name: 'GST' },
 ];
 
 function worldVAT() {

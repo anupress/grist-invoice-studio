@@ -25,7 +25,10 @@
 
 /* ---- masthead: shared pieces ---------------------------------------------------------------- */
 .inv-brand { display: flex; align-items: center; gap: 14px; }
-.inv-brand__logo { max-height: 46px; max-width: 180px; object-fit: contain; }
+.inv-brand__logo { max-height: var(--logo-h, 46px); max-width: calc(var(--logo-h, 46px) * 4); object-fit: contain; }
+/* The white plate behind a mark on a coloured ground: a class now, because a mark drawn light for
+ * a dark letterhead wants no plate at all. layouts.js adds it while the setting says so. */
+.inv-band__logo.is-plated, .inv-strip__logo.is-plated, .inv-slate .inv-brand__logo.is-plated { background: #fff; padding: 4px 8px; border-radius: 4px; }
 .inv-brand__name { font-size: 21px; font-weight: 600; letter-spacing: -.015em; line-height: 1.2; }
 .inv-brand__web { font-size: 13px; color: var(--doc-muted); margin-top: 2px; }
 
@@ -87,7 +90,7 @@
 }
 /* On the coloured band a transparent PNG may vanish and a flattened JPEG is a white box; a
  * deliberate white plate behind either reads as a design choice instead of an accident. */
-.inv-band__logo { max-height: 44px; max-width: 200px; object-fit: contain; background: #fff; padding: 4px 8px; border-radius: 4px; }
+.inv-band__logo { max-height: var(--logo-h, 44px); max-width: calc(var(--logo-h, 44px) * 4.5); object-fit: contain; }
 .inv-band__name { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
 .inv-band__meta {
   font-family: var(--font); font-size: 11px; font-weight: 700;
@@ -110,7 +113,7 @@
   font-family: var(--font-mono); font-size: 13px; color: var(--doc-muted);
   margin-top: 3px; display: flex; align-items: center; gap: 6px;
 }
-.inv-strip__logo { max-height: 48px; max-width: 190px; object-fit: contain; background: #fff; padding: 4px 8px; border-radius: 4px; }
+.inv-strip__logo { max-height: var(--logo-h, 48px); max-width: calc(var(--logo-h, 48px) * 4); object-fit: contain; }
 .inv-strip__initials {
   width: 48px; height: 48px; flex: none; border-radius: 4px;
   background: var(--doc-accent); color: #fff;
@@ -221,7 +224,7 @@
 }
 .inv-slate .inv-brand__name { color: #fff; }
 .inv-slate .inv-brand__web { color: rgba(255, 255, 255, .65); }
-.inv-slate .inv-brand__logo { background: #fff; padding: 4px 8px; border-radius: 4px; }
+/* (the slate's plate is the shared .is-plated rule above) */
 .inv-slate .inv-title__word { color: rgba(255, 255, 255, .72); }
 .inv-slate .inv-title__number { color: #fff; }
 
@@ -255,6 +258,51 @@
 .inv-head.is-centred .inv-title__number { justify-content: center; }
 .inv-cent__rule { width: 56px; border-top: 2px solid var(--doc-accent); margin: 10px 0 6px; }
 
+/* ---- masthead: ledger — the shop invoice ------------------------------------------------------
+ * The client where a window envelope shows it, the mark opposite, a ruled grid of dates and
+ * numbers, and the document's word as a plain heading. No colour: the accent is kept for nothing
+ * here, because the reference this copies has none and reads as an invoice from across a room. */
+.inv-head.is-ledger { display: flex; flex-direction: column; gap: 20px; }
+.inv-ledger__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.inv-ledger__window { min-width: 0; padding-top: 4px; }
+.inv-ledger__window .inv-party__label { margin-bottom: 8px; }
+.inv-ledger__brand { flex-direction: row-reverse; text-align: right; flex: none; max-width: 45%; }
+.inv-ledger__meta {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 24px;
+  padding: 14px 0; border-top: 1px solid var(--doc-rule); border-bottom: 1px solid var(--doc-rule);
+}
+.inv-ledger__meta .inv-meta__label { margin-bottom: 2px; }
+.inv-ledger__meta .inv-meta__value { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.inv-ledger__meta .inv-meta.is-total .inv-meta__value { font-size: 17px; color: var(--doc-ink); }
+.inv-ledger__title { display: flex; align-items: center; gap: 12px; }
+.inv-ledger__word { font-family: var(--font); font-size: 18px; font-weight: 700; color: var(--doc-ink); }
+.inv-ledger__title .inv-status { margin-top: 0; }
+/* The table rules the way a ledger is ruled: a heavy line over the headings, one under them, one
+ * under the last row, and nothing between the rows. The running number keeps to its own width. */
+.inv-doc.is-ledger .inv-lines th { border-top: 2px solid var(--doc-ink); border-bottom: 1px solid var(--doc-ink); color: var(--doc-ink); padding-top: 9px; padding-bottom: 7px; }
+.inv-doc.is-ledger .inv-lines td { border-bottom: 0; padding: 7px 12px; }
+.inv-doc.is-ledger .inv-lines tbody tr:last-child td { border-bottom: 2px solid var(--doc-ink); padding-bottom: 10px; }
+.inv-doc.is-ledger .inv-lines tbody tr:first-child td { padding-top: 10px; }
+.inv-lines th.is-pos, .inv-lines td.is-pos { width: 1%; white-space: nowrap; color: var(--doc-muted); font-variant-numeric: tabular-nums; }
+.inv-ledger__close { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.inv-ledger__close .inv-totals { margin-left: auto; }
+/* The sender's foot, three columns with a bar down the left of each, the way commercial
+ * stationery prints its registrations: who and where, the numbers, how to reach them. */
+.inv-colophon {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+  padding-top: 14px; border-top: 1px solid var(--doc-rule);
+  font-size: 11px; line-height: 1.45; color: var(--doc-muted); overflow-wrap: anywhere;
+}
+.inv-colophon__col { border-left: 2px solid var(--doc-ink); padding-left: 10px; }
+.inv-colophon__name { color: var(--doc-ink); font-weight: 600; }
+
+@media (max-width: 700px) {
+  .inv-ledger__top { flex-direction: column; }
+  .inv-ledger__brand { flex-direction: row; text-align: left; max-width: none; }
+  .inv-ledger__close { flex-direction: column; }
+  .inv-colophon { grid-template-columns: 1fr; }
+}
+
 @media print {
   /* The card edge is gone in print, so there is nothing to bleed past: zero the bleed and give
      the blocks their own modest inset instead. */
@@ -266,7 +314,7 @@
   /* What a page break may not run through: a line, the totals, an address block, a footer
      item. The column headings repeat when the lines run onto a second page. */
   .inv-lines thead { display: table-header-group; }
-  .inv-lines tr, .inv-head, .inv-parties, .inv-totals, .inv-foot__item, .inv-pay, .inv-legend {
+  .inv-lines tr, .inv-head, .inv-parties, .inv-totals, .inv-foot__item, .inv-pay, .inv-legend, .inv-colophon {
     break-inside: avoid; page-break-inside: avoid;
   }
 }
@@ -319,6 +367,8 @@
 
 /* ---- the legal line ---------------------------------------------------------------------------------- */
 .inv-legal { margin: 0; text-align: center; font-size: 11px; line-height: 1.45; color: var(--doc-muted); }
+/* Smaller again than the legal line, and last: it is a credit, not a message to the client. */
+.inv-credit { margin: 6px 0 0; text-align: center; font-size: 9.5px; line-height: 1.4; color: var(--doc-muted); opacity: .75; }
 
 /* ---- line thumbnails --------------------------------------------------------------------------
  * The column exists only when at least one line has a picture, so a document without pictures is
@@ -331,3 +381,88 @@
 }
 [data-paper^="receipt"] .inv-lines th.is-img, [data-paper^="receipt"] .inv-lines td.is-img { width: 30px; padding-right: 4px; }
 [data-paper^="receipt"] .inv-lines__img { width: 24px; height: 24px; }
+
+/* ---- masthead: DIN 5008 — the German business letter ----------------------------------------------
+ * Everything the standard fixes is fixed here in millimetres: the address field 20mm from the left
+ * edge and 45mm (Form B) or 27mm (Form A) from the top, 85 × 45mm, which is what puts it behind the
+ * window of a DIN lang envelope; the information block at 125mm; the subject two lines (8.46mm)
+ * below the field; text at 25mm with a 20mm right margin; fold marks at 105 and 210mm (87 and 192
+ * on Form A) and the punch mark at 148.5mm. The numbers themselves are DIN in doc/layouts.js.
+ *
+ * One millimetre is --mm. On screen it is a 210th of the document's width — a container query unit,
+ * so the preview is the sheet at whatever scale fits — and in print it is a millimetre. --din-y0 is
+ * how far below the paper's top edge the document begins: nothing on screen, the printing frame's
+ * top margin on paper. Every vertical position subtracts it, so the field lands 45mm from the edge
+ * of the sheet and not 45mm from the edge of the margin.
+ *
+ * The masthead's own type is set in millimetres too, because its zones are: six address lines at
+ * the standard's 4.23mm pitch fill the 27.3mm address zone exactly, at any scale. */
+.inv-doc.is-din5008a, .inv-doc.is-din5008b {
+  container-type: inline-size;
+  --mm: calc(100cqw / 210);
+  --din-y0: 0px;
+  position: relative;
+  padding: 0 0 calc(12 * var(--mm));
+  gap: calc(6 * var(--mm));
+}
+.inv-doc.is-din5008b { --din-top: 45; --din-fold-1: 105; --din-fold-2: 210; }
+.inv-doc.is-din5008a { --din-top: 27; --din-fold-1: 87; --din-fold-2: 192; }
+/* The body keeps the letter's margins; the masthead places its own blocks. */
+.inv-doc.is-din5008a > *, .inv-doc.is-din5008b > * { margin-left: calc(25 * var(--mm)); margin-right: calc(20 * var(--mm)); }
+.inv-doc.is-din5008a > .inv-head, .inv-doc.is-din5008b > .inv-head { margin: 0; }
+.inv-head.is-din {
+  position: relative; display: flex; flex-direction: column;
+  padding: 0 calc(20 * var(--mm)) calc(2.5 * var(--mm)) calc(25 * var(--mm));
+}
+/* The letterhead: whatever height the form leaves above the address field. */
+.inv-din__top {
+  height: calc(var(--din-top) * var(--mm) - var(--din-y0));
+  display: flex; align-items: center; justify-content: flex-end; overflow: hidden;
+}
+.inv-din__top .inv-brand { flex-direction: row-reverse; text-align: right; gap: calc(3 * var(--mm)); }
+.inv-din__top .inv-brand__name { font-size: calc(5 * var(--mm)); }
+.inv-din__top .inv-brand__web { font-size: calc(3.2 * var(--mm)); }
+.inv-din__top .inv-brand__logo { max-height: min(var(--logo-h, 46px), calc(var(--din-top) * var(--mm) - var(--din-y0) - 3 * var(--mm))); }
+/* The address field, 5mm left of the text margin, and the information block beside it. */
+.inv-din__row { display: flex; justify-content: space-between; align-items: flex-start; margin-left: calc(-5 * var(--mm)); }
+.inv-din__window { width: calc(85 * var(--mm)); height: calc(45 * var(--mm)); flex: none; }
+.inv-din__return {
+  height: calc(5 * var(--mm)); display: flex; align-items: center;
+  font-family: var(--font); font-size: calc(2.2 * var(--mm)); line-height: 1; color: var(--doc-muted);
+  border-bottom: 1px solid var(--doc-rule);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.inv-din__remarks { height: calc(12.7 * var(--mm)); }
+.inv-din__recipient .inv-party__name, .inv-din__recipient .inv-party__line {
+  font-size: calc(3.5 * var(--mm)); line-height: calc(4.23 * var(--mm)); font-weight: 400;
+}
+.inv-din__recipient .inv-party__name { font-weight: 600; }
+.inv-din__info {
+  width: calc(65 * var(--mm)); flex: none; padding-top: calc(5 * var(--mm));
+  font-size: calc(3.3 * var(--mm)); line-height: calc(4.23 * var(--mm));
+}
+.inv-din__info .inv-meta { display: flex; justify-content: space-between; gap: calc(3 * var(--mm)); }
+.inv-din__info .inv-meta__label {
+  font-family: var(--font-doc); font-size: inherit; font-weight: 400; letter-spacing: 0; text-transform: none;
+  color: var(--doc-muted); white-space: nowrap;
+}
+.inv-din__info .inv-meta__value {
+  font-size: inherit; text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+/* The subject, two lines below the field, in the text margin. */
+.inv-din__subject {
+  margin-top: calc(8.46 * var(--mm)); display: flex; align-items: center; gap: calc(3 * var(--mm));
+  font-family: var(--font); font-weight: 700; font-size: calc(4 * var(--mm)); line-height: calc(4.23 * var(--mm));
+}
+.inv-din__subject .inv-status { margin: 0 0 0 auto; }
+/* Fold and punch marks, on the sheet's left edge, measured from the paper's top. */
+.inv-din__marks { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.inv-din__mark { position: absolute; left: 0; width: calc(5 * var(--mm)); border-top: 1px solid var(--doc-muted); opacity: .55; }
+.inv-din__mark--punch { width: calc(8 * var(--mm)); }
+@media print {
+  /* A real millimetre, and the frame's top margin subtracted from every position. The container
+   * is given up here: the positions no longer need it, and a contained block is one a printer
+   * may refuse to break across pages. */
+  .inv-doc.is-din5008a, .inv-doc.is-din5008b { container-type: normal; --mm: 1mm; --din-y0: var(--print-inset, 14mm); padding-bottom: 10mm; }
+}

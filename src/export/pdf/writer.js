@@ -288,13 +288,19 @@ export class PdfWriter {
 
     // 2: the page tree
     startObject(pagesNum);
-    put(`<< /Type /Pages /Kids [ ${pageNums.map((p) => `${p.page} 0 R`).join(' ')} ] /Count ${this.pages.length} >>\n`);
+    // Object references are built by concatenation, never as a template literal nested inside
+    // another one. A site's JS minifier (LiteSpeed Cache's, on anupress.com) re-minifies the
+    // bundle and strips the space after `}` inside a nested template, which turned "3 0 R" into
+    // "30 R" and broke every PDF the page built. Concatenation gives such a minifier nothing to
+    // misread.
+    const kids = pageNums.map((p) => p.page + ' 0 R').join(' ');
+    put('<< /Type /Pages /Kids [ ' + kids + ' ] /Count ' + this.pages.length + ' >>\n');
     endObject();
 
     // each page, then its content stream
     const fontRes = this.fonts.resourceEntries(fontFirst);
     const imageRes = this.images.length
-      ? ` /XObject << ${this.images.map((im, i) => `/${im.key} ${imageFirst + i} 0 R`).join(' ')} >>`
+      ? ' /XObject << ' + this.images.map((im, i) => '/' + im.key + ' ' + (imageFirst + i) + ' 0 R').join(' ') + ' >>'
       : '';
     this.pages.forEach((ops, i) => {
       const { page, content } = pageNums[i];

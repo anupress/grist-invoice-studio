@@ -29,7 +29,8 @@ import { renderSettingsPanel } from './settings/panel.js';
 import { templatesBySector, findTemplate as findTradeTemplate, applyTemplate, templateSummary } from './templates/index.js';
 import { starterTablesFor, SAMPLE_LINES, sampleBusinessFor } from './templates/starter.js';
 import { removeSampleRows, saveRecord, removeRecord, uploadAttachment } from './grist/writer.js';
-import { formFields, readRecord, recordPlan, recordName, ADDABLE } from './model/records.js';
+import { formFields, readRecord, recordPlan, recordName, ADDABLE, extraFields } from './model/records.js';
+import { SORTS, DEFAULT_SORT, isSort, sortInvoices, filterInvoices, yearsOf } from './model/listing.js';
 import { asOptions, COUNTRIES, UNITS, taxClassesFor } from './model/suggest.js';
 import { renderRecordForm } from './compose/record-form.js';
 import { ROLES_BY_PART } from './model/schema.js';
@@ -40,49 +41,35 @@ import { assignNumber } from './money/numbering.js';
 import { renderDocument, docDate } from './doc/render.js';
 import { DOCUMENT_KINDS, documentKind, kindFromCell } from './doc/kinds.js';
 import { languageOf, localiseKind } from './doc/lang.js';
-import { LAYOUTS } from './doc/layouts.js';
+import { LAYOUTS, isDin } from './doc/layouts.js';
 import { renderComposer } from './compose/composer.js';
 import { field, section } from './compose/ui.js';
-import { buildPreset, findPreset, simpleRate, RATES_UPDATED } from './money/tax/rates.js';
-import { exemptionFor } from './money/tax/exemptions.js';
+import { RATES_UPDATED } from './money/tax/rates.js';
+import { moneySettings, settingsFrom } from './settings/runtime.js';
 import { formatMoney } from './money/currency.js';
 import { APP_VERSION } from './version.js';
 
 
-/**
- * Settings, with the tax table built from whichever preset is selected.
- *
- * The preset is stored by id and the rows rebuilt from it, rather than the rows being stored: a
- * saved copy of a rate table is a snapshot that silently goes stale, and the id says what the
- * business actually meant.
- */
-function moneySettings(money) {
-  // Simple mode is one typed rate, and it becomes an ordinary wildcard rate row so it goes through
-  // exactly the same engine as a twenty-seven-country table. No second code path means no second
-  // set of rounding behaviour to disagree with the first.
-  if (money.taxMode === 'simple') {
-    return {
-      ...money,
-      taxRates: simpleRate({ rate: money.simpleRate, name: money.simpleName }),
-      taxPresetLabel: `${Number(money.simpleRate) || 0}% ${money.simpleName || 'Tax'}, everywhere`,
-    };
-  }
-  if (money.taxMode === 'none') {
-    return { ...money, taxEnabled: false, taxRates: [], taxPresetLabel: null };
-  }
-
-  const preset = money.taxPreset ? findPreset(money.taxPreset) : null;
-  return {
-    ...money,
-    taxRates: preset ? buildPreset(money.taxPreset, money) : (money.taxRates || []),
-    taxPresetLabel: preset ? preset.label : (money.taxRates || []).length ? 'Your own rate table' : null,
-  };
+// The invoice list's order, remembered in this browser rather than in the document: it is how
+// one person likes to read the list, not a fact about the business. Storage can be refused
+// (a private window, a locked-down profile), and a list that cannot remember still has to draw.
+const SORT_KEY = 'invoiceStudio.listSort';
+function readSort() {
+  try { const v = localStorage.getItem(SORT_KEY); return isSort(v) ? v : DEFAULT_SORT; } catch { return DEFAULT_SORT; }
+}
+function writeSort(v) {
+  try { localStorage.setItem(SORT_KEY, v); } catch { /* nowhere to keep it; the session has it */ }
 }
 
 const app = {
   provider: null,
   schema: null,
   products: null,
+  // How the invoice list is ordered, and what it is narrowed to. The filters are for the session
+  // only, on purpose: a list that opens already narrowed to last year is a list that lies.
+  sort: readSort(),
+  listStatus: '',
+  listYear: '',
   // What is persisted, in the shape settings/defaults.js describes. The runtime view every other
   // module wants is computed from it by settingsNow() — one stored shape, one runtime shape, and a
   // single place that converts between them.
@@ -134,27 +121,6 @@ const canWrite = () => (app.live ? app.access === 'full' : true);
  * setting does not appear to be taking effect.
  */
 function settingsNow() { return settingsFrom(app.stored, app.kind, app.layout); }
-
-/** The runtime settings for a stored shape — settingsNow() over something other than app.stored. */
-function settingsFrom(st, kind, layout) {
-  return {
-    ...st.document,
-    ...st.delivery,
-    sender: st.business,
-    money: moneySettings(st.money),
-    // A standing exemption — the small-business scheme — reaches the totals engine as the reason
-    // no tax is charged, so it is printed rather than merely absent.
-    exempt: exemptionFor(st.money),
-    einvoice: st.einvoice,
-    // The saved message wordings ride along whole — buildMessage layers them under whatever is
-    // typed for one send.
-    messages: st.messages,
-    numberFormat: numberFormatFor(st, kind),
-    kind,
-    // The bar's layout chooser is a per-session try-it-out; the stored one is the business's choice.
-    layout: layout || st.document.layout,
-  };
-}
 
 /**
  * The settings the sample document is drawn with while the trade is still being chosen.
@@ -314,9 +280,11 @@ function startCompose(row) {
     app.draft.lines = app.draft.lines.filter((l) => l.itemised);
     if (!app.draft.lines.length) app.draft.lines = [blank()];
     attachLineRowIds(app.draft, row);
+    app.draft.extra = readExtras(row);
   } else {
     app.draft = emptyDraft(app.kind, settings);
     app.draft.client = { name: '' };
+    app.draft.extra = readExtras(null);
   }
   app.draft = recalc(app.draft, settings);
   app.mode = 'compose';
@@ -324,6 +292,62 @@ function startCompose(row) {
 }
 
 const blank = () => ({ description: '', quantity: 1, unitPrice: 0, amount: 0 });
+
+/**
+ * The invoice table's own columns, for the composer's "Also in this table" section.
+ *
+ * Every column no role claims and no formula fills: a business's Konto, its project code, its
+ * cost centre. The official template's empty Text Total is withheld along with them, because
+ * the schema withholds it on purpose and nobody should be invited to type into it.
+ */
+function invoiceExtras() {
+  const s = app.schema;
+  if (!s?.invoice) return [];
+  return extraFields('invoice', s.invoice.roles, app.provider.columns(s.invoice.table) || [], {
+    exclude: Object.values(s.invoice.unreliable || {}),
+  });
+}
+
+/** What a row holds in those columns, by column id, as the composer's controls want them. */
+function readExtras(row) {
+  const out = {};
+  for (const f of invoiceExtras()) {
+    const v = row ? row[f.colId] : undefined;
+    out[f.colId] = v === undefined || v === null ? (f.type === 'bool' ? false : '') : v;
+  }
+  return out;
+}
+
+/**
+ * The id of the invoice table's Number column when it is a formula — a number Grist works out
+ * as the row lands, which is the document's own numbering and not ours to assign over.
+ */
+function numberFormulaColumn() {
+  const s = app.schema;
+  const colId = s?.invoice?.roles?.number;
+  if (!colId) return null;
+  const col = (app.provider.columns(s.invoice.table) || []).find((c) => c.id === colId);
+  return col && col.isFormula ? colId : null;
+}
+
+/**
+ * What the numbering tokens can be filled from — see money/numbering.js.
+ *
+ * Every column of the client's record as `client.<column>`, every column of the invoice row
+ * typed in the composer under its own id, and the document's reference. The client's record is
+ * read whole rather than through roles, because the column a business numbers by — its ledger
+ * account, its debtor number — is precisely the one no role knows about.
+ */
+function numberTokenValues(draft) {
+  const values = { reference: draft.reference || '' };
+  for (const [col, v] of Object.entries(draft.extra || {})) values[col] = v;
+  const s = app.schema;
+  if (s?.client && draft.clientRef != null) {
+    const row = (app.provider.records(s.client.table) || []).find((r) => r.id === draft.clientRef);
+    if (row) for (const [k, v] of Object.entries(row)) if (k !== 'id') values['client.' + k] = v;
+  }
+  return values;
+}
 
 /**
  * Remember which table row each line came from.
@@ -382,14 +406,18 @@ async function save() {
   const s = app.schema;
 
   // A number is assigned once, here, at the moment the document becomes real — and never
-  // recomputed afterwards. See money/numbering.js.
-  if (!String(app.draft.number || '').trim()) {
+  // recomputed afterwards. See money/numbering.js. Unless the document's own Number column is a
+  // formula: then Grist numbers the row as it lands, and the number is read back below rather
+  // than invented here and refused there.
+  const formula = numberFormulaColumn();
+  if (!String(app.draft.number || '').trim() && !formula) {
     const assigned = assignNumber('', {
       existingNumbers: existingNumbers(s, app.provider),
       // Per kind: a quote and an invoice raised the same day are different documents and must not
       // share a number.
       format: numberFormatFor(app.stored, app.draft.kind),
       date: new Date(app.draft.issued || Date.now()),
+      values: numberTokenValues(app.draft),
     });
     app.draft.number = assigned.number;
     for (const w of assigned.warnings || []) toast(w, 'warn');
@@ -402,11 +430,22 @@ async function save() {
   const res = await savePlan(plan, app.provider, { live: app.live });
   app.busy = false;
 
-  if (!res.ok) { toast(res.error || 'Could not save.', 'err'); render(); return; }
+  if (!res.ok) {
+    // The header can land and the lines fail. The draft keeps the new row's id, so the next Save
+    // updates that invoice rather than adding a second one beside it.
+    if (res.rowId != null && app.draft.rowId == null) { app.draft.rowId = res.rowId; app.currentRowId = res.rowId; rescan(); }
+    toast(res.error || 'Could not save.', 'err'); render(); return;
+  }
 
   app.draft.rowId = res.rowId;
   app.currentRowId = res.rowId;
   rescan();
+  // The number Grist worked out, now that the row exists. savePlan re-read the table.
+  if (formula) {
+    const row = (app.provider.records(s.invoice.table) || []).find((r) => r.id === res.rowId);
+    const n = row ? String(row[formula] ?? '').trim() : '';
+    if (n) app.draft.number = n;
+  }
   // Anything that could not be kept is said once, on the way out, rather than buried in a panel
   // nobody opens — a purchase-order number typed into a document with nowhere to put it is
   // exactly the kind of thing a person needs to hear about immediately.
@@ -602,6 +641,9 @@ function paintPreview() {
   // business keeps its product photos, and an invoice line for that product should show it.
   if (app.products) draft = { ...draft, lines: borrowCatalogueImages(draft.lines, app.products, app.provider) };
   app.painted = draft;
+  // A DIN sheet measures from the paper's edge; the print stylesheet reads this to give it the
+  // whole width of the page instead of the frame's side margins.
+  document.documentElement.toggleAttribute('data-din', isDin(draft.layout));
   previewHost.replaceChildren(renderDocument(draft, settings, { resolveImage }));
 }
 
@@ -642,9 +684,19 @@ function sampleDraft(settings) {
   return recalc(draft, settings);
 }
 
+// What the last render drew, so the next one can tell a redraw of the same thing from a change.
+let shown = { row: null, mode: null, list: null, transient: null };
+
 function render() {
   const host = root();
   if (!host) return;
+  // Where the person had scrolled to, taken before the page is rebuilt from nothing. Rebuilding
+  // is what makes every state change a plain redraw — and it is also what used to throw the
+  // invoice list back to its top on every click: choose the last of a thousand rows and the
+  // list scrolled away from it. So the list's place is kept across a redraw, and the chosen row
+  // is brought into view when it is a different one. The document's place is kept when it is
+  // the same document redrawn; a different document opens at its top.
+  const keep = scrollState(host);
   clear(host);
   previewHost = el('div', { class: 'studio-page' });
 
@@ -660,6 +712,40 @@ function render() {
   // Settings button that does nothing.
   if (drawer) setTimeout(() => drawer.classList.add('is-open'), 10);
   paintPreview();
+  restoreScroll(host, keep);
+}
+
+function scrollState(host) {
+  const list = host.querySelector('.studio-side__list');
+  const body = host.querySelector('.studio-body');
+  return { listTop: list ? list.scrollTop : 0, bodyTop: body ? body.scrollTop : 0, ...shown };
+}
+
+function restoreScroll(host, keep) {
+  const sameDocument = keep.row === app.currentRowId && keep.mode === app.mode && keep.transient === app.transient;
+  const list = host.querySelector('.studio-side__list');
+  if (list) {
+    list.scrollTop = keep.list === app.list ? keep.listTop : 0;
+    const active = list.querySelector('.is-active');
+    if (active && (keep.row !== app.currentRowId || keep.list !== app.list)) reveal(active, list);
+  }
+  const body = host.querySelector('.studio-body');
+  if (body) body.scrollTop = sameDocument ? keep.bodyTop : 0;
+  shown = { row: app.currentRowId, mode: app.mode, list: app.list, transient: app.transient };
+}
+
+/**
+ * Bring a row into the list's view, touching no other scroll container.
+ *
+ * Not scrollIntoView: inside a Grist iframe that also scrolls the page around the widget, and a
+ * widget that yanks the host page about every time a document is chosen is a widget people
+ * remove.
+ */
+function reveal(row, list) {
+  const r = row.getBoundingClientRect();
+  const box = list.getBoundingClientRect();
+  if (r.top >= box.top && r.bottom <= box.bottom) return;
+  list.scrollTop += r.top - box.top - (box.height - r.height) / 2;
 }
 
 /**
@@ -702,14 +788,20 @@ function renderSidebar() {
   const listHost = el('nav', { class: 'studio-side__list', 'aria-label': LISTS.find((l) => l.id === which).label });
   const all = which === 'invoices' ? listInvoices(app.schema, app.provider) : listRecords(which === 'clients' ? 'client' : 'product');
   const kind = which === 'clients' ? 'client' : 'product';
+  // How many are shown, and of how many: "12 of 1,243" says the list is narrowed; "1,243" says it is not.
+  const count = el('span', { class: 'studio-side__count', text: String(all.length) });
 
   const paint = () => {
     const q = app.filter.trim().toLowerCase();
     clear(listHost);
     if (which === 'invoices') {
-      const rows = q ? all.filter((i) => (i.number + ' ' + i.client).toLowerCase().includes(q)) : all;
+      // Ordered as asked — newest first unless told otherwise — and narrowed by the search, the
+      // status and the year. See model/listing.js.
+      const rows = filterInvoices(sortInvoices(all, app.sort), { query: app.filter, status: app.listStatus, year: app.listYear });
+      const narrowed = q || app.listStatus || app.listYear;
+      count.textContent = narrowed ? `${rows.length} of ${all.length}` : String(all.length);
       if (!rows.length) {
-        listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : (app.schema?.invoice ? 'No invoices yet. New starts one.' : 'No invoice table yet. Set the document up first.') }));
+        listHost.appendChild(el('p', { class: 'studio-side__empty', text: narrowed ? 'Nothing matches.' : (app.schema?.invoice ? 'No invoices yet. New starts one.' : 'No invoice table yet. Set the document up first.') }));
         return;
       }
       for (const i of rows) {
@@ -768,6 +860,24 @@ function renderSidebar() {
   });
   search.addEventListener('input', () => { app.filter = search.value; paint(); });
 
+  // The order, the status and the year, under the search. Each repaints the list alone, like the
+  // search does. The order is remembered in this browser; the two filters last the session.
+  const filters = which === 'invoices' ? (() => {
+    const pick = (label, options, value, onChange) => {
+      const sel = el('select', { class: 'studio-side__pick', 'aria-label': label, title: label },
+        options.map((o) => el('option', { value: o.value, selected: o.value === value ? true : null, text: o.label })));
+      sel.addEventListener('change', () => onChange(sel.value));
+      return sel;
+    };
+    const years = yearsOf(all);
+    return el('div', { class: 'studio-side__filters' }, [
+      pick('Order', SORTS.map((s) => ({ value: s.id, label: s.label })), app.sort, (v) => { app.sort = v; writeSort(v); paint(); }),
+      pick('Status', [{ value: '', label: 'Any status' }, ...statusOptions(app.schema, app.provider).map((s) => ({ value: s, label: s }))], app.listStatus, (v) => { app.listStatus = v; paint(); }),
+      // A year chooser only when there is more than one year to choose between.
+      years.length > 1 ? pick('Year', [{ value: '', label: 'Any year' }, ...years.map((y) => ({ value: y, label: y }))], app.listYear, (v) => { app.listYear = v; paint(); }) : null,
+    ]);
+  })() : null;
+
   // Edit and New live here, with the list they act on. On narrow screens the sidebar is hidden
   // and the bar's copies take over — one set or the other, never both.
   const editing = which === 'invoices' ? app.mode === 'compose' : app.mode === 'record';
@@ -788,7 +898,7 @@ function renderSidebar() {
   return el('aside', { class: 'studio-side' }, [
     switcher,
     el('div', { class: 'studio-side__head' }, [
-      el('span', { class: 'studio-side__count', text: String(all.length) }),
+      count,
       el('span', { class: 'studio-side__spacer' }),
       refreshBtn,
       editBtn,
@@ -796,6 +906,7 @@ function renderSidebar() {
     ]),
     which === 'invoices' ? agingStrip(fmt) : null,
     el('div', { class: 'studio-side__tools' }, [search]),
+    filters,
     listHost,
   ]);
 }
@@ -845,6 +956,7 @@ function renderDrawer() {
     panel = renderSettingsPanel({
       settings: app.stored,
       existingNumbers: app.schema?.invoice ? existingNumbers(app.schema, app.provider) : [],
+      numberFormula: numberFormulaColumn(),
       onPreview: paintPreview,
       onRebuild: () => render(),
       onClose: () => { app.mode = 'view'; render(); },
@@ -881,7 +993,9 @@ function renderDrawer() {
 function renderBar() {
   // Before there is an invoice table there is nothing to edit, add to or send.
   const gated = !app.schema?.invoice;
-  const invoices = app.schema?.invoice ? listInvoices(app.schema, app.provider) : [];
+  // In the list's own order, so the picker agrees with the sidebar and the document shown first
+  // is the newest one rather than the first row of the table.
+  const invoices = app.schema?.invoice ? sortInvoices(listInvoices(app.schema, app.provider), app.sort) : [];
   if (invoices.length && app.currentRowId == null) app.currentRowId = invoices[0].id;
 
   const picker = el('select', { class: 'studio-select studio-bar__picker', 'aria-label': 'Choose a document' },
@@ -1723,6 +1837,10 @@ function renderBody() {
       locked: composeLocked(),
       planSummary: plan ? describePlan(plan) : '',
       skipped: plan ? plan.skipped : [],
+      // A Number column that is a formula, and the table's own columns — see the composer.
+      numberFormula: numberFormulaColumn(),
+      extras: invoiceExtras(),
+      invoiceTable: app.schema?.invoice?.table || '',
       // The client form, for "+ New client" inside the picker.
       clientForm: clientSrc ? { roles: clientSrc.roles, columns: recordColumns('client'), defaultCountry: app.stored.money.defaultCustomerCountry || '' } : null,
       onEdit: paintPreview,

@@ -125,6 +125,11 @@ export function sanitise(settings) {
   if (!['auto', 'embed'].includes(doc.pdfFont)) doc.pdfFont = 'auto';
   doc.lockIssued = doc.lockIssued !== false;
   doc.showPayQr = doc.showPayQr !== false;
+  doc.logoPlate = doc.logoPlate !== false;
+  doc.logoOnly = !!doc.logoOnly;
+  doc.logoSize = ['small', 'normal', 'large'].includes(doc.logoSize) ? doc.logoSize : 'normal';
+  // Whether the artwork is light (drawn for a dark ground) — measured at upload, kept beside it.
+  s.business.logoLight = !!s.business.logoLight;
 
   // The logo ends up in an <img src>, in an email body, and spliced into a PDF, so nothing but a
   // well-formed image data URI is kept — a javascript: URL or an external address stored here would
@@ -143,6 +148,9 @@ export function sanitise(settings) {
   b.iban = String(b.iban || '').replace(/\s+/g, '').toUpperCase().slice(0, 34);
   b.bic = String(b.bic || '').replace(/\s+/g, '').toUpperCase().slice(0, 11);
   b.accountHolder = String(b.accountHolder || '').trim().slice(0, 70);
+  b.accountNumber = String(b.accountNumber || '').trim().slice(0, 34);
+  b.bankCode = String(b.bankCode || '').trim().slice(0, 20);
+  b.bankName = String(b.bankName || '').trim().slice(0, 60);
   b.upiId = String(b.upiId || '').trim().slice(0, 64);
   b.paymentLink = /^https:\/\/\S+$/i.test(String(b.paymentLink || '').trim()) ? String(b.paymentLink).trim().slice(0, 500) : '';
   b.legalText = String(b.legalText || '').trim().slice(0, 600);

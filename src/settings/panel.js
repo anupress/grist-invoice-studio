@@ -18,6 +18,7 @@ import { nextNumber } from '../money/numbering.js';
 import { DOCUMENT_KINDS } from '../doc/kinds.js';
 import { LAYOUTS } from '../doc/layouts.js';
 import { numberFormatFor } from './defaults.js';
+import { readLogo } from './logo.js';
 import { field, textInput, numberInput, textArea, selectInput, button, section } from '../compose/ui.js';
 import { templatesBySector, findTemplate, templateChanges, applyTemplate, templateSummary } from '../templates/index.js';
 import { MESSAGE_TEMPLATES } from '../send/message.js';
@@ -298,6 +299,12 @@ export function renderSettingsPanel(ctx) {
     field(k.label, textInput(n.prefixes[k.id] || '', (v) => { n.prefixes[k.id] = v; touched(); }, { class: 'cmp-input--code' })));
 
   const numberingSection = section('Numbering', [
+    // A document whose Number column is a formula numbers itself; saying so here is what stops
+    // somebody tuning a prefix that will never be used.
+    ctx.numberFormula
+      ? el('p', { class: 'set-lead', text: `Your invoice table works its numbers out itself: the ${ctx.numberFormula} column is a formula, so a new document is numbered by Grist the moment it is saved, and the settings below are not used for it.` })
+      : null,
+    el('p', { class: 'set-lead', text: 'A prefix can carry more than a year. {YYYY} {YY} {MM} {DD} are the document’s date; {reference} is the client’s reference on it; {client.Konto} is any column of the client’s record, named by its column id; {Konto} is a column of the invoice row itself, filled in on the composer under "Also in this table". A prefix that carries the client’s account restarts the count per account, and a token that cannot be filled in is left in the number as typed and said at the moment of saving.' }),
     field('Digits', numberInput(n.padding, (v) => { n.padding = v; touched(); })),
     field('Start at', numberInput(n.start, (v) => { n.start = v; touched(); })),
     field('Restart', selectInput([opt('yearly', 'Every year'), opt('monthly', 'Every month'), opt('never', 'Never')],
@@ -517,40 +524,4 @@ function checkbox(checked, onChange, label) {
   return el('label', { class: 'set-check' }, [input]);
 }
 
-/**
- * An uploaded file, turned into the two data URIs the settings store.
- *
- * Scaled to at most 560×200 — display size, not print resolution, and the cap in sanitise() is a
- * hard limit this has to land under. PNG is kept while it stays small so a transparent logo stays
- * transparent; past ~120KB it flattens to JPEG, and the JPEG copy is made either way because the
- * PDF can embed nothing else. The flattening is onto white, which is the paper it will sit on.
- */
-function readLogo(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      try {
-        const scale = Math.min(1, 560 / img.naturalWidth, 200 / img.naturalHeight);
-        const w = Math.max(1, Math.round(img.naturalWidth * scale));
-        const h = Math.max(1, Math.round(img.naturalHeight * scale));
-
-        const draw = (flatten) => {
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          const cx = canvas.getContext('2d');
-          if (flatten) { cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, w, h); }
-          cx.drawImage(img, 0, 0, w, h);
-          return canvas;
-        };
-
-        const png = draw(false).toDataURL('image/png');
-        const jpeg = draw(true).toDataURL('image/jpeg', 0.87);
-        resolve({ logoData: png.length <= 120000 ? png : jpeg, logoJpeg: jpeg });
-      } catch (e) { reject(e); }
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('not an image')); };
-    img.src = url;
-  });
-}
+// readLogo now lives in ./logo.js, shared with the web version's form.

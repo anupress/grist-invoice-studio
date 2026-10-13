@@ -62,6 +62,14 @@ export function languageOf(draft, settings = {}) {
 // ---------------------------------------------------------------------------------------------
 
 const EN = {
+  bankTransfer: "Bank transfer",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Number", net: "net", gross: "gross",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Account", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Bank code", bank: "Bank",
+  madeWith: "Created with the free invoice generator at anupress.com",
   kinds: {
     quote: 'Quote', proforma: 'Proforma invoice', invoice: 'Invoice', receipt: 'Receipt',
     credit_note: 'Credit note', statement: 'Statement of account', delivery_note: 'Delivery note', packing_slip: 'Packing slip',
@@ -84,6 +92,7 @@ const EN = {
   from: 'From', billTo: 'Bill to', deliverTo: 'Deliver to', shipTo: 'Ship to',
   taxId: 'Tax ID', yourReference: 'Your reference', refersTo: 'Refers to', serviceDate: 'Service date',
   columns: {
+    position: "#",
     description: 'Description', hsn: 'HSN/SAC', date: 'Date', reference: 'Reference', charge: 'Charge',
     paid: 'Paid', balance: 'Balance', quantity: 'Qty', unit: 'Unit', unitPrice: 'Unit price',
     discount: 'Discount', amount: 'Amount', image: 'Image',
@@ -101,6 +110,14 @@ const EN = {
 };
 
 const DE = {
+  bankTransfer: "Überweisung",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Nummer", net: "netto", gross: "brutto",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Konto", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Bankleitzahl", bank: "Bank",
+  madeWith: "Erstellt mit dem kostenlosen Rechnungsgenerator auf anupress.com",
   kinds: {
     quote: 'Angebot', proforma: 'Proformarechnung', invoice: 'Rechnung', receipt: 'Quittung',
     credit_note: 'Gutschrift', statement: 'Kontoauszug', delivery_note: 'Lieferschein', packing_slip: 'Packzettel',
@@ -123,6 +140,7 @@ const DE = {
   from: 'Von', billTo: 'Rechnungsempfänger', deliverTo: 'Lieferung an', shipTo: 'Lieferadresse',
   taxId: 'USt-IdNr.', yourReference: 'Ihre Referenz', refersTo: 'Bezug', serviceDate: 'Leistungsdatum',
   columns: {
+    position: "Pos.",
     description: 'Beschreibung', hsn: 'HSN/SAC', date: 'Datum', reference: 'Referenz', charge: 'Belastung',
     paid: 'Gezahlt', balance: 'Saldo', quantity: 'Menge', unit: 'Einheit', unitPrice: 'Einzelpreis',
     discount: 'Rabatt', amount: 'Betrag', image: 'Bild',
@@ -138,6 +156,14 @@ const DE = {
 };
 
 const FR = {
+  bankTransfer: "Virement bancaire",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Numéro", net: "HT", gross: "TTC",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Compte", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Code banque", bank: "Banque",
+  madeWith: "Créée avec le générateur de factures gratuit sur anupress.com",
   kinds: {
     quote: 'Devis', proforma: 'Facture pro forma', invoice: 'Facture', receipt: 'Reçu',
     credit_note: 'Avoir', statement: 'Relevé de compte', delivery_note: 'Bon de livraison', packing_slip: 'Bordereau de colisage',
@@ -160,6 +186,7 @@ const FR = {
   from: 'De', billTo: 'Facturer à', deliverTo: 'Livrer à', shipTo: 'Adresse de livraison',
   taxId: 'N° TVA', yourReference: 'Votre référence', refersTo: 'Référence', serviceDate: 'Date de prestation',
   columns: {
+    position: "N°",
     description: 'Désignation', hsn: 'HSN/SAC', date: 'Date', reference: 'Référence', charge: 'Débit',
     paid: 'Payé', balance: 'Solde', quantity: 'Qté', unit: 'Unité', unitPrice: 'Prix unitaire',
     discount: 'Remise', amount: 'Montant', image: 'Image',
@@ -175,6 +202,14 @@ const FR = {
 };
 
 const ES = {
+  bankTransfer: "Transferencia bancaria",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Número", net: "neto", gross: "bruto",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Cuenta", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Código bancario", bank: "Banco",
+  madeWith: "Creada con el generador de facturas gratuito en anupress.com",
   kinds: {
     quote: 'Presupuesto', proforma: 'Factura proforma', invoice: 'Factura', receipt: 'Recibo',
     credit_note: 'Nota de crédito', statement: 'Estado de cuenta', delivery_note: 'Albarán de entrega', packing_slip: 'Lista de embalaje',
@@ -197,6 +232,7 @@ const ES = {
   from: 'De', billTo: 'Facturar a', deliverTo: 'Entregar a', shipTo: 'Dirección de envío',
   taxId: 'NIF', yourReference: 'Su referencia', refersTo: 'Referencia', serviceDate: 'Fecha de prestación',
   columns: {
+    position: "N.º",
     description: 'Descripción', hsn: 'HSN/SAC', date: 'Fecha', reference: 'Referencia', charge: 'Cargo',
     paid: 'Pagado', balance: 'Saldo', quantity: 'Cant.', unit: 'Unidad', unitPrice: 'Precio unitario',
     discount: 'Descuento', amount: 'Importe', image: 'Imagen',
@@ -212,6 +248,14 @@ const ES = {
 };
 
 const IT = {
+  bankTransfer: "Bonifico bancario",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Numero", net: "netto", gross: "lordo",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Conto", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Codice bancario", bank: "Banca",
+  madeWith: "Creata con il generatore di fatture gratuito su anupress.com",
   kinds: {
     quote: 'Preventivo', proforma: 'Fattura proforma', invoice: 'Fattura', receipt: 'Ricevuta',
     credit_note: 'Nota di credito', statement: 'Estratto conto', delivery_note: 'Documento di trasporto', packing_slip: 'Distinta di imballaggio',
@@ -234,6 +278,7 @@ const IT = {
   from: 'Da', billTo: 'Fatturare a', deliverTo: 'Consegnare a', shipTo: 'Indirizzo di spedizione',
   taxId: 'P.IVA', yourReference: 'Vostro riferimento', refersTo: 'Riferimento', serviceDate: 'Data della prestazione',
   columns: {
+    position: "N.",
     description: 'Descrizione', hsn: 'HSN/SAC', date: 'Data', reference: 'Riferimento', charge: 'Addebito',
     paid: 'Pagato', balance: 'Saldo', quantity: 'Q.tà', unit: 'Unità', unitPrice: 'Prezzo unitario',
     discount: 'Sconto', amount: 'Importo', image: 'Immagine',
@@ -249,6 +294,14 @@ const IT = {
 };
 
 const NL = {
+  bankTransfer: "Bankoverschrijving",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Nummer", net: "netto", gross: "bruto",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Rekening", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Bankcode", bank: "Bank",
+  madeWith: "Gemaakt met de gratis factuurgenerator op anupress.com",
   kinds: {
     quote: 'Offerte', proforma: 'Pro-formafactuur', invoice: 'Factuur', receipt: 'Kwitantie',
     credit_note: 'Creditnota', statement: 'Rekeningoverzicht', delivery_note: 'Pakbon', packing_slip: 'Paklijst',
@@ -271,6 +324,7 @@ const NL = {
   from: 'Van', billTo: 'Factuuradres', deliverTo: 'Afleveren aan', shipTo: 'Afleveradres',
   taxId: 'Btw-nummer', yourReference: 'Uw referentie', refersTo: 'Betreft', serviceDate: 'Leveringsdatum',
   columns: {
+    position: "Nr.",
     description: 'Omschrijving', hsn: 'HSN/SAC', date: 'Datum', reference: 'Referentie', charge: 'Debet',
     paid: 'Betaald', balance: 'Saldo', quantity: 'Aantal', unit: 'Eenheid', unitPrice: 'Stukprijs',
     discount: 'Korting', amount: 'Bedrag', image: 'Afbeelding',
@@ -286,6 +340,14 @@ const NL = {
 };
 
 const PL = {
+  bankTransfer: "Przelew bankowy",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Numer", net: "netto", gross: "brutto",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Konto", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Kod banku", bank: "Bank",
+  madeWith: "Utworzono za pomocą bezpłatnego generatora faktur na anupress.com",
   kinds: {
     quote: 'Oferta', proforma: 'Faktura pro forma', invoice: 'Faktura', receipt: 'Pokwitowanie',
     credit_note: 'Faktura korygująca', statement: 'Wyciąg z konta', delivery_note: 'Dowód dostawy', packing_slip: 'Lista pakowa',
@@ -308,6 +370,7 @@ const PL = {
   from: 'Sprzedawca', billTo: 'Nabywca', deliverTo: 'Odbiorca', shipTo: 'Adres dostawy',
   taxId: 'NIP', yourReference: 'Państwa numer', refersTo: 'Dotyczy', serviceDate: 'Data wykonania',
   columns: {
+    position: "Lp.",
     description: 'Opis', hsn: 'HSN/SAC', date: 'Data', reference: 'Numer', charge: 'Obciążenie',
     paid: 'Zapłacono', balance: 'Saldo', quantity: 'Ilość', unit: 'J.m.', unitPrice: 'Cena jedn.',
     discount: 'Rabat', amount: 'Wartość', image: 'Zdjęcie',
@@ -323,6 +386,14 @@ const PL = {
 };
 
 const PT = {
+  bankTransfer: "Transferência bancária",
+  // The ledger layout's words: the "Number" cell of its meta grid, and "(net)" / "(gross)" on
+  // its subtotal and total when tax is charged.
+  number: "Número", net: "líquido", gross: "bruto",
+  // The account lines that follow the sender's country — see doc/banking.js.
+  accountNumber: "Conta", sortCode: "Sort code", routingNumber: "Routing number", bsb: "BSB",
+  ifsc: "IFSC", transitNumber: "Transit", bankCode: "Código bancário", bank: "Banco",
+  madeWith: "Criada com o gerador de faturas gratuito em anupress.com",
   kinds: {
     quote: 'Orçamento', proforma: 'Fatura pró-forma', invoice: 'Fatura', receipt: 'Recibo',
     credit_note: 'Nota de crédito', statement: 'Extrato de conta', delivery_note: 'Guia de entrega', packing_slip: 'Lista de embalagem',
@@ -345,6 +416,7 @@ const PT = {
   from: 'De', billTo: 'Faturar a', deliverTo: 'Entregar a', shipTo: 'Morada de entrega',
   taxId: 'NIF', yourReference: 'A sua referência', refersTo: 'Referência', serviceDate: 'Data da prestação',
   columns: {
+    position: "N.º",
     description: 'Descrição', hsn: 'HSN/SAC', date: 'Data', reference: 'Referência', charge: 'Débito',
     paid: 'Pago', balance: 'Saldo', quantity: 'Qtd.', unit: 'Unidade', unitPrice: 'Preço unitário',
     discount: 'Desconto', amount: 'Valor', image: 'Imagem',

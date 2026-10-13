@@ -11,7 +11,8 @@
 
 import { el, toast } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
-import { textInput, numberInput, button } from './ui.js';
+import { textInput, numberInput, suggestInput, button } from './ui.js';
+import { asOptions, UNITS } from '../model/suggest.js';
 
 /**
  * Build the grid.
@@ -31,6 +32,7 @@ export function renderLinesGrid(draft, { products, fields, onEdit, onStructure, 
     el('span', { text: 'Description' }),
     showHsn ? el('span', { text: 'HSN/SAC' }) : null,
     el('span', { class: 'is-num', text: 'Qty' }),
+    el('span', { text: 'Unit' }),
     el('span', { class: 'is-num', text: 'Unit price' }),
     el('span', { class: 'is-num', text: 'Amount' }),
     el('span', { class: 'cmp-grid__gutter' }),
@@ -50,8 +52,13 @@ export function renderLinesGrid(draft, { products, fields, onEdit, onStructure, 
     // The other cells are filled in place when a catalogue item lands, so nothing rebuilds while
     // the cursor is in the row.
     const hsnInput = showHsn ? textInput(line.hsn, (v) => { line.hsn = v; onEdit(); }, { class: 'cmp-input--code', ariaLabel: 'HSN or SAC code' }) : null;
-    const qtyInput = numberInput(line.quantity, (v) => { line.quantity = v; recalcLine(); }, { ariaLabel: 'Quantity' });
-    const priceInput = numberInput(line.unitPrice, (v) => { line.unitPrice = v; recalcLine(); }, { ariaLabel: 'Unit price' });
+    const qtyInput = numberInput(line.quantity, (v) => { line.quantity = v; recalcLine(); }, { ariaLabel: 'Quantity', placeholder: 'Qty' });
+    // The unit is a suggestion box, not a select: the UN/ECE list covers hours, days and metres,
+    // and it must still accept "session" or "pallet" typed as they are. The document prints the
+    // column only once some line has one, so a plain invoice stays plain.
+    const unitInput = suggestInput(line.unit, (v) => { line.unit = v; onEdit(); },
+      { options: asOptions(UNITS), placeholder: 'Unit', ariaLabel: 'Unit' });
+    const priceInput = numberInput(line.unitPrice, (v) => { line.unitPrice = v; recalcLine(); }, { ariaLabel: 'Unit price', placeholder: 'Price' });
 
     const fill = (p) => {
       if (p.unitPrice != null) { line.unitPrice = p.unitPrice; priceInput.value = String(p.unitPrice); }
@@ -112,6 +119,7 @@ export function renderLinesGrid(draft, { products, fields, onEdit, onStructure, 
         : description,
       hsnInput,
       qtyInput,
+      unitInput,
       priceInput,
       amountCell,
       el('div', { class: 'cmp-grid__gutter' }, [

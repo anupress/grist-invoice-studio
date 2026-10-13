@@ -111,4 +111,43 @@ const indexHtml = `<!DOCTYPE html>
 <script src="assets/app.js${V}"></script></body></html>`;
 fs.writeFileSync(path.join(OUT, 'index.html'), indexHtml);
 
+// 5. The web version.
+//
+// A second entry from the same source: the invoicing engine with a one-screen shell instead of the
+// Grist one. Three deliberate differences from the widget build above.
+//
+//   - No vendored Grist API, and no index.html. This is a script and a stylesheet that a page on
+//     anupress.com loads through the ANUPRESS Invoice plugin; the page is the page.
+//   - Not obfuscated. The whole claim of the tool is that nothing leaves the browser, and code a
+//     person can read is part of how that claim is checked. It also halves the download.
+//   - One stylesheet, concatenated in cascade order, because a plugin enqueues one file.
+const web = await build({
+  entryPoints: { app: 'src/web/app.js' },
+  bundle: true,
+  format: 'iife',
+  splitting: false,
+  minify: true,
+  legalComments: 'none',
+  target: ['es2019'],
+  outdir: path.join(OUT, 'web'),
+  write: false,
+});
+for (const file of web.outputFiles) {
+  fs.mkdirSync(path.dirname(file.path), { recursive: true });
+  fs.writeFileSync(file.path, file.contents);
+  console.log('emitted   ', path.relative(root, file.path));
+}
+
+const WEB_STYLES = ['tokens', 'composer', 'document', 'web'];
+fs.writeFileSync(
+  path.join(OUT, 'web', 'app.css'),
+  WEB_STYLES.map((n) => fs.readFileSync(path.join('src', 'styles', `${n}.css`), 'utf8')).join('\n'),
+);
+console.log('emitted    dist/web/app.css');
+
+// The embedded PDF faces, beside the script. The page that hosts the tool is somewhere else
+// entirely, which is why the mount point carries data-assets and font-loader.js can be pointed
+// at this directory rather than at the article's URL.
+copyIfExists('fonts', path.join(OUT, 'web', 'fonts'));
+
 console.log('\nBuild complete -> dist/');

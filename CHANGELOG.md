@@ -1,5 +1,54 @@
 # Changelog
 
+## Unreleased — the German letter
+
+A German company asked for three things: a sheet that fits its envelopes, numbers that carry the
+ledger account, and a list that can still be read with years of invoices in it.
+
+- **DIN 5008.** Two new layouts, *DIN 5008 (Form B)* — the usual commercial sheet — and *Form A*,
+  the short letterhead. Everything the standard fixes is fixed: the address field 20mm from the
+  left edge and 45mm from the top (27mm on Form A), 85 × 45mm, with its return line, three lines
+  for remarks and six address lines at 12pt, so a sheet folded at its marks shows the address, and
+  only the address, through a DIN lang window envelope; the information block at 125mm with the
+  number, the dates, the references and the client's VAT number; the subject two lines below the
+  field; text at 25mm with a 20mm right margin; fold marks at 105 and 210mm (87 and 192), the punch
+  mark at 148.5mm. The lines are numbered and the totals say netto and brutto, as on the ledger, and
+  the sender's registrations go to the foot. The PDF draws it in millimetres; the screen shows the
+  sheet at scale and prints it at size; the HTML file does the same.
+- **Addresses in the country's order.** "10115 Berlin", not "Berlin 10115": on every layout, in
+  the PDF and in the email, the postcode now goes before the town for Germany, Austria, France,
+  Spain, Italy, the Netherlands, Poland and most of the world, and after it for Britain, Ireland,
+  the United States, Canada, Australia and India. The country decides; the document's language
+  decides when a record has no country.
+- **Numbers from the record.** A prefix or suffix can carry `{client.Konto}` — any column of the
+  client's record, by its column id — `{Konto}`, a column of the invoice row, and `{reference}`,
+  beside the date tokens. `RE-{YYYY}-{client.Konto}-` numbers by ledger account, and the sequence
+  runs per account. A token the document cannot fill in is left in the number as typed and said
+  when the number is given out, instead of vanishing.
+- **A formula numbers itself.** A document whose Number column is a Grist formula keeps its own
+  numbering: the composer says so and takes nothing, nothing is assigned over the formula, and the
+  number Grist worked out is shown the moment the row is saved. Line items that link to their
+  invoice by its number are linked to that number, read back once the row exists; before, they
+  were saved with a number Grist never used and fell off the invoice. If the header saves and the
+  lines do not, the next Save updates that invoice instead of adding a second one.
+- **The invoice table's own columns.** Every column no role claims — a Konto, a cost centre, a
+  project code — appears on the composer under "Also in this table", with the control its type
+  deserves, and is written back with the row. The official template's empty Text Total stays out
+  of it, since the schema withholds that one on purpose.
+- **A list that can be read.** The invoice list is newest first, and a chooser under the search
+  offers Oldest first, Last created first, Highest number first, Client A to Z, Largest amount
+  first and the table's own order; the choice is remembered in the browser. A status and a year
+  narrow the list, with the count reading "12 of 1,243" while it is narrowed. The bar's picker
+  follows the same order, so the widget opens on the newest document rather than the first row.
+- **The list and the document scroll apart.** The frame was never given its height — the mount
+  point under it had none — so the page grew past the iframe and the list and the document
+  scrolled together as one long page: choose a document at the bottom of a long list and it was
+  out of sight at the top. The frame now fills the iframe, the list scrolls inside the sidebar and
+  the document inside the body, each on its own.
+- **The list keeps its place.** Choosing a document no longer throws the list back to its top: it
+  stays where it was scrolled, the chosen row is brought into view when it is a different one, and
+  a document that is merely redrawn keeps its own scroll position too.
+
 ## 1.25.1 — a demo inside any iframe
 
 Embedded in a web page's iframe without `?demo`, the widget stayed blank. The shared Grist bridge

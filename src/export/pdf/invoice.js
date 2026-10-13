@@ -9,12 +9,14 @@
 // text wraps to the space it actually has, and a long invoice breaks onto a second page at a row
 // boundary rather than through the middle of one.
 
-import { PdfWriter } from './writer.js';
+import { PdfWriter, MM } from './writer.js';
 import { formatMoney } from '../../money/currency.js';
 import { fieldsFor, lineColumns, totalLabels } from '../../doc/fields.js';
 import { docDate, taxLabel } from '../../doc/render.js';
 import { labelOr, localiseStatus, fillLabel } from '../../doc/lang.js';
-import { paymentCode } from '../../doc/payment.js';
+import { paymentCode, accountLines } from '../../doc/payment.js';
+import { isDin, DIN, DIN_FORMS, returnLine } from '../../doc/layouts.js';
+import { addressLines } from '../../doc/address.js';
 
 const INK = '#16212c';
 const MUTED = '#5f7285';
@@ -33,17 +35,21 @@ function sizesFor(density, narrow) {
   return out;
 }
 
-/** How much room a numeric column needs: its widest possible content, plus breathing space. */
+/**
+ * How much room a numeric column needs: its widest possible content, plus breathing space. The
+ * running-number column is measured the same way, so "1" to "12" get a column as wide as "12".
+ */
 function columnWidth(pdf, col, rows, S, gap) {
-  if (!col.numeric) return 0;
+  if (!col.numeric && col.id !== 'position') return 0;
   let widest = pdf.measure(col.label, S.label, true);
   for (const r of rows) widest = Math.max(widest, pdf.measure(r[col.id] || '', S.body, false));
   return Math.ceil(widest) + gap;
 }
 
 /** Every cell as the string it will print as, so widths are measured on the truth. */
-function cellText(line, col, money, lang) {
+function cellText(line, col, money, lang, index = 0) {
   switch (col.id) {
+    case 'position': return String(index + 1);
     case 'description': return String(line.description || '');
     case 'hsn': return String(line.hsn || '—');
     case 'quantity': return String(line.quantity ?? '');
@@ -60,11 +66,8 @@ function cellText(line, col, money, lang) {
   }
 }
 
-const addressLines = (p) => [
-  p.street1, p.street2,
-  [p.city, p.state, p.postcode].map((x) => String(x || '').trim()).filter(Boolean).join(' '),
-  p.country,
-].map((x) => String(x || '').trim()).filter(Boolean);
+// The address lines come from doc/address.js, which knows which countries write the postcode
+// before the town — the same function the screen and the email use.
 
 /**
  * The JPEG bytes inside a data URI, or null.
@@ -135,10 +138,44 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
   const S = sizesFor(opts.density || settings.density, narrow);
   const lead = Math.round(S.body * 1.16 * 10) / 10;   // line spacing, tied to the type size
 
-  const M = pdf.margin;
-  const right = pdf.width - M;
-  const bottom = pdf.height - M;
+  // The ledger layout (doc/layouts.js): the client in the window, the mark opposite, a grid of
+  // dates and numbers, the word as a heading, and the sender in a three-column foot on every
+  // page. The DIN 5008 sheets put the client in the window and the sender in the foot the same
+  // way, at the standard's own positions, and keep the letter's margins — 25mm on the left,
+  // 20mm on the right — rather than the paper's. A till roll has no room for any of that and
+  // keeps its own single column.
+  const ledger = draft.layout === 'ledger' && !narrow;
+  const din = !narrow && isDin(draft.layout) ? DIN_FORMS[draft.layout] : null;
+  const windowed = ledger || !!din;
+  const address = (p) => addressLines(p, lang);
+
+  const M = din ? DIN.textLeft * MM : pdf.margin;
+  const right = din ? pdf.width - DIN.textRight * MM : pdf.width - M;
   let y = M;
+  const clientLabel = kind.showsMoney ? L.billTo : L.deliverTo;
+  const clientMeta = [
+    client.email, client.phone,
+    fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : '',
+  ].filter(Boolean);
+  const shipTo = draft.shipTo && draft.shipTo.name && draft.shipTo.name !== client.name ? draft.shipTo : null;
+
+  // The foot's three columns, worked out first because the body has to stop above them. Each
+  // line is wrapped to its column here, so a long registration sentence makes the foot taller
+  // rather than being cut at the column's edge.
+  const colophonLine = 10;
+  const colophonColW = (right - M) / 3;
+  const wrapCol = (items) => items.flatMap((l) =>
+    pdf.wrap(l.text, colophonColW - 16, S.small, l.bold).map((text) => ({ text, bold: l.bold })));
+  const colophon = windowed ? [
+    wrapCol([{ text: sender.name || 'Your business', bold: true }, ...address(sender).map((text) => ({ text }))]),
+    wrapCol([
+      String(sender.taxNumber || '').trim() ? { text: `${taxIdLabel}: ${sender.taxNumber}` } : null,
+      ...String(sender.legalText || '').split(/\n+/).map((s) => s.trim()).filter(Boolean).map((text) => ({ text })),
+    ].filter(Boolean)),
+    wrapCol([sender.email, sender.phone, sender.website].filter(Boolean).map((text) => ({ text }))),
+  ] : null;
+  const colophonH = colophon ? Math.max(...colophon.map((c) => c.length)) * colophonLine + 6 : 0;
+  const bottom = pdf.height - M - (windowed ? colophonH + 14 : 0);
 
   // ---- masthead ----------------------------------------------------------------------------
   // A till roll has one column and no right-hand side, so the masthead centres and stacks rather
@@ -153,19 +190,145 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
     y += lead + 4;
     pdf.line(M, y, right, y, { color: INK, width: 0.6 });
     y += lead;
+  } else if (ledger) {
+    // The window: who this is for, where an envelope shows it.
+    const windowEnd = drawParty(M, y, clientLabel, client.name, address(client), clientMeta);
+
+    // The mark alone opposite the window when there is one — the foot says the name — and the
+    // name as a wordmark when there is not, so the corner is never empty.
+    let ry = y;
+    const logo = pdf.addImage(jpegBytes(sender.logoJpeg || sender.logoData));
+    const cap = { small: 22, normal: 30, large: 44 }[settings.logoSize] || 30;
+    if (logo) {
+      const h = Math.min(cap, (140 * cap / 30) * (logo.height / logo.width));
+      const w = h * (logo.width / logo.height);
+      pdf.drawImage(logo, right - w, y - 2, w, h);
+      ry = y + h + 6;
+    } else {
+      pdf.text(right, ry, sender.name || 'Your business', { size: S.name, bold: true, color: INK, align: 'right' });
+      ry += lead + 1;
+    }
+    y = Math.max(windowEnd, ry) + 12;
+
+    // The grid: the number first, then what the meta column would have said, four to a row,
+    // ruled above and below.
+    const cells = [
+      { label: L.number || 'Number', value: draft.number || '—' },
+      { label: kind.dateLabels.issued, value: date(draft.issued) },
+      fields.showSecondDate ? { label: kind.dateLabels.second, value: date(draft.due) } : null,
+      fields.showServiceDate ? { label: L.serviceDate, value: date(draft.serviceDate) } : null,
+      fields.showReference ? { label: labelOr(settings.referenceLabel, 'Your reference', L.yourReference), value: draft.reference } : null,
+      fields.showRelated ? { label: L.refersTo, value: draft.relatedTo } : null,
+      fields.showTotals ? { label: kind.totalLabel, value: money(fields.showPaid ? t.balance : t.total), big: true } : null,
+    ].filter(Boolean);
+    const perRow = 4;
+    const cw = (right - M) / perRow;
+    pdf.line(M, y, right, y, { color: RULE, width: 0.6 });
+    y += 10;
+    for (let i = 0; i < cells.length; i += perRow) {
+      cells.slice(i, i + perRow).forEach((c, j) => {
+        const x = M + j * cw;
+        pdf.text(x, y, c.label.toUpperCase(), { size: S.label, bold: true, color: MUTED });
+        pdf.text(x, y + 11, c.value, { size: c.big ? S.number : S.body, bold: !!c.big, color: INK });
+      });
+      y += 11 + lead + 8;
+    }
+    pdf.line(M, y - 2, right, y - 2, { color: RULE, width: 0.6 });
+    y += 16;
+
+    // The heading, with the status opposite it.
+    pdf.text(M, y, kind.word, { size: S.big, bold: true, color: INK });
+    if (draft.status) {
+      pdf.text(right, y + 4, localiseStatus(draft.status, lang).toUpperCase(), { size: S.label, bold: true, color: MUTED, align: 'right' });
+    }
+    y += S.big + 14;
+  } else if (din) {
+    // The DIN 5008 sheet. Every position is the standard's, in millimetres from the paper's
+    // edges — DIN in doc/layouts.js — so the folded sheet shows the address, and only the
+    // address, through a DIN lang window envelope.
+    const mm = MM;
+    const pitch = DIN.line * mm;   // the standard's line: 12pt
+
+    // The letterhead: name and website ranged right, the mark at the far right of them, never
+    // taller than the room above the address field — Form A leaves 27mm in all.
+    const logo = pdf.addImage(jpegBytes(sender.logoJpeg || sender.logoData));
+    const cap = { small: 22, normal: 30, large: 44 }[settings.logoSize] || 30;
+    const headTop = 10 * mm;
+    let nameRight = right;
+    if (logo) {
+      const room = (din.addrTop - 13) * mm;
+      const h = Math.min(cap, room, (140 * cap / 30) * (logo.height / logo.width));
+      const w = h * (logo.width / logo.height);
+      pdf.drawImage(logo, right - w, headTop, w, h);
+      nameRight = right - w - 10;
+    }
+    if (!(logo && settings.logoOnly)) {
+      pdf.text(nameRight, headTop, sender.name || 'Your business', { size: S.big, bold: true, color: INK, align: 'right' });
+      if (sender.website) pdf.text(nameRight, headTop + S.big + 4, sender.website, { size: S.small, color: MUTED, align: 'right' });
+    }
+
+    // The address field: the return line in its 5mm zone with a rule under it, three blank
+    // lines for remarks, then the postal address — and nothing but the postal address, because
+    // that is what the window shows and what the sorting machine reads.
+    const ax = DIN.addrLeft * mm;
+    const ay = din.addrTop * mm;
+    const ret = returnLine(sender, lang);
+    if (ret) {
+      pdf.text(ax, ay + 1.2 * mm, ret, { size: 6.5, color: MUTED });
+      pdf.line(ax, ay + DIN.returnZone * mm, ax + DIN.addrWidth * mm, ay + DIN.returnZone * mm, { color: RULE, width: 0.4 });
+    }
+    let ly = ay + (DIN.returnZone + DIN.remarkZone) * mm;
+    pdf.text(ax, ly, client.name || '—', { size: S.body, bold: true, color: INK });
+    ly += pitch;
+    for (const l of address(client)) { pdf.text(ax, ly, l, { size: S.body, color: INK }); ly += pitch; }
+
+    // The information block: one line each, label on the left, value against the right margin.
+    const ix = DIN.infoLeft * mm;
+    let iy = din.infoTop * mm;
+    const block = [
+      { label: L.number || 'Number', value: draft.number || '—' },
+      { label: kind.dateLabels.issued, value: date(draft.issued) },
+      fields.showSecondDate ? { label: kind.dateLabels.second, value: date(draft.due) } : null,
+      fields.showServiceDate ? { label: L.serviceDate, value: date(draft.serviceDate) } : null,
+      fields.showReference ? { label: labelOr(settings.referenceLabel, 'Your reference', L.yourReference), value: draft.reference } : null,
+      fields.showRelated ? { label: L.refersTo, value: draft.relatedTo } : null,
+      fields.showClientTaxNumber ? { label: taxIdLabel, value: client.taxNumber } : null,
+    ].filter(Boolean);
+    for (const r of block) {
+      pdf.text(ix, iy, r.label, { size: S.small, color: MUTED });
+      pdf.text(right, iy, r.value, { size: S.body, color: INK, align: 'right' });
+      iy += pitch;
+    }
+
+    // The subject, two lines below the field — or lower, if the address or the block ran long.
+    y = Math.max((din.addrTop + DIN.addrHeight + DIN.subjectGap) * mm, ly + pitch, iy + pitch);
+    pdf.text(M, y, `${kind.word} ${draft.number || ''}`.trim(), { size: S.name, bold: true, color: INK });
+    if (draft.status) {
+      pdf.text(right, y + 2, localiseStatus(draft.status, lang).toUpperCase(), { size: S.label, bold: true, color: MUTED, align: 'right' });
+    }
+    y += 3 * pitch;   // the subject line and the two blank lines the standard puts after it
+
+    // Fold and punch marks on the first page: short hairlines in from the left edge.
+    for (const f of din.fold) pdf.line(0, f * mm, DIN.foldLength * mm, f * mm, { color: MUTED, width: 0.4 });
+    pdf.line(0, din.punch * mm, DIN.punchLength * mm, din.punch * mm, { color: MUTED, width: 0.4 });
   } else {
     // The logo sits left of the name, the way the screen's masthead has it. Height leads and width
     // follows the image's own aspect, capped so a wide wordmark cannot run into the title block.
     let nameX = M;
     const logo = pdf.addImage(jpegBytes(sender.logoJpeg || sender.logoData));
+    // The same three sizes the screen offers; width follows the aspect and is capped in proportion.
+    const cap = { small: 22, normal: 30, large: 44 }[settings.logoSize] || 30;
     if (logo) {
-      const h = Math.min(30, 140 * (logo.height / logo.width));
+      const h = Math.min(cap, (140 * cap / 30) * (logo.height / logo.width));
       const w = h * (logo.width / logo.height);
       pdf.drawImage(logo, M, y - 2, w, h);
       nameX = M + w + 12;
     }
-    pdf.text(nameX, y, sender.name || 'Your business', { size: S.big, bold: true, color: INK });
-    if (sender.website) pdf.text(nameX, y + 20, sender.website, { size: S.small, color: MUTED });
+    // The mark can carry the name: then the masthead prints no words beside it.
+    if (!(logo && settings.logoOnly)) {
+      pdf.text(nameX, y, sender.name || 'Your business', { size: S.big, bold: true, color: INK });
+      if (sender.website) pdf.text(nameX, y + 20, sender.website, { size: S.small, color: MUTED });
+    }
 
     pdf.text(right, y, kind.word.toUpperCase(), { size: S.label, bold: true, color: accent, align: 'right' });
     pdf.text(right, y + 11, draft.number || '—', { size: S.number, color: INK, align: 'right' });
@@ -188,16 +351,13 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
     }
     pdf.text(M, y, `${kind.dateLabels.issued}: ${date(draft.issued)}`, { size: S.small, color: MUTED });
     y += lead + 4;
-  } else {
+  } else if (!windowed) {
     layoutParties();
   }
 
-  function layoutParties() {
-  const colW = (right - M) / 3 - 10;
-  const partyTop = y;
-
-  const party = (x, label, name, lines, meta) => {
-    let ly = partyTop;
+  /** One party as a stacked block from `top`: label, name, address, then the small print. Returns where it ends. */
+  function drawParty(x, top, label, name, lines, meta) {
+    let ly = top;
     pdf.text(x, ly, label.toUpperCase(), { size: S.label, bold: true, color: MUTED });
     ly += 12;
     pdf.text(x, ly, name || '—', { size: S.name, bold: true, color: INK });
@@ -205,16 +365,18 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
     for (const l of lines) { pdf.text(x, ly, l, { size: S.body, color: INK }); ly += lead; }
     for (const l of (meta || []).filter(Boolean)) { pdf.text(x, ly, l, { size: S.small, color: MUTED }); ly += 10; }
     return ly;
-  };
+  }
 
-  const leftEnd = party(M, L.from, sender.name, addressLines(sender), [
+  function layoutParties() {
+  const colW = (right - M) / 3 - 10;
+  const partyTop = y;
+  const party = (x, label, name, lines, meta) => drawParty(x, partyTop, label, name, lines, meta);
+
+  const leftEnd = party(M, L.from, sender.name, address(sender), [
     sender.email, sender.phone,
     fields.showSenderTaxNumber ? `${taxIdLabel}: ${sender.taxNumber}` : '',
   ]);
-  const midEnd = party(M + colW + 10, kind.showsMoney ? L.billTo : L.deliverTo, client.name, addressLines(client), [
-    client.email, client.phone,
-    fields.showClientTaxNumber ? `${taxIdLabel}: ${client.taxNumber}` : '',
-  ]);
+  const midEnd = party(M + colW + 10, clientLabel, client.name, address(client), clientMeta);
 
   // The meta column is right-aligned against the page edge, which is where a reader's eye goes for
   // the amount due.
@@ -236,9 +398,9 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
   }
 
   // ---- the lines table ------------------------------------------------------------------------
-  const rows = (draft.lines || []).map((line) => {
+  const rows = (draft.lines || []).map((line, index) => {
     const cells = {};
-    for (const c of cols) cells[c.id] = cellText(line, c, money, lang);
+    for (const c of cols) cells[c.id] = cellText(line, c, money, lang, index);
     return cells;
   });
 
@@ -254,13 +416,16 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
   let cx = M;
   for (const c of cols) { xOf[c.id] = cx; cx += widths[c.id]; }
 
+  // The ledger rules its table the way a ledger is ruled: a heavy line over the headings, one
+  // under them, one under the last row, and nothing between the rows.
   const header = () => {
+    if (ledger) { pdf.line(M, y - 2, right, y - 2, { color: INK, width: 1.2 }); y += 6; }
     for (const c of cols) {
       const x = c.numeric ? xOf[c.id] + widths[c.id] - 4 : xOf[c.id];
-      pdf.text(x, y, c.label.toUpperCase(), { size: S.label, bold: true, color: MUTED, align: c.numeric ? 'right' : 'left' });
+      pdf.text(x, y, c.label.toUpperCase(), { size: S.label, bold: true, color: ledger ? INK : MUTED, align: c.numeric ? 'right' : 'left' });
     }
     y += lead;
-    pdf.line(M, y, right, y, { color: RULE, width: 0.6 });
+    pdf.line(M, y, right, y, { color: ledger ? INK : RULE, width: 0.6 });
     y += 7;
   };
   header();
@@ -286,13 +451,22 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
       pdf.text(x, y, cells[c.id], { size: S.body, color: INK, align: c.numeric ? 'right' : 'left' });
     }
     y += rowHeight;
-    pdf.line(M, y - 4, right, y - 4, { color: RULE, width: 0.4 });
+    if (!ledger) pdf.line(M, y - 4, right, y - 4, { color: RULE, width: 0.4 });
   }
+  if (ledger) { pdf.line(M, y - 2, right, y - 2, { color: INK, width: 1.2 }); y += 4; }
 
   // ---- totals -----------------------------------------------------------------------------------
+  // On the ledger the delivery address shares the row with the totals, the way a shop's invoice
+  // closes: where it went on the left, what it cost on the right.
+  if (windowed && shipTo && !fields.showTotals) {
+    y += 10;
+    if (y > bottom - 80) { pdf.addPage(); y = M; }
+    y = drawParty(M, y, L.shipTo, shipTo.name, address(shipTo), []) + 6;
+  }
   if (fields.showTotals) {
     y += 10;
     if (y > bottom - 120) { pdf.addPage(); y = M; }
+    const totalsTop = y;
     // The totals column is as wide as its widest row needs, never narrower than 150pt. A fixed
     // width was fine for "Total" in Helvetica and not for "Gesamtbetrag" in the embedded face,
     // where the label ran into its own amount.
@@ -332,6 +506,10 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
       row(kind.totalLabel, money(t.balance), true);
     }
     drawRows();
+    if (windowed && shipTo) {
+      const shipEnd = drawParty(M, totalsTop, L.shipTo, shipTo.name, address(shipTo), []);
+      y = Math.max(y, shipEnd + 6);
+    }
   }
 
   // ---- the standing wording ----------------------------------------------------------------------
@@ -366,8 +544,44 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
     y += Math.max(side, ty - y) + 12;
   }
 
+  // The account in words when no code carried it — see doc/payment.js accountLines.
+  const bank = accountLines(draft, settings, fields);
+  if (bank && !(pay && pay.kind === 'epc')) {
+    const needed = bank.lines.length * 10 + 12 + 8;
+    if (y + needed > bottom) { pdf.addPage(); y = M; }
+    pdf.text(M, y, bank.caption.toUpperCase(), { size: S.label, bold: true, color: MUTED });
+    y += 12;
+    for (const l of bank.lines) { pdf.text(M, y, l, { size: S.small, color: INK }); y += 10; }
+    y += 8;
+  }
+
   if (settings.closingText) block('', settings.closingText, true);
-  if (sender.legalText) block('', sender.legalText, true);
+  // The legal line — except on the windowed layouts, whose foot carries it in its middle column.
+  if (sender.legalText && !windowed) block('', sender.legalText, true);
+  // The credit line, in the document's language — see doc/render.js for why it is a setting.
+  if (settings.creditLine) block('', L.madeWith, true);
+
+  // ---- the ledger's foot, on every page --------------------------------------------------------------
+  // Three columns with a bar down the left of each, the way commercial stationery prints its
+  // registrations: who and where, the numbers, how to reach them. The body was told to stop above
+  // it (see `bottom`), so it never collides with a table that ran long.
+  if (windowed) {
+    const top = pdf.height - M - colophonH + 2;
+    pdf.pages.forEach((ops) => {
+      const saved = pdf.ops;
+      pdf.ops = ops;
+      pdf.line(M, top - 8, right, top - 8, { color: RULE, width: 0.6 });
+      colophon.forEach((lines, i) => {
+        const x = M + i * colophonColW;
+        if (!lines.length) return;
+        pdf.line(x, top - 1, x, top + lines.length * colophonLine - 3, { color: INK, width: 1.2 });
+        lines.forEach((l, j) => {
+          pdf.text(x + 7, top + j * colophonLine, l.text, { size: S.small, bold: !!l.bold, color: l.bold ? INK : MUTED });
+        });
+      });
+      pdf.ops = saved;
+    });
+  }
 
   // ---- page numbers --------------------------------------------------------------------------------
   // Added last, once the total is known — a footer saying "page 1 of 1" on a document that turned

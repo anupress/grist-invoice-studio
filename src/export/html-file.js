@@ -11,6 +11,7 @@
 
 import { renderDocument } from '../doc/render.js';
 import { languageOf } from '../doc/lang.js';
+import { isDin } from '../doc/layouts.js';
 
 const FILE_CSS = `
   :root { color-scheme: light; }
@@ -28,7 +29,8 @@ const FILE_CSS = `
   }
   .inv-doc { --bleed-x: 44px; --bleed-y: 40px; padding: 40px 44px 48px; display: flex; flex-direction: column; gap: 26px; }
   .inv-brand { display: flex; align-items: center; gap: 14px; }
-  .inv-brand__logo { max-height: 46px; max-width: 180px; object-fit: contain; }
+  .inv-brand__logo { max-height: var(--logo-h, 46px); max-width: calc(var(--logo-h, 46px) * 4); object-fit: contain; }
+  .inv-band__logo.is-plated, .inv-strip__logo.is-plated, .inv-slate .inv-brand__logo.is-plated { background: #fff; padding: 4px 8px; border-radius: 4px; }
   .inv-brand__name { font-size: 21px; font-weight: 600; letter-spacing: -.015em; }
   .inv-brand__web { font-size: 13px; color: #5f7285; margin-top: 2px; }
   .inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 20px; border-bottom: 2px solid #14509b; }
@@ -90,7 +92,6 @@ const FILE_CSS = `
   .inv-head.is-slate { display: block; }
   .inv-slate .inv-brand__name { color: #fff; }
   .inv-slate .inv-brand__web { color: rgba(255,255,255,.65); }
-  .inv-slate .inv-brand__logo { background: #fff; padding: 4px 8px; border-radius: 4px; }
   .inv-slate .inv-title__word { color: rgba(255,255,255,.72); }
   .inv-slate .inv-title__number { color: #fff; }
   .inv-head.is-headline { display: block; padding-bottom: 18px; border-bottom: 1px solid #dfe5ec; }
@@ -103,18 +104,97 @@ const FILE_CSS = `
   .inv-head.is-centred { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 5px; padding-bottom: 20px; border-bottom: 1px solid #dfe5ec; }
   .inv-head.is-centred .inv-title__number { justify-content: center; }
   .inv-cent__rule { width: 56px; border-top: 2px solid var(--doc-accent, #14509b); margin: 10px 0 6px; }
+  .inv-head.is-ledger { display: flex; flex-direction: column; gap: 20px; }
+  .inv-ledger__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+  .inv-ledger__window { min-width: 0; padding-top: 4px; }
+  .inv-ledger__window .inv-party__label { margin-bottom: 8px; }
+  .inv-ledger__brand { flex-direction: row-reverse; text-align: right; flex: none; max-width: 45%; }
+  .inv-ledger__meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 24px; padding: 14px 0; border-top: 1px solid #dfe5ec; border-bottom: 1px solid #dfe5ec; }
+  .inv-ledger__meta .inv-meta__label { margin-bottom: 2px; }
+  .inv-ledger__meta .inv-meta__value { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .inv-ledger__meta .inv-meta.is-total .inv-meta__value { font-size: 17px; color: #16212c; }
+  .inv-ledger__title { display: flex; align-items: center; gap: 12px; }
+  .inv-ledger__word { font-family: system-ui, sans-serif; font-size: 18px; font-weight: 700; color: #16212c; }
+  .inv-ledger__title .inv-status { margin-top: 0; }
+  .inv-doc.is-ledger .inv-lines th { border-top: 2px solid #16212c; border-bottom: 1px solid #16212c; color: #16212c; padding-top: 9px; padding-bottom: 7px; }
+  .inv-doc.is-ledger .inv-lines td { border-bottom: 0; padding: 7px 12px; }
+  .inv-doc.is-ledger .inv-lines tbody tr:last-child td { border-bottom: 2px solid #16212c; padding-bottom: 10px; }
+  .inv-doc.is-ledger .inv-lines tbody tr:first-child td { padding-top: 10px; }
+  .inv-lines th.is-pos, .inv-lines td.is-pos { width: 1%; white-space: nowrap; color: #5f7285; font-variant-numeric: tabular-nums; }
+  .inv-ledger__close { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+  .inv-ledger__close .inv-totals { margin-left: auto; }
+  .inv-colophon { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding-top: 14px; border-top: 1px solid #dfe5ec; font-size: 11px; line-height: 1.45; color: #5f7285; overflow-wrap: anywhere; }
+  .inv-colophon__col { border-left: 2px solid #16212c; padding-left: 10px; }
+  .inv-colophon__name { color: #16212c; font-weight: 600; }
+  @media (max-width: 700px) {
+    .inv-ledger__top { flex-direction: column; }
+    .inv-ledger__brand { flex-direction: row; text-align: left; max-width: none; }
+    .inv-ledger__close { flex-direction: column; }
+    .inv-colophon { grid-template-columns: 1fr; }
+  }
   .inv-pay { display: flex; align-items: flex-start; gap: 14px; }
   .inv-pay svg { width: 96px; height: 96px; flex: none; border: 1px solid #dfe5ec; border-radius: 4px; background: #fff; }
+  .inv-pay__text { min-width: 0; }
   .inv-pay__line { font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .inv-legal { margin: 0; text-align: center; font-size: 11px; line-height: 1.45; color: #5f7285; }
+  .inv-credit { margin: 6px 0 0; text-align: center; font-size: 9.5px; line-height: 1.4; color: #5f7285; opacity: .75; }
+  [data-density="compact"] .inv-doc { padding: 28px 32px 32px; gap: 16px; font-size: 13.5px; }
+  [data-density="compact"] .inv-lines td { padding: 6px 12px; }
+  [data-density="roomy"] .inv-doc { padding: 52px 56px 60px; gap: 34px; font-size: 16px; }
+  [data-density="roomy"] .inv-lines td { padding: 14px 12px; }
   @media print {
     body { padding: 0; background: #fff; }
     .sheet { max-width: none; border: 0; border-radius: 0; }
     .inv-doc { padding: 0; --bleed-x: 0px; --bleed-y: 0px; }
     .inv-band, .inv-strip, .inv-slate { padding-left: 20px; padding-right: 20px; }
-    @page { margin: 14mm; }
+    .inv-doc, .inv-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .inv-lines thead { display: table-header-group; }
+    .inv-lines tr, .inv-head, .inv-parties, .inv-totals, .inv-foot__item, .inv-pay, .inv-legend, .inv-colophon { break-inside: avoid; page-break-inside: avoid; }
+  }
+  /* DIN 5008: the standard's positions in millimetres of the sheet — see document.css and doc/layouts.js.
+     The file prints with no page margin of its own (see pageCss), so on paper --din-y0 is nothing. */
+  .inv-doc.is-din5008a, .inv-doc.is-din5008b { container-type: inline-size; --mm: calc(100cqw / 210); --din-y0: 0px; position: relative; padding: 0 0 calc(12 * var(--mm)); gap: calc(6 * var(--mm)); }
+  .inv-doc.is-din5008b { --din-top: 45; --din-fold-1: 105; --din-fold-2: 210; }
+  .inv-doc.is-din5008a { --din-top: 27; --din-fold-1: 87; --din-fold-2: 192; }
+  .inv-doc.is-din5008a > *, .inv-doc.is-din5008b > * { margin-left: calc(25 * var(--mm)); margin-right: calc(20 * var(--mm)); }
+  .inv-doc.is-din5008a > .inv-head, .inv-doc.is-din5008b > .inv-head { margin: 0; }
+  .inv-head.is-din { position: relative; display: flex; flex-direction: column; padding: 0 calc(20 * var(--mm)) calc(2.5 * var(--mm)) calc(25 * var(--mm)); border-bottom: 0; }
+  .inv-din__top { height: calc(var(--din-top) * var(--mm) - var(--din-y0)); display: flex; align-items: center; justify-content: flex-end; overflow: hidden; }
+  .inv-din__top .inv-brand { flex-direction: row-reverse; text-align: right; gap: calc(3 * var(--mm)); }
+  .inv-din__top .inv-brand__name { font-size: calc(5 * var(--mm)); }
+  .inv-din__top .inv-brand__web { font-size: calc(3.2 * var(--mm)); }
+  .inv-din__top .inv-brand__logo { max-height: min(var(--logo-h, 46px), calc(var(--din-top) * var(--mm) - var(--din-y0) - 3 * var(--mm))); }
+  .inv-din__row { display: flex; justify-content: space-between; align-items: flex-start; margin-left: calc(-5 * var(--mm)); }
+  .inv-din__window { width: calc(85 * var(--mm)); height: calc(45 * var(--mm)); flex: none; }
+  .inv-din__return { height: calc(5 * var(--mm)); display: flex; align-items: center; font-family: system-ui, sans-serif; font-size: calc(2.2 * var(--mm)); line-height: 1; color: #5f7285; border-bottom: 1px solid #dfe5ec; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inv-din__remarks { height: calc(12.7 * var(--mm)); }
+  .inv-din__recipient .inv-party__name, .inv-din__recipient .inv-party__line { font-size: calc(3.5 * var(--mm)); line-height: calc(4.23 * var(--mm)); font-weight: 400; }
+  .inv-din__recipient .inv-party__name { font-weight: 600; }
+  .inv-din__info { width: calc(65 * var(--mm)); flex: none; padding-top: calc(5 * var(--mm)); font-size: calc(3.3 * var(--mm)); line-height: calc(4.23 * var(--mm)); }
+  .inv-din__info .inv-meta { display: flex; justify-content: space-between; gap: calc(3 * var(--mm)); }
+  .inv-din__info .inv-meta__label { font-family: inherit; font-size: inherit; font-weight: 400; letter-spacing: 0; text-transform: none; color: #5f7285; white-space: nowrap; }
+  .inv-din__info .inv-meta__value { font-size: inherit; text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-variant-numeric: tabular-nums; }
+  .inv-din__subject { margin-top: calc(8.46 * var(--mm)); display: flex; align-items: center; gap: calc(3 * var(--mm)); font-family: system-ui, sans-serif; font-weight: 700; font-size: calc(4 * var(--mm)); line-height: calc(4.23 * var(--mm)); }
+  .inv-din__subject .inv-status { margin: 0 0 0 auto; }
+  .inv-din__marks { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+  .inv-din__mark { position: absolute; left: 0; width: calc(5 * var(--mm)); border-top: 1px solid #5f7285; opacity: .55; }
+  .inv-din__mark--punch { width: calc(8 * var(--mm)); }
+  @media print {
+    .inv-doc.is-din5008a, .inv-doc.is-din5008b { container-type: normal; --mm: 1mm; --din-y0: 0mm; padding-bottom: 10mm; }
   }
 `;
+
+/**
+ * The sheet the file prints on.
+ *
+ * A file kept for years says only how wide its margin is and leaves the paper to whoever prints
+ * it. A print sent straight from the page names the paper as well, because the page knows which
+ * one was chosen, and asking the print dialog to guess is how an A4 invoice comes out on Letter.
+ */
+function pageCss({ pageSize, pageMargin } = {}) {
+  const margin = pageMargin || '14mm';
+  return `@media print { @page { ${pageSize ? `size: ${pageSize}; ` : ''}margin: ${margin}; } }`;
+}
 
 const escapeAttr = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
@@ -141,16 +221,21 @@ export function fileNameFor(draft) {
  * what an invoice looks like — which is the failure that makes a business stop trusting its own
  * paperwork.
  */
-export function documentToHtml(draft, settings = {}) {
+export function documentToHtml(draft, settings = {}, options = {}) {
   const node = renderDocument(draft, settings);
-  const title = [draft.number, draft.client?.name].filter(Boolean).join(' — ') || 'Document';
+  const title = options.title || [draft.number, draft.client?.name].filter(Boolean).join(' — ') || 'Document';
+  const density = options.density && options.density !== 'normal' ? ` data-density="${escapeAttr(options.density)}"` : '';
+  // A DIN sheet measures from the paper's edge, so the page gives it no margin of its own.
+  const page = isDin(draft.layout) ? { ...options, pageMargin: '0' } : options;
   return `<!DOCTYPE html>
-<html lang="${languageOf(draft, settings)}">
+<html lang="${languageOf(draft, settings)}"${density}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeAttr(title)}</title>
-<style>${FILE_CSS}</style>
+<style>${FILE_CSS}
+  ${pageCss(page)}
+</style>
 </head>
 <body>
 <div class="sheet">${node.outerHTML}</div>

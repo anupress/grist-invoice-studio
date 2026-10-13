@@ -17,19 +17,12 @@
 
 import { encodeQR } from '../core/qr/encoder.js';
 import { labels } from './lang.js';
+import { normaliseIban, looksLikeIban, formatIban, bankLines } from './banking.js';
+
+// The IBAN helpers moved to banking.js with the country schemes; they are still reachable here.
+export { normaliseIban, looksLikeIban, formatIban };
 
 const clean = (s) => String(s == null ? '' : s).trim();
-
-/** An IBAN as the standard wants it: upper case, no spaces. */
-export const normaliseIban = (s) => clean(s).replace(/\s+/g, '').toUpperCase();
-
-/** Roughly an IBAN — country, two check digits, then up to thirty more. Not a checksum. */
-export const looksLikeIban = (s) => /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(normaliseIban(s));
-
-/** An IBAN in the groups of four a person reads it in. */
-export function formatIban(s) {
-  return normaliseIban(s).replace(/(.{4})/g, '$1 ').trim();
-}
 
 /**
  * The EPC069-12 payload, version 002.
@@ -145,6 +138,36 @@ export function paymentCode(draft, settings = {}, fields = {}) {
   }
 
   return null;
+}
+
+/**
+ * The bank account, printed as words, whatever the currency.
+ *
+ * The EPC code above is euro-only, and a UPI code is rupee-only, so a business that has typed an
+ * IBAN onto a pound or dollar invoice used to see it nowhere — the box looked dead. The account
+ * lines are a thing to print in their own right; the code is a convenience on top. The lines
+ * themselves follow the sender's country (doc/banking.js): sort code and account in the UK,
+ * routing number in the US, IBAN where accounts are IBANs. Returns null when the business has
+ * typed no account, when the document asks for no money, or when nothing is owed.
+ *
+ * Callers skip it when the EPC code already printed the same lines beside the QR.
+ */
+export function accountLines(draft, settings = {}, fields = {}) {
+  const kind = fields.kind;
+  if (!kind || !kind.demandsPayment) return null;
+  const sender = draft?.sender || {};
+  const t = draft?.totals || {};
+  const owed = Number(t.balance != null ? t.balance : t.total);
+  if (!(owed > 0)) return null;
+  const L = fields.L || labels('en');
+  const lines = bankLines(sender, L);
+  if (!lines.length) return null;
+  const holder = clean(sender.accountHolder) || clean(sender.name);
+  const number = clean(draft.number);
+  return {
+    caption: L.bankTransfer,
+    lines: [holder, ...lines, number ? `${L.paymentReference}: ${number}` : ''].filter(Boolean),
+  };
 }
 
 /**

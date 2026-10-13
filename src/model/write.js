@@ -208,6 +208,24 @@ export function buildWritePlan(draft, schema, context = {}) {
   const invoiceIndex = indexColumns(context.invoiceColumns);
   const invoiceFields = fieldsFor(invoiceValues(draft), schema.invoice.roles, invoiceIndex, skipped, 'invoice');
 
+  // The invoice table's own columns, typed in the composer's "Also in this table" section. Keyed
+  // by column id rather than by role, because they are the business's columns and not ours — a
+  // Konto, a Kostenstelle, a project code. A role's column is never written this way, so a stray
+  // extra can never overwrite the number; a formula column is never written at all, as above.
+  const roleColumns = new Set(Object.values(schema.invoice.roles || {}).filter(Boolean));
+  for (const [colId, raw] of Object.entries(draft.extra || {})) {
+    const col = invoiceIndex.get(colId);
+    if (!col || isFormula(col) || roleColumns.has(colId) || raw === undefined) continue;
+    if (isBoolType(typeOf(col))) { invoiceFields[colId] = !!raw; continue; }
+    if ((raw === '' || raw == null) && draft.rowId == null) continue;   // a blank on a new row: nothing to write
+    const cell = toCell(raw, col);
+    if (cell === undefined) {
+      skipped.push({ where: 'invoice', role: colId, column: colId, reason: `"${String(raw)}" is not a ${typeOf(col).toLowerCase()} value, so it would be stored wrongly` });
+      continue;
+    }
+    invoiceFields[colId] = cell;
+  }
+
   if (!Object.keys(invoiceFields).length) {
     problems.push('Nothing on this document maps to a column that can be written.');
   }
@@ -225,6 +243,12 @@ export function buildWritePlan(draft, schema, context = {}) {
     },
     lines: null,
   };
+
+  // The number column, for the executor: when it is a formula, the number of a new invoice exists
+  // only once Grist has added the row, and lines that link by number have to wait for it.
+  plan.invoice.numberColumn = schema.invoice.roles.number || null;
+  const numberCol = plan.invoice.numberColumn ? invoiceIndex.get(plan.invoice.numberColumn) : null;
+  const numberLater = isFormula(numberCol) && !String(draft.number || '').trim();
 
   // ---- line items --------------------------------------------------------------------------
   if (schema.line?.table) {
@@ -248,10 +272,11 @@ export function buildWritePlan(draft, schema, context = {}) {
       if (linkCol && !isFormula(linkCol)) {
         // A reference link needs the invoice's row id, which a brand-new invoice does not have yet
         // — the executor fills it in after the header row is created. A text link carries the
-        // invoice number instead, which is known now.
+        // invoice number instead, which is known now — unless a formula works the number out, in
+        // which case it is known only once the row exists, and the executor reads it back.
         fields[roles.invoiceLink] = isRefType(typeOf(linkCol))
           ? (draft.rowId ?? '__INVOICE_ROW_ID__')
-          : toCell(draft.number, linkCol);
+          : numberLater ? '__INVOICE_NUMBER__' : toCell(draft.number, linkCol);
       }
       if (line.rowId) updates.push({ id: line.rowId, fields });
       else adds.push(fields);

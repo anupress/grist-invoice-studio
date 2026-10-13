@@ -454,7 +454,9 @@ function detectOfficial(list) {
     source: T.id,
     sourceLabel: T.label,
     confidence: 1,
-    invoice: { table: invoiceTable.id, roles: invoice.roles, derived: invoice.derived },
+    // `unreliable` travels with the mapping so the composer can keep the empty Text Total out of
+    // its "Also in this table" section — a column withheld on purpose is not one to invite into.
+    invoice: { table: invoiceTable.id, roles: invoice.roles, derived: invoice.derived, unreliable: T.invoice.unreliable },
     line: { table: lineTable.id, roles: line.roles },
     client: client ? { table: clientTable.id, roles: client.roles } : null,
     warnings,

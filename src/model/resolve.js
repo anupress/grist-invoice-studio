@@ -46,6 +46,9 @@ export function listInvoices(schema, provider) {
       number: str(byRole(r, roles, 'number')) || `#${r.id}`,
       client: clientNameFor(r, schema, provider),
       issued: str(byRole(r, roles, 'issued')),
+      due: str(byRole(r, roles, 'due')),
+      // The row id is the order rows were created in, which is what "last created" sorts by.
+      created: r.id,
       status: str(byRole(r, roles, 'status')),
       // Null when the document has no Kind column or the cell is empty: the list then says nothing
       // about the kind, as it always did, rather than guessing.

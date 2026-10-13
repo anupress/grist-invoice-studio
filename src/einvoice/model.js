@@ -251,8 +251,13 @@ export function einvoiceModel(draft, settings = {}) {
     buyer,
     payment: {
       // UNTDID 4461: 58 SEPA credit transfer, 30 credit transfer, 68 online payment service.
-      code: seller.iban || text(draft.sender?.iban) ? (currency === 'EUR' ? '58' : '30') : (text(draft.sender?.paymentLink) ? '68' : '30'),
+      code: seller.iban || text(draft.sender?.iban) ? (currency === 'EUR' ? '58' : '30')
+        : (text(draft.sender?.accountNumber) ? '30' : (text(draft.sender?.paymentLink) ? '68' : '30')),
       iban: text(draft.sender?.iban).replace(/\s+/g, '').toUpperCase(),
+      // BT-84 takes a proprietary account identifier where there is no IBAN — a sort code and
+      // account number, a routing and account number. Written as one token, the way the readers
+      // that look at it expect; the human-readable form is on the PDF.
+      account: [text(draft.sender?.bankCode), text(draft.sender?.accountNumber)].filter(Boolean).join(' ').replace(/\s+/g, ' '),
       bic: text(draft.sender?.bic).replace(/\s+/g, '').toUpperCase(),
       accountHolder: text(draft.sender?.accountHolder) || seller.name,
       reference: text(draft.number),

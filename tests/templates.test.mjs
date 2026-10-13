@@ -31,9 +31,9 @@ for (const t of T.TEMPLATES) {
   }
 }
 
-// Eight layouts, each a real choice with a label the choosers can show.
-eq('eight layouts', LAYOUTS.length, 8);
-eq('their ids are unique', new Set(LAYOUTS.map((l) => l.id)).size, 8);
+// Eleven layouts, each a real choice with a label the choosers can show.
+eq('eleven layouts', LAYOUTS.length, 11);
+eq('their ids are unique', new Set(LAYOUTS.map((l) => l.id)).size, 11);
 ok('each accepted by the validator', LAYOUTS.every((l) => isLayout(l.id)));
 ok('each with a label', LAYOUTS.every((l) => typeof l.label === 'string' && l.label.length > 2));
 ok('and nonsense still is not one', !isLayout('gothic'));
