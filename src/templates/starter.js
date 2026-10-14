@@ -69,6 +69,10 @@ const INVOICE_COLUMNS = [
     widgetOptions: JSON.stringify({ choices: KIND_WORDS, choiceOptions: {} }) },
   { id: 'PaidDate', label: 'Paid', type: 'Date' },
   { id: 'AmountPaid', label: 'Amount paid', type: 'Numeric' },
+  // The composer offers both on every document; without a column they were dropped on save while
+  // the stored Total still counted them, so the list and the document disagreed (1.26.3).
+  { id: 'Discount', label: 'Discount', type: 'Numeric' },
+  { id: 'Shipping', label: 'Shipping', type: 'Numeric' },
   { id: 'Currency', label: 'Currency', type: 'Text' },
   { id: 'Reference', label: 'Their reference', type: 'Text' },
   { id: 'Terms', label: 'Payment terms', type: 'Text' },

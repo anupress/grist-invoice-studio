@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.26.3 — a discount that stays
+
+The composer offers a discount and a shipping charge on every document, but the tables that setup
+builds had no column for either. Both were dropped on save (with a warning) while the stored Total
+still counted them, so the list showed one total and the reopened document another. New documents
+now get a Discount and a Shipping column, and Upgrade this document offers both to a document set
+up before, so a discount typed on a quote is still on it when it is opened again. Found while
+recording the tutorial.
+
 ## 1.26.2 — a subtotal that adds up
 
 A document with a discount printed its subtotal with the discount already taken off, then the

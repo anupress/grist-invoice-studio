@@ -148,6 +148,8 @@ export const STARTER_TABLES = [
         widgetOptions: JSON.stringify({ choices: ['Draft', 'Sent', 'Part paid', 'Paid', 'Overdue', 'Cancelled'], choiceOptions: {} }) },
       { id: 'PaidDate', label: 'Paid', type: 'Date' },
       { id: 'AmountPaid', label: 'Amount paid', type: 'Numeric' },
+      { id: 'Discount', label: 'Discount', type: 'Numeric' },
+      { id: 'Shipping', label: 'Shipping', type: 'Numeric' },
       { id: 'Currency', label: 'Currency', type: 'Text' },
       { id: 'Reference', label: 'Their reference', type: 'Text' },
       { id: 'Terms', label: 'Payment terms', type: 'Text' },
