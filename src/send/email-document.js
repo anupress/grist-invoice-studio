@@ -160,8 +160,8 @@ ${lineRows}
 </tr>`;
 
   const totals = !fields.showTotals ? '' : `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right" style="padding:14px 0 0;border-collapse:collapse">
-${totalRow(TL.subtotal, money(t.subtotal))}
-${t.discountTotal ? totalRow(TL.discount, '−' + money(t.discountTotal)) : ''}
+${totalRow(TL.subtotal, money((t.discountTotal ? (t.subtotalBeforeDiscount ?? t.subtotal) : t.subtotal)))}
+${t.discountTotal ? totalRow(TL.discount, '−' + money((t.discountShown ?? t.discountTotal))) : ''}
 ${t.shipping?.amount ? totalRow(TL.shipping, money(t.shipping.amount)) : ''}
 ${(fields.showTax ? (t.taxLines || []) : []).map((l) => totalRow(taxLabel(l, L.tax), money(l.amount))).join('')}
 ${t.exempt ? `<tr><td colspan="2" align="right" style="${F};font-size:11px;font-style:italic;color:${MUTED};padding:4px 0">${esc(t.exempt.reason)}</td></tr>` : ''}

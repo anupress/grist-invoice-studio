@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.26.2 — a subtotal that adds up
+
+A document with a discount printed its subtotal with the discount already taken off, then the
+discount again below it: Subtotal 1,135, Discount −50, VAT 227, Total 1,362, which no reader can add
+up. The subtotal above a Discount row is now the one from before the discount (1,185), on the
+document, the PDF, the email, its plain-text version and the composer. On tax-inclusive prices the
+row shows the discount without its tax, so the rows still add up to the total. What is stored in
+the table, the totals themselves and the e-invoice do not change. Found while recording the
+tutorial.
+
 ## 1.26.1 — the return line stays home
 
 The return line above a DIN 5008 address wrote the sender's postcode first whenever the document

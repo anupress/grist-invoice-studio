@@ -244,8 +244,8 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
 
   const totals = fields.showTotals
     ? el('section', { class: 'inv-totals' }, [
-        totalRow(TL.subtotal, M(t.subtotal)),
-        t.discountTotal ? totalRow(TL.discount, '−' + M(t.discountTotal)) : null,
+        totalRow(TL.subtotal, M((t.discountTotal ? (t.subtotalBeforeDiscount ?? t.subtotal) : t.subtotal))),
+        t.discountTotal ? totalRow(TL.discount, '−' + M((t.discountShown ?? t.discountTotal))) : null,
         t.shipping?.amount ? totalRow(TL.shipping, M(t.shipping.amount)) : null,
         // Every tax line, in the order it was applied. A split tax has to be shown split — an
         // Indian invoice reading "Tax 180" instead of CGST 90 and SGST 90 is not a valid document.

@@ -47,8 +47,8 @@ export function renderComposer(ctx) {
   const paintTotals = () => {
     const t = draft.totals || {};
     totalsBox.replaceChildren(...[
-      row('Subtotal', formatMoney(t.subtotal, fmt)),
-      t.discountTotal ? row('Discount', '−' + formatMoney(t.discountTotal, fmt)) : null,
+      row('Subtotal', formatMoney((t.discountTotal ? (t.subtotalBeforeDiscount ?? t.subtotal) : t.subtotal), fmt)),
+      t.discountTotal ? row('Discount', '−' + formatMoney((t.discountShown ?? t.discountTotal), fmt)) : null,
       t.shipping?.amount ? row('Shipping', formatMoney(t.shipping.amount, fmt)) : null,
       ...(t.taxLines || []).map((l) => row(l.rate != null ? `${l.name} ${Number(l.rate)}%` : l.name, formatMoney(l.amount, fmt))),
       t.exempt ? el('div', { class: 'cmp-totals__note', text: t.exempt.reason }) : null,

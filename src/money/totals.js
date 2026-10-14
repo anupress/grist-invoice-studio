@@ -136,9 +136,13 @@ export function computeTotals(input = {}, settings = {}) {
     const matched = (exempt || flatTax) ? [] : matchRates(s.taxRates, address, taxClass);
 
     let net = charged;
+    // The same line before the order discount, on the same footing as `net` (without tax): what a
+    // Subtotal printed ABOVE a Discount row has to add up from.
+    let netBefore = p.base;
     let taxLines = [];
     if (matched.length) {
       if (s.pricesIncludeTax) {
+        netBefore = netFromGross(p.base, matched);
         // The figure entered already contains the tax, and the customer must end up paying exactly
         // that figure, so the net is derived from it rather than the other way round.
         net = netFromGross(charged, matched);
@@ -167,6 +171,7 @@ export function computeTotals(input = {}, settings = {}) {
       base: R(p.base),
       discount: R(orderDiscount),
       net: displayNet,
+      netBeforeDiscount: R(netBefore),
       tax: R(lineTax),
       total: R(displayNet + lineTax),
       taxLines: contributions.map((t) => ({ ...t, amount: R(t.amount) })),
@@ -216,6 +221,14 @@ export function computeTotals(input = {}, settings = {}) {
 
   const shippingTotal = R(ship.amount);
   const discountTotal = discountResult.total;
+  // `subtotal` is the lines AFTER the order discount (spread across them, so each taxable base falls).
+  // A document that prints a Discount row under its Subtotal has to print the subtotal from BEFORE it,
+  // or the rows do not add up: 1,135 - 50 + 227 printed as a total of 1,362 (found 2026-10-14). On tax
+  // inclusive prices the discount was typed with the tax in it, so the row shows its net share instead.
+  const subtotalBeforeDiscount = !discountTotal ? subtotal
+    : s.pricesIncludeTax ? R(outLines.reduce((a, l) => a + l.netBeforeDiscount, 0))
+    : R(subtotal + discountTotal);
+  const discountShown = R(subtotalBeforeDiscount - subtotal);
   const total = R(subtotal + shippingTotal + taxTotal);
   const amountPaid = R(numOr(input.amountPaid));
 
@@ -224,7 +237,9 @@ export function computeTotals(input = {}, settings = {}) {
     decimals: dp,
     lines: outLines,
     subtotal,
+    subtotalBeforeDiscount,
     discountTotal,
+    discountShown,
     discounts: discountResult.discounts,
     shipping: { amount: shippingTotal, label: ship.label || 'Shipping', tax: R(shippingTax), zone: ship.zone || null, method: ship.method || null },
     // `single` collapses the itemisation to one line, which is what a small business usually wants

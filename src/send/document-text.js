@@ -71,8 +71,8 @@ export function documentToPlainText(draft, settings = {}) {
 
   if (fields.showTotals) {
     out.push('');
-    out.push(`${TL.subtotal} ${money(t.subtotal)}`);
-    if (t.discountTotal) out.push(`${TL.discount} −${money(t.discountTotal)}`);
+    out.push(`${TL.subtotal} ${money((t.discountTotal ? (t.subtotalBeforeDiscount ?? t.subtotal) : t.subtotal))}`);
+    if (t.discountTotal) out.push(`${TL.discount} −${money((t.discountShown ?? t.discountTotal))}`);
     if (t.shipping?.amount) out.push(`${TL.shipping} ${money(t.shipping.amount)}`);
     if (fields.showTax) {
       for (const l of t.taxLines || []) out.push(`${taxLabel(l, L.tax)} ${money(l.amount)}`);

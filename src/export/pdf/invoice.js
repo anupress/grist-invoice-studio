@@ -492,8 +492,8 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
         y += r.big ? lead + 4 : lead + 1;
       }
     };
-    row(TL.subtotal, money(t.subtotal));
-    if (t.discountTotal) row(TL.discount, '-' + money(t.discountTotal));
+    row(TL.subtotal, money((t.discountTotal ? (t.subtotalBeforeDiscount ?? t.subtotal) : t.subtotal)));
+    if (t.discountTotal) row(TL.discount, '-' + money((t.discountShown ?? t.discountTotal)));
     if (t.shipping?.amount) row(TL.shipping, money(t.shipping.amount));
     if (fields.showTax) {
       for (const l of t.taxLines || []) row(taxLabel(l, L.tax), money(l.amount));
