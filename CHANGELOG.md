@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.26.7 — the composer's totals follow a button
+
+The totals box in the composer was painted from the draft before it was recalculated, and repainted
+only when something was typed. A line added by a button arrived without that: after Add interest
+for the days overdue, the box still read £2,025.36 while the document beside it showed £2,042.23
+with the interest line. The draft is now recalculated before the composer is drawn, so Add
+interest, Combine them and the other buttons that change the lines show the new totals at once.
+Found while recording the tutorial.
+
 ## 1.26.6 — the client form writes the address the documents do
 
 The address preview in the client form (the Clients page, and New client in the composer) built

@@ -1823,6 +1823,10 @@ function renderBody() {
   }
 
   if (app.mode === 'compose' && app.draft) {
+    // Totals first: the composer paints its totals box once, from the draft it is handed, and only
+    // repaints it on an edit. A line added by a button (Add interest, Combine them, Raise it) arrives
+    // through a rebuild, so without this the box kept the totals from before it (1.26.7).
+    recalc(app.draft, app.schema?.invoice ? settingsNow() : setupPreviewSettings());
     const plan = app.schema?.invoice ? buildPlan() : null;
     const clientSrc = recordSource('client');
     parts.push(renderComposer({
