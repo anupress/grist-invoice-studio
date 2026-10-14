@@ -543,6 +543,11 @@ async function doRefresh() {
   try {
     const wanted = (app.provider.tables() || []).map((t) => t.id);
     const { reloaded } = await app.provider.reload(wanted);
+    // reload() reads the tables it is named, and these are the ones known before the press. A table
+    // made in Grist since then is listed after it but holds no columns, so the Data drawer could not
+    // map one of them; read those too (1.26.8).
+    const fresh = (app.provider.tables() || []).map((t) => t.id).filter((id) => !wanted.includes(id));
+    if (fresh.length) await app.provider.prime(fresh);
     app.stored = await loadSettings();
     rescan();
     forgetViewMeta();
@@ -1565,6 +1570,9 @@ function renderDataPanel() {
     ]);
     sel.addEventListener('change', async () => {
       forced[key] = sel.value;
+      // A table the widget has not read yet (made in Grist after it opened) is read now, so its
+      // columns are there to pin (1.26.8).
+      if (sel.value && !(app.provider.columns(sel.value) || []).length) await app.provider.prime([sel.value]);
       // A different table means the column choices made for the old one no longer apply.
       if (forced.columns) forced.columns[key] = {};
       await persist(sel.value ? `Reading ${label.toLowerCase()} from ${sel.value}.` : `Working out the ${label.toLowerCase()} table automatically.`);

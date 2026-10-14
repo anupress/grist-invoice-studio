@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.26.8 — tables made after the widget opened can be described
+
+Refresh re-read only the tables the widget already knew when it was pressed. A table made in Grist
+since then, Rechnungen with Nummer, Kunde and Datum say, then appeared in the Data drawer's table
+lists with no columns at all, so not one role could be pinned to it until the page was reloaded.
+Refresh now reads every table the document has, and choosing a table in the drawer that has not
+been read yet reads it there and then. Found while recording the tutorial.
+
 ## 1.26.7 — the composer's totals follow a button
 
 The totals box in the composer was painted from the draft before it was recalculated, and repainted
