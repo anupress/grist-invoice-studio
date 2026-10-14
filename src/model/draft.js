@@ -308,5 +308,12 @@ export function convertDraft(draft, toKindId, { relatedTo = '' } = {}) {
     rowId: null,
     status: 'Draft',
     issued: new Date().toISOString().slice(0, 10),
+    // A new document has not been sent yet, whatever the one it came from has been through.
+    sentAt: '',
+    sentTo: '',
+    // The lines are COPIED, without their row ids, as Duplicate and Raise it do. With the ids kept, saving
+    // the new document re-pointed the original's line rows at it: a quote turned into an invoice was
+    // left with no lines at all (found 2026-10-14 while recording the tutorial).
+    lines: (draft.lines || []).map(({ rowId, ...l }) => ({ ...l })),
   });
 }

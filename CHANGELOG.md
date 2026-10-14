@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.26.4 — the quote keeps its lines
+
+Make invoice, Make proforma invoice, Make receipt and Make credit note now copy the document's lines.
+Before, the new document kept the original's line rows, and saving it moved them: a quote turned
+into an invoice was left with no lines, and an invoice turned into a receipt lost its own. Duplicate
+and Raise it already copied. The new document also starts unsent, whatever the original had been
+through. Found while recording the tutorial.
+
 ## 1.26.3 — a discount that stays
 
 The composer offers a discount and a shipping charge on every document, but the tables that setup
