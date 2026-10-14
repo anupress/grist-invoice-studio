@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.26.9 — the Data drawer keeps its place
+
+Every choice in the Data drawer saves and redraws the page, and the drawer came back as if opened
+for the first time: it slid in again, sat at its top, and the "Columns in …" section you had just
+used was closed. Pinning the four columns of a table of your own meant scrolling down and opening
+that section four times. The same drawer drawn again now stays open where it was, and an open
+column section stays open. Found while recording the tutorial.
+
 ## 1.26.8 — tables made after the widget opened can be described
 
 Refresh re-read only the tables the widget already knew when it was pressed. A table made in Grist

@@ -691,6 +691,8 @@ function sampleDraft(settings) {
 
 // What the last render drew, so the next one can tell a redraw of the same thing from a change.
 let shown = { row: null, mode: null, list: null, transient: null };
+// Which parts' "Columns in …" sections are open in the Data drawer, so a redraw keeps them open.
+const openColumns = new Set();
 
 function render() {
   const host = root();
@@ -711,6 +713,14 @@ function render() {
     el('div', { class: 'studio-main' }, [renderSidebar(), renderBody()]),
     drawer,
   ]));
+  // The same drawer drawn again (a choice made in it saves and redraws everything) stays where it
+  // was: open, at its scroll position. It slid in afresh and jumped to its top on every choice, so
+  // pinning four columns in Data meant finding the place four times (1.26.9).
+  if (drawer && keep.drawer === drawer.getAttribute('aria-label')) {
+    drawer.classList.add('is-open');
+    const body = drawer.querySelector('.studio-drawer__body');
+    if (body) body.scrollTop = keep.drawerTop;
+  }
   // The drawer is created closed and opened a beat later so its slide-in can play. setTimeout, not
   // requestAnimationFrame, for the same reason the toast uses it: rAF is starved while the tab is
   // not compositing — an embedded widget in a background tab — and a drawer that never opens is a
@@ -723,7 +733,12 @@ function render() {
 function scrollState(host) {
   const list = host.querySelector('.studio-side__list');
   const body = host.querySelector('.studio-body');
-  return { listTop: list ? list.scrollTop : 0, bodyTop: body ? body.scrollTop : 0, ...shown };
+  const drawer = host.querySelector('.studio-drawer.is-open');
+  const drawerBody = drawer && drawer.querySelector('.studio-drawer__body');
+  return {
+    listTop: list ? list.scrollTop : 0, bodyTop: body ? body.scrollTop : 0, ...shown,
+    drawer: drawer ? drawer.getAttribute('aria-label') : null, drawerTop: drawerBody ? drawerBody.scrollTop : 0,
+  };
 }
 
 function restoreScroll(host, keep) {
@@ -1557,10 +1572,13 @@ function renderDataPanel() {
       ]);
     });
     const chosen = Object.keys(choices).length;
-    return el('details', { class: 'studio-cols' }, [
+    // Kept open across the redraw a choice causes (1.26.9): it closed after every pinned column.
+    const box = el('details', { class: 'studio-cols', open: openColumns.has(part) ? true : null }, [
       el('summary', { text: `Columns in ${mapped.table}${chosen ? ` — ${chosen} chosen by you` : ''}` }),
       el('div', { class: 'studio-cols__grid' }, rows),
     ]);
+    box.addEventListener('toggle', () => { if (box.open) openColumns.add(part); else openColumns.delete(part); });
+    return box;
   };
 
   const pick = (label, key, hint) => {
