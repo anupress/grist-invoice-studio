@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.26.6 — the client form writes the address the documents do
+
+The address preview in the client form (the Clients page, and New client in the composer) built
+its own line of town, state and postcode, in that order for every country. So a client in München
+previewed as "München 80331" while the invoice for them printed "80331 München". The preview now
+uses the same address lines as the documents, in the country's own order. Found while recording
+the tutorial.
+
 ## 1.26.5 — the list agrees with the documents
 
 The sample business stored each invoice's Total without its tax, while every document the composer

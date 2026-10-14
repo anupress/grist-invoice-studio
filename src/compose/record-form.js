@@ -14,6 +14,7 @@ import { formatMoney } from '../money/currency.js';
 import { field, textInput, numberInput, selectInput, suggestInput, button, section } from './ui.js';
 import { formFields, extraFields, recordName, LANGUAGE_OPTIONS } from '../model/records.js';
 import { imageSrc } from '../doc/render.js';
+import { addressLines } from '../doc/address.js';
 
 /**
  * Build the form.
@@ -49,9 +50,9 @@ export function renderRecordForm(ctx) {
   const paintPreview = () => {
     preview.replaceChildren();
     if (kind === 'client') {
-      const lines = [values.street1, values.street2,
-        [values.city, values.state, values.postcode].map((x) => String(x || '').trim()).filter(Boolean).join(' '),
-        values.country].map((x) => String(x || '').trim()).filter(Boolean);
+      // The address as the documents print it, in the country's order: 80331 München, Bristol BS1 4QA
+      // (1.26.6; it put every postcode after the town, so a German client previewed as München 80331).
+      const lines = addressLines(values, values.language || 'en').map((x) => String(x || '').trim()).filter(Boolean);
       // append() turns a null child into the text "null", so nothing optional goes in unfiltered.
       preview.append(...[
         el('div', { class: 'inv-party__label', text: 'Bill to' }),
