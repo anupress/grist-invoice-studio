@@ -203,23 +203,28 @@ export function starterTablesFor(templateId, { numberPrefix = 'INV-', grossOf = 
     }
   });
 
-  // The stored Total on each invoice, so the ledger reads correctly in Grist itself. It is the net
-  // of the lines, which is what a Total column in a Grist invoice table conventionally holds.
+  // The stored Total on each invoice, so the ledger reads correctly in Grist itself.
   //
   // Amount paid is deliberately NOT that figure. Paid means paid in full, and what a customer
   // actually pays includes the tax the invoice adds on top — so a net amount paid renders a paid
   // invoice with a balance outstanding of exactly the VAT. grossOf is how the caller, which is the
   // only thing that knows the tax settings, supplies the real figure. A part payment is half of it.
+  //
+  // The stored Total is the document's total, tax included, as the composer writes it on every Save
+  // (1.26.5). It used to be the net of the lines here, so in the same table the sample rows said one
+  // thing and every saved document another, and the list showed 1,687.80 for a document whose total
+  // is 2,025.36. Without the caller's tax settings (no grossOf) it falls back to the net.
   invoices.forEach((inv, index) => {
     const mine = items.filter((it) => it.Invoice === index + 1);
-    inv.Total = round2(mine.reduce((a, it) => a + it.Total, 0));
-    if (inv.Status !== 'Paid' && inv.Status !== 'Part paid') return;
+    const net = round2(mine.reduce((a, it) => a + it.Total, 0));
     const client = clients[inv.Client - 1] || {};
     const gross = grossOf ? grossOf({
       lines: mine.map((it) => ({ description: it.Description, quantity: it.Quantity, unitPrice: it.Price })),
       address: { country: client.Country, state: client.State, city: client.City, postcode: client.Zip },
-    }) : inv.Total;
-    const full = round2(Number.isFinite(gross) ? gross : inv.Total);
+    }) : net;
+    const full = round2(Number.isFinite(gross) ? gross : net);
+    inv.Total = full;
+    if (inv.Status !== 'Paid' && inv.Status !== 'Part paid') return;
     inv.AmountPaid = inv.Status === 'Paid' ? full : round2(full / 2);
   });
 

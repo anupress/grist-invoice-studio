@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.26.5 — the list agrees with the documents
+
+The sample business stored each invoice's Total without its tax, while every document the composer
+saves stores the total with it. So the same list showed 1,687.80 for an invoice whose document says
+2,025.36, beside saved documents shown at their full total. Setup now stores the sample totals the
+way Save does, tax included, so the list, the documents and what is owed agree. Without tax
+settings it still falls back to the net. Found while recording the tutorial.
+
 ## 1.26.4 — the quote keeps its lines
 
 Make invoice, Make proforma invoice, Make receipt and Make credit note now copy the document's lines.

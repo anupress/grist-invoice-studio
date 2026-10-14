@@ -148,14 +148,17 @@ const taxed = starter.starterTablesFor('construction', {
   grossOf: ({ lines, address }) => computeTotals({ lines, addresses: { billing: address } }, vat).total,
 });
 const paidVat = taxed.find((t) => t.id === 'Invoices').records.find((i) => i.Status === 'Paid');
-eq('with VAT, paid in full includes it', paidVat.AmountPaid, Math.round(paidVat.Total * 1.2 * 100) / 100);
-ok('and the invoice is therefore settled', paidVat.AmountPaid > paidVat.Total);
+// Since 1.26.5 the stored Total is itself the gross, as Save writes it, so paid in full is the Total
+const paidNet = taxed.find((t) => t.id === 'InvoiceItems').records.filter((it) => it.Invoice === taxed.find((t) => t.id === 'Invoices').records.indexOf(paidVat) + 1).reduce((a, it) => a + it.Total, 0);
+eq('with VAT, the stored total includes it', paidVat.Total, Math.round(paidNet * 1.2 * 100) / 100);
+eq('and paid in full is that total', paidVat.AmountPaid, paidVat.Total);
+ok('and the invoice is therefore settled', paidVat.AmountPaid >= paidVat.Total);
 // Unpaid invoices are untouched by any of this.
 // The paid one and the part-paid one carry a payment; the overdue, sent and draft ones do not.
 eq('only the paid and part-paid invoices carry a payment',
   taxed.find((t) => t.id === 'Invoices').records.filter((i) => i.AmountPaid > 0).map((i) => i.Status).sort(), ['Paid', 'Part paid']);
 const partVat = taxed.find((t) => t.id === 'Invoices').records.find((i) => i.Status === 'Part paid');
-eq('and a part payment is half the gross', partVat.AmountPaid, Math.round(partVat.Total * 1.2 / 2 * 100) / 100);
+eq('and a part payment is half the gross', partVat.AmountPaid, Math.round(partVat.Total / 2 * 100) / 100);
 
 // The trade decides what is being sold, which is the whole reason it is asked for.
 ok('a builder invoices for labour', byId.InvoiceItems.records.some((it) => /Labour/i.test(it.Description)));

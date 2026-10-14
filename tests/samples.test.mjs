@@ -62,11 +62,13 @@ for (const t of T.TEMPLATES) {
   ok(`${t.id}: every invoice has lines`, by.Invoices.records.every((_, i) => by.InvoiceItems.records.some((it) => it.Invoice === i + 1)));
   ok(`${t.id}: every line points at a real invoice`, by.InvoiceItems.records.every((it) => it.Invoice >= 1 && it.Invoice <= 5));
   ok(`${t.id}: every line is priced from the catalogue`, by.InvoiceItems.records.every((it) => by.Products.records.some((p) => p.Name === it.Description && p.Price === it.Price)));
-  ok(`${t.id}: stored totals are the sum of the lines`, by.Invoices.records.every((r, i) => Math.abs(r.Total - by.InvoiceItems.records.filter((it) => it.Invoice === i + 1).reduce((a, it) => a + it.Total, 0)) < 0.001));
+  ok(`${t.id}: stored totals are the document totals, tax included (1.26.5)`, by.Invoices.records.every((r, i) => Math.abs(r.Total - by.InvoiceItems.records.filter((it) => it.Invoice === i + 1).reduce((a, it) => a + it.Total, 0) * 1.2) < 0.02));
   const paid = by.Invoices.records.find((r) => r.Status === 'Paid');
   const part = by.Invoices.records.find((r) => r.Status === 'Part paid');
-  ok(`${t.id}: paid means the gross was paid`, Math.abs(paid.AmountPaid - paid.Total * 1.2) < 0.02 && paid.PaidDate);
-  ok(`${t.id}: part paid means half the gross`, Math.abs(part.AmountPaid - paid.Total * 0 - part.Total * 0.6) < 0.02);
+  ok(`${t.id}: paid means the total was paid`, Math.abs(paid.AmountPaid - paid.Total) < 0.02 && paid.PaidDate);
+  ok(`${t.id}: part paid means half the total`, Math.abs(part.AmountPaid - part.Total / 2) < 0.02);
+  const net = starter.starterTablesFor(t.id, { numberPrefix: 'INV-' }).find((x) => x.id === 'Invoices');
+  ok(`${t.id}: without tax settings the total falls back to the net`, net.records.every((r, i) => Math.abs(r.Total - by.InvoiceItems.records.filter((it) => it.Invoice === i + 1).reduce((a, it) => a + it.Total, 0)) < 0.001));
   const sent = by.Invoices.records.find((r) => r.Status === 'Sent');
   ok(`${t.id}: a sent invoice remembers being sent`, sent.SentAt === sent.Issued && typeof sent.SentTo === 'string');
   const draft = by.Invoices.records.find((r) => r.Status === 'Draft');
