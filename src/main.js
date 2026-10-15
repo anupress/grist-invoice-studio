@@ -1538,6 +1538,9 @@ function renderDataPanel() {
     const saved = await saveSettings(app.stored);
     app.stored = saved.settings;
     rescan();
+    // The columns the widget uses follow the tables and columns just chosen, so the advice about
+    // columns hidden from their pages does too. It described the old tables until a Refresh (1.26.10).
+    await probeHidden().catch(() => {});
     app.currentRowId = null;
     render();
     if (note) toast(note, 'ok');

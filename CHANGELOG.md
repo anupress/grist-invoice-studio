@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.26.10 — the hidden-column advice follows your tables
+
+The Data drawer can point the widget at tables of your own and pin their columns, and it also says
+when a column the widget uses is in a table but hidden from that table's page. That second part was
+worked out when the widget opened and on Refresh only, so after choosing Rechnungen and pinning its
+columns, the drawer still spoke about the tables it had guessed first. Every choice in the drawer now
+works it out again for the tables and columns just chosen. Found while recording the tutorial.
+
 ## 1.26.9 — the Data drawer keeps its place
 
 Every choice in the Data drawer saves and redraws the page, and the drawer came back as if opened
