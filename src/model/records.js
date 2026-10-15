@@ -46,6 +46,9 @@ export const PRODUCT_FORM = [
   { role: 'hsn', label: 'HSN/SAC', code: true, hint: 'For Indian GST only.' },
   { role: 'stock', label: 'In stock', type: 'number' },
   { role: 'image', label: 'Picture', type: 'image', wide: true, hint: 'Shown as a thumbnail beside every line that bills it.' },
+  { role: 'category', label: 'Category', suggest: 'category', hint: 'Groups the catalogue picker on an invoice.' },
+  { role: 'validFrom', label: 'Price valid from', type: 'date', hint: 'For a price that changes: one row per price, each with the day it starts. A document is offered the price of its own date.' },
+  { role: 'validTo', label: 'Price valid until', type: 'date', hint: 'Optional: the last day this price applies.' },
 ];
 
 export const FORMS = { client: CLIENT_FORM, product: PRODUCT_FORM };
@@ -53,7 +56,7 @@ export const FORMS = { client: CLIENT_FORM, product: PRODUCT_FORM };
 /** Which upgrade column would fill a role the table is missing, per kind. */
 export const ADDABLE = {
   client: { email: 'Email', phone: 'Phone', taxNumber: 'TaxNumber', country: 'Country', language: 'Language' },
-  product: { image: 'Image' },
+  product: { image: 'Image', category: 'Category', validFrom: 'ValidFrom', validTo: 'ValidUntil' },
 };
 
 const isAttachments = (col) => /^Attachments/i.test(String(col?.type || ''));
@@ -73,6 +76,9 @@ function controlFor(col) {
   if (/^Bool/i.test(type)) return 'bool';
   if (/^Date$/i.test(type)) return 'date';
   if (/^Choice$/i.test(type)) return 'choice';
+  // A Reference is a choice from another table's rows: a ledger, a project, a cost centre. A
+  // formula elsewhere in the document often reads it, which is why it has to be fillable here.
+  if (/^Ref:/i.test(type)) return 'ref';
   if (/^(Ref|RefList|ChoiceList|Attachments|DateTime|Any)/i.test(type)) return null;
   return 'text';
 }
@@ -123,6 +129,10 @@ export function extraFields(kind, roles = {}, columns = [], { exclude = [] } = {
       label: col.label || col.id,
       type: control,
       choices: control === 'choice' ? choicesOf(col.widgetOptions) : null,
+      // For a Reference: the table it points at and the column whose value names a row, filled in
+      // by the caller as `choices` of { value: rowId, label } — this file cannot read rows.
+      refTable: control === 'ref' ? (col.refTable || (/^Ref:(.+)$/i.exec(String(col.type)) || [])[1] || null) : null,
+      refVisibleCol: control === 'ref' ? (col.refVisibleCol || null) : null,
       colId: col.id,
       column: col,
       present: true,

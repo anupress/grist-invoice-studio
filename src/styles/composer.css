@@ -80,6 +80,15 @@
 .cmp-grid__head.has-hsn, .cmp-grid__row.has-hsn {
   grid-template-columns: minmax(0, 1fr) 92px 72px 86px 100px 96px 88px;
 }
+/* With the per-line discount box: one more, narrower, column. */
+.cmp-grid__head.has-discount, .cmp-grid__row.has-discount {
+  grid-template-columns: minmax(0, 1fr) 64px 78px 92px 72px 92px 88px;
+}
+.cmp-grid__head.has-hsn.has-discount, .cmp-grid__row.has-hsn.has-discount {
+  grid-template-columns: minmax(0, 1fr) 84px 64px 78px 92px 72px 92px 88px;
+}
+/* A placeholder is a hint, never a value: lighter and slanted, so an empty box reads as empty. */
+.cmp-input::placeholder { color: var(--muted); opacity: .65; font-style: italic; }
 .cmp-grid__row .cmp-suggest { min-width: 0; }
 .cmp-grid__row .cmp-suggest .cmp-input { width: 100%; }
 .cmp-grid__head {

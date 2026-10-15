@@ -49,7 +49,9 @@ function columnDef(item) {
  * which is how the UI lets someone take the status column and decline the rest.
  */
 export function buildUpgradePlan(schema, columnsByTable = {}, only = null, products = null) {
-  const wanted = upgradeChecklist(schema, products);
+  // Asked for by id, an optional column is as wanted as any other: the person pressed the button
+  // beside the field it serves.
+  const wanted = upgradeChecklist(schema, products, { includeOptional: !!only });
   const columns = [];
   const alreadyThere = [];
   const chosen = only ? new Set(only) : null;

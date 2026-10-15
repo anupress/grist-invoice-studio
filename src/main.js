@@ -41,7 +41,7 @@ import { assignNumber } from './money/numbering.js';
 import { renderDocument, docDate } from './doc/render.js';
 import { DOCUMENT_KINDS, documentKind, kindFromCell } from './doc/kinds.js';
 import { languageOf, localiseKind } from './doc/lang.js';
-import { LAYOUTS, isDin } from './doc/layouts.js';
+import { LAYOUTS, isDin, isWindowed } from './doc/layouts.js';
 import { renderComposer } from './compose/composer.js';
 import { field, section } from './compose/ui.js';
 import { RATES_UPDATED } from './money/tax/rates.js';
@@ -305,7 +305,26 @@ function invoiceExtras() {
   if (!s?.invoice) return [];
   return extraFields('invoice', s.invoice.roles, app.provider.columns(s.invoice.table) || [], {
     exclude: Object.values(s.invoice.unreliable || {}),
-  });
+  }).map((f) => (f.type === 'ref' ? { ...f, choices: refChoices(f) } : f));
+}
+
+/**
+ * The rows a Reference column can point at, as { value, label } for a chooser: named by the column
+ * Grist shows for the reference, or by the row's first text if the document shows ids. The target
+ * table is read along with the table that refers to it (see the provider's prime), so the list is
+ * there without a round trip.
+ */
+function refChoices(f) {
+  if (!f.refTable) return [];
+  const rows = app.provider.records(f.refTable) || [];
+  const label = (r) => {
+    const v = f.refVisibleCol ? r[f.refVisibleCol] : null;
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+    const first = Object.entries(r).find(([k, x]) => k !== 'id' && k !== 'manualSort' && typeof x === 'string' && x.trim());
+    return first ? first[1].trim() : `#${r.id}`;
+  };
+  return rows.map((r) => ({ value: String(r.id), label: label(r) }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 /** What a row holds in those columns, by column id, as the composer's controls want them. */
@@ -313,7 +332,8 @@ function readExtras(row) {
   const out = {};
   for (const f of invoiceExtras()) {
     const v = row ? row[f.colId] : undefined;
-    out[f.colId] = v === undefined || v === null ? (f.type === 'bool' ? false : '') : v;
+    // An empty Reference is Grist's 0, which is no row; the chooser shows it as empty.
+    out[f.colId] = v === undefined || v === null || (f.type === 'ref' && !v) ? (f.type === 'bool' ? false : '') : v;
   }
   return out;
 }
@@ -650,6 +670,17 @@ function paintPreview() {
   // whole width of the page instead of the frame's side margins.
   document.documentElement.toggleAttribute('data-din', isDin(draft.layout));
   previewHost.replaceChildren(renderDocument(draft, settings, { resolveImage }));
+  // The Ledger and DIN sheets carry the sender in a foot that belongs at the bottom of the paper,
+  // on every page. Print pins it there (studio.css) and keeps the room it needs free on every page;
+  // that room is measured here, from the foot as drawn, because what is in it is the business's own.
+  const root = document.documentElement;
+  const foot = isWindowed(draft.layout) && !/^receipt/.test(app.stored.document.paperSize || '') ? previewHost.querySelector('.inv-colophon') : null;
+  if (foot) {
+    root.setAttribute('data-colophon', isDin(draft.layout) ? 'din' : 'ledger');
+    root.style.setProperty('--colophon-h', `${Math.ceil(foot.getBoundingClientRect().height)}px`);
+  } else {
+    root.removeAttribute('data-colophon');
+  }
 }
 
 /**
@@ -1330,7 +1361,8 @@ function listRecords(kind) {
     // Clients show where they are; catalogue items what they cost.
     sub: kind === 'client'
       ? [R.city ? r[R.city] : '', R.email ? r[R.email] : ''].map((v) => String(v || '').trim()).filter(Boolean).join(' · ')
-      : [R.sku ? r[R.sku] : '', R.unit ? r[R.unit] : ''].map((v) => String(v || '').trim()).filter(Boolean).join(' · '),
+      : [R.category ? r[R.category] : '', R.sku ? r[R.sku] : '', R.unit ? r[R.unit] : '', R.validFrom && r[R.validFrom] ? `from ${r[R.validFrom]}` : '']
+        .map((v) => String(v || '').trim()).filter(Boolean).join(' · '),
     price: kind === 'product' && R.unitPrice ? r[R.unitPrice] : null,
     image: kind === 'product' && R.image ? r[R.image] : null,
   }));
@@ -1354,7 +1386,8 @@ async function saveRecordValues(kind, rowId, values) {
   const toSave = { ...values };
   const isNewPicture = typeof toSave.image === 'string' && toSave.image.startsWith('data:image/');
   if (picture && picture.attachments && isNewPicture && app.live) {
-    const up = await uploadAttachment(toSave.image, `${recordName(values, kind).replace(/[^\w-]+/g, '-').toLowerCase() || 'picture'}.jpg`);
+    const ext = /^data:image\/png/.test(toSave.image) ? 'png' : 'jpg';
+    const up = await uploadAttachment(toSave.image, `${recordName(values, kind).replace(/[^\w-]+/g, '-').toLowerCase() || 'picture'}.${ext}`);
     if (!up.ok) return { ok: false, error: up.error || 'The picture could not be uploaded.' };
     toSave.image = up.value;
   }
@@ -1376,10 +1409,16 @@ async function saveRecordValues(kind, rowId, values) {
 
 /** The type-ahead lists the record forms offer. Tax classes come from this document's own table. */
 function recordSuggestions() {
+  // The catalogue's own categories, so a second item lands in the same section as the first.
+  const P = app.products;
+  const categories = P?.roles?.category
+    ? [...new Set((app.provider.records(P.table) || []).map((r) => String(r[P.roles.category] ?? '').trim()).filter(Boolean))].sort()
+    : [];
   return {
     country: asOptions(COUNTRIES),
     unit: asOptions(UNITS),
     taxClass: asOptions(taxClassesFor(settingsNow().money)),
+    category: categories.map((c) => ({ value: c, label: c })),
   };
 }
 
@@ -1392,7 +1431,15 @@ function recordSuggestions() {
  */
 async function addColumnForRole(kind, role) {
   const part = kind === 'client' ? 'client' : 'product';
-  const id = ADDABLE[part]?.[role];
+  return addUpgradeColumn(ADDABLE[part]?.[role]);
+}
+
+/**
+ * Add one column the upgrade plan knows, by its id: a picture column on the catalogue, an email on
+ * the clients, the remark zone on the invoices. Only adds; the composer keeps its draft, and the
+ * next Save writes into the new column.
+ */
+async function addUpgradeColumn(id) {
   if (!id || app.busy) return;
   const columnsByTable = {};
   for (const t of app.provider.tables() || []) columnsByTable[t.id] = app.provider.columns(t.id) || [];
@@ -1433,6 +1480,7 @@ function renderRecordEditor() {
     kind, rowId, values, resolveImage, canWrite: canWrite(),
     roles: src.roles, columns,
     suggestions: recordSuggestions(),
+    refChoices,
     onAddColumn: (role) => addColumnForRole(kind, role),
     money: { ...money.format, currency: money.currency },
     onSave: async (v) => {
@@ -1862,7 +1910,8 @@ function renderBody() {
       draft: app.draft,
       schema: app.schema,
       clients: listClients(app.schema, app.provider),
-      products: productOptions(app.products, app.provider),
+      // Priced for the document's own date, when the catalogue keeps prices over time.
+      products: productOptions(app.products, app.provider, { date: app.draft.issued }),
       statuses: statusOptions(app.schema, app.provider),
       settings: settingsNow(),
       live: app.live,
@@ -1899,6 +1948,7 @@ function renderBody() {
           if (res.ok) render();
         } : null,
         newDoc: () => startCompose(null),
+        addColumn: (id) => addUpgradeColumn(id),
         // The same document for the next period: a new draft, every date moved on, nothing paid.
         repeat: (period) => {
           app.draft = nextDocument(app.draft, period);

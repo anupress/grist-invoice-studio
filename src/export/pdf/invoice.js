@@ -11,12 +11,13 @@
 
 import { PdfWriter, MM } from './writer.js';
 import { formatMoney } from '../../money/currency.js';
-import { fieldsFor, lineColumns, totalLabels } from '../../doc/fields.js';
+import { fieldsFor, lineColumns, totalLabels, lineDiscountText } from '../../doc/fields.js';
 import { docDate, taxLabel } from '../../doc/render.js';
 import { labelOr, localiseStatus, fillLabel } from '../../doc/lang.js';
 import { paymentCode, accountLines } from '../../doc/payment.js';
 import { isDin, DIN, DIN_FORMS, returnLine } from '../../doc/layouts.js';
 import { addressLines } from '../../doc/address.js';
+import { footerColumns } from '../../doc/footer.js';
 
 const INK = '#16212c';
 const MUTED = '#5f7285';
@@ -47,7 +48,7 @@ function columnWidth(pdf, col, rows, S, gap) {
 }
 
 /** Every cell as the string it will print as, so widths are measured on the truth. */
-function cellText(line, col, money, lang, index = 0) {
+function cellText(line, col, money, lang, index = 0, decimal = '.') {
   switch (col.id) {
     case 'position': return String(index + 1);
     case 'description': return String(line.description || '');
@@ -55,7 +56,7 @@ function cellText(line, col, money, lang, index = 0) {
     case 'quantity': return String(line.quantity ?? '');
     case 'unit': return String(line.unit || '');
     case 'unitPrice': return money(line.unitPrice);
-    case 'discount': return line.discountAmount ? '-' + money(line.discountAmount) : '';
+    case 'discount': return lineDiscountText(line, money, { minus: '-', decimal });
     case 'amount': return money(line.amount);
     case 'date': return docDate(line.date, lang);
     case 'reference': return String(line.reference || '');
@@ -166,14 +167,9 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
   const colophonColW = (right - M) / 3;
   const wrapCol = (items) => items.flatMap((l) =>
     pdf.wrap(l.text, colophonColW - 16, S.small, l.bold).map((text) => ({ text, bold: l.bold })));
-  const colophon = windowed ? [
-    wrapCol([{ text: sender.name || 'Your business', bold: true }, ...address(sender).map((text) => ({ text }))]),
-    wrapCol([
-      String(sender.taxNumber || '').trim() ? { text: `${taxIdLabel}: ${sender.taxNumber}` } : null,
-      ...String(sender.legalText || '').split(/\n+/).map((s) => s.trim()).filter(Boolean).map((text) => ({ text })),
-    ].filter(Boolean)),
-    wrapCol([sender.email, sender.phone, sender.website].filter(Boolean).map((text) => ({ text }))),
-  ] : null;
+  const colophon = windowed
+    ? footerColumns(sender, settings, { taxIdLabel, lang }).map((col) => wrapCol(col.map((l) => ({ text: l.text, bold: !!l.strong }))))
+    : null;
   const colophonH = colophon ? Math.max(...colophon.map((c) => c.length)) * colophonLine + 6 : 0;
   const bottom = pdf.height - M - (windowed ? colophonH + 14 : 0);
 
@@ -277,7 +273,11 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
       pdf.text(ax, ay + 1.2 * mm, ret, { size: 6.5, color: MUTED });
       pdf.line(ax, ay + DIN.returnZone * mm, ax + DIN.addrWidth * mm, ay + DIN.returnZone * mm, { color: RULE, width: 0.4 });
     }
-    let ly = ay + (DIN.returnZone + DIN.remarkZone) * mm;
+    // The remark zone: up to three lines, set against its bottom edge, directly above the address.
+    const remarks = String(draft.addressNote || '').split('\n').filter(Boolean).slice(0, 3);
+    const zoneEnd = ay + (DIN.returnZone + DIN.remarkZone) * mm;
+    remarks.forEach((r, i) => pdf.text(ax, zoneEnd - (remarks.length - i) * pitch + 2, r, { size: S.small, color: INK }));
+    let ly = zoneEnd;
     pdf.text(ax, ly, client.name || '—', { size: S.body, bold: true, color: INK });
     ly += pitch;
     for (const l of address(client)) { pdf.text(ax, ly, l, { size: S.body, color: INK }); ly += pitch; }
@@ -400,7 +400,7 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
   // ---- the lines table ------------------------------------------------------------------------
   const rows = (draft.lines || []).map((line, index) => {
     const cells = {};
-    for (const c of cols) cells[c.id] = cellText(line, c, money, lang, index);
+    for (const c of cols) cells[c.id] = cellText(line, c, money, lang, index, fmtMoney.decimalSeparator || '.');
     return cells;
   });
 
@@ -574,7 +574,8 @@ export function layoutInvoice(draft, settings = {}, opts = {}) {
       colophon.forEach((lines, i) => {
         const x = M + i * colophonColW;
         if (!lines.length) return;
-        pdf.line(x, top - 1, x, top + lines.length * colophonLine - 3, { color: INK, width: 1.2 });
+        // A hairline, like every other rule on the page; a heavy bar read as a mistake.
+        pdf.line(x, top - 1, x, top + lines.length * colophonLine - 3, { color: RULE, width: 0.6 });
         lines.forEach((l, j) => {
           pdf.text(x + 7, top + j * colophonLine, l.text, { size: S.small, bold: !!l.bold, color: l.bold ? INK : MUTED });
         });

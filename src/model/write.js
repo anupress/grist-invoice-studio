@@ -115,6 +115,7 @@ function invoiceValues(draft) {
     sentTo: draft.sentTo,
     language: draft.language,
     relatedTo: draft.relatedTo,
+    addressNote: draft.addressNote,
     amountPaid: t.amountPaid,
     subtotal: t.subtotal,
     tax: t.taxTotal,
@@ -134,7 +135,9 @@ function lineValues(line) {
     taxClass: line.taxClass,
     hsn: line.hsn,
     unit: line.unit,
-    lineDiscount: line.discountAmount || undefined,
+    // On a row that exists, a cleared discount is written as nothing, or the old one would stay.
+    lineDiscount: Number(line.discountAmount) > 0 ? Math.round(Number(line.discountAmount) * 100) / 100 : (line.rowId ? 0 : undefined),
+    lineDiscountPercent: Number(line.discountPercent) > 0 ? Number(line.discountPercent) : (line.rowId ? null : undefined),
   };
 }
 
@@ -162,7 +165,7 @@ const COMPUTED_ROLES = new Set(['subtotal', 'tax', 'discount', 'shipping', 'tota
  * is exactly what it did before the column existed, and the Data drawer already offers the column
  * by name. A warning on every save would say the same thing in a worse place.
  */
-const QUIET_ROLES = new Set(['kind']);
+const QUIET_ROLES = new Set(['kind', 'lineDiscountPercent']);
 
 function fieldsFor(values, roles, columnIndex, skipped, where) {
   const fields = {};
@@ -170,6 +173,9 @@ function fieldsFor(values, roles, columnIndex, skipped, where) {
     if (raw === undefined || raw === '') continue;
     const colId = roles[role];
     if (!colId) {
+      // Nothing is lost when there is nothing to keep: a zero or a cleared value with no column
+      // to put it in is not worth a warning.
+      if (raw === 0 || raw === null) continue;
       if (!COMPUTED_ROLES.has(role) && !QUIET_ROLES.has(role)) skipped.push({ where, role, reason: 'no column in this document holds it' });
       continue;
     }

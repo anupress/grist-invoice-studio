@@ -201,7 +201,7 @@
 }
 
 /* ---- small screens -------------------------------------------------------------------------- */
-@media (max-width: 700px) {
+@media screen and (max-width: 700px) {
   .inv-doc { padding: 24px 20px 32px; --bleed-x: 20px; --bleed-y: 24px; }
   .inv-parties, .inv-parties.has-shipto { grid-template-columns: 1fr; gap: 18px; }
   .inv-metas { text-align: left; }
@@ -293,10 +293,16 @@
   padding-top: 14px; border-top: 1px solid var(--doc-rule);
   font-size: 11px; line-height: 1.45; color: var(--doc-muted); overflow-wrap: anywhere;
 }
-.inv-colophon__col { border-left: 2px solid var(--doc-ink); padding-left: 10px; }
+/* A hairline, like every other rule on the sheet: the 2px ink bar it used to be read as a mistake. */
+.inv-colophon__col { border-left: 1px solid var(--doc-rule); padding-left: 10px; }
+.inv-colophon__col.is-empty { border-left-color: transparent; }
+/* The foot belongs at the bottom of the sheet, not under the last line: on screen the DIN sheet
+ * is drawn at A4's proportions, and the foot takes whatever room is left above it. */
+.inv-doc.is-ledger > .inv-colophon, .inv-doc.is-din5008a > .inv-colophon, .inv-doc.is-din5008b > .inv-colophon { margin-top: auto; }
+@media screen { .inv-doc.is-din5008a, .inv-doc.is-din5008b { aspect-ratio: 210 / 297; } }
 .inv-colophon__name { color: var(--doc-ink); font-weight: 600; }
 
-@media (max-width: 700px) {
+@media screen and (max-width: 700px) {
   .inv-ledger__top { flex-direction: column; }
   .inv-ledger__brand { flex-direction: row; text-align: left; max-width: none; }
   .inv-ledger__close { flex-direction: column; }
@@ -432,7 +438,12 @@
   border-bottom: 1px solid var(--doc-rule);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.inv-din__remarks { height: calc(12.7 * var(--mm)); }
+.inv-din__remarks {
+  height: calc(12.7 * var(--mm));
+  display: flex; flex-direction: column; justify-content: flex-end;
+  font-family: var(--font); font-size: calc(2.8 * var(--mm)); line-height: calc(4.23 * var(--mm)); color: var(--doc-ink);
+}
+.inv-din__remark { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inv-din__recipient .inv-party__name, .inv-din__recipient .inv-party__line {
   font-size: calc(3.5 * var(--mm)); line-height: calc(4.23 * var(--mm)); font-weight: 400;
 }

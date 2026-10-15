@@ -173,6 +173,12 @@ export const DEFAULT_DOCUMENT = {
    * condition of use.
    */
   creditLine: false,
+  /**
+   * The three columns at the foot of the Ledger and DIN 5008 sheets. Empty keeps a column's
+   * automatic content; text replaces it, with {placeholders} filled from the business details.
+   * See doc/footer.js.
+   */
+  footer: ['', '', ''],
 };
 
 /**

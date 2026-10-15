@@ -174,7 +174,10 @@ export function einvoiceModel(draft, settings = {}) {
     const e = engineLines[i] || {};
     const quantity = Number(l.quantity) || 0;
     const unitPrice = R(l.unitPrice);
-    const base = e.base != null ? R(e.base) : R(quantity * unitPrice);
+    // The engine's base already has the line's own discount taken off. The standard wants the
+    // line to close as quantity × price less its allowances, so a discounted line starts from
+    // quantity × price and the discount becomes part of the allowance below.
+    const base = Number(l.discountAmount) > 0 ? R(quantity * unitPrice) : (e.base != null ? R(e.base) : R(quantity * unitPrice));
     const net = e.net != null ? R(e.net) : base;
     const cat = categoryFor(e, exempt, exemptKind);
     return {

@@ -58,10 +58,43 @@ export function normaliseParty(p = {}) {
   };
 }
 
+const round2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * A line discount as typed: "10%" is a percentage of the line, anything else an amount off it.
+ * A comma decimal is read as one, because "2,5%" is how half the people using this write it.
+ * Returns null for nothing, or { percent } / { amount }.
+ */
+export function parseLineDiscount(text) {
+  const s = String(text == null ? '' : text).trim().replace(/\s+/g, '');
+  if (!s) return null;
+  const pct = /%$/.test(s);
+  const n = Number(s.replace(/%$/, '').replace(/^[\u2212-]/, '').replace(',', '.'));
+  if (!isFinite(n) || n <= 0) return null;
+  return pct ? { percent: Math.min(100, n) } : { amount: n };
+}
+
+/**
+ * Bring one line's money up to date, IN PLACE: the discount from its percentage, if it has one,
+ * and the amount as quantity × price less the discount. The amount is what prints, what is stored
+ * and what tax is worked out on: the net of the line.
+ */
+export function lineNet(line) {
+  const base = (Number(line.quantity) || 0) * (Number(line.unitPrice) || 0);
+  if (Number(line.discountPercent) > 0) line.discountAmount = round2(base * Number(line.discountPercent) / 100);
+  const discount = Math.min(Math.max(0, Number(line.discountAmount) || 0), Math.max(0, base));
+  line.discountAmount = discount;
+  line.amount = round2(base - discount);
+  return line;
+}
+
 /** One billable line. */
 export function normaliseLine(l = {}, index = 0) {
   const quantity = num(l.quantity, 1);
   const unitPrice = num(l.unitPrice, 0);
+  const percent = l.discountPercent == null || l.discountPercent === '' ? null : num(l.discountPercent, null);
+  let discountAmount = num(l.discountAmount, 0);
+  if (!(discountAmount > 0) && percent > 0) discountAmount = round2(quantity * unitPrice * percent / 100);
   return {
     id: l.id != null ? l.id : index + 1,
     // The table row this line came from, so saving updates it rather than deleting every line and
@@ -71,12 +104,15 @@ export function normaliseLine(l = {}, index = 0) {
     description: text(l.description),
     quantity,
     unitPrice,
-    // A stored amount wins over the multiplication — see resolve.js for why.
-    amount: l.amount != null && l.amount !== '' ? num(l.amount) : quantity * unitPrice,
+    // A stored amount wins over the multiplication — see resolve.js for why. Without one, the
+    // line is quantity × price less its own discount.
+    amount: l.amount != null && l.amount !== '' ? num(l.amount) : round2(quantity * unitPrice - discountAmount),
     taxClass: text(l.taxClass),
     hsn: text(l.hsn),
     unit: text(l.unit),
-    discountAmount: num(l.discountAmount, 0),
+    discountAmount,
+    // A discount typed as a percentage stays one, so the line can be repriced and still be 10% off.
+    discountPercent: percent > 0 ? percent : null,
     // Raw on purpose — an Attachments cell is a list-tuple whose id the renderer resolves.
     image: l.image ?? null,
     itemised: l.itemised !== false,
@@ -120,6 +156,9 @@ export function normaliseDraft(d = {}) {
     language: text(d.language),
     // The document this one corrects or follows — "Invoice INV-2026-0007" on a credit note.
     relatedTo: text(d.relatedTo),
+    // The remark zone of a DIN 5008 letter, directly above the address: Einschreiben, Persönlich,
+    // Vertraulich. Up to three lines; only the DIN sheets print it, because only they have the zone.
+    addressNote: String(d.addressNote == null ? '' : d.addressNote).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 3).join('\n'),
     // Money the document carries in its own right, rather than on a line: an order-level discount,
     // a delivery charge, and whatever has already been paid against it.
     discountAmount: num(d.discountAmount, 0),

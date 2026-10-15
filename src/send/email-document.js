@@ -13,7 +13,7 @@
 // doc/fields.js — so a delivery note has no prices here for exactly the reason it has none there.
 
 import { formatMoney } from '../money/currency.js';
-import { fieldsFor, lineColumns, totalLabels } from '../doc/fields.js';
+import { fieldsFor, lineColumns, totalLabels, lineDiscountText } from '../doc/fields.js';
 import { docDate, imageSrc, taxLabel } from '../doc/render.js';
 import { labelOr, localiseStatus } from '../doc/lang.js';
 import { paymentCode, accountLines } from '../doc/payment.js';
@@ -62,7 +62,7 @@ ${(extra || []).filter(Boolean).map((l) => `<tr><td style="${F};font-size:12px;c
 }
 
 /** A cell of the lines table, as the string it prints as. */
-function cell(line, col, money, lang, index = 0) {
+function cell(line, col, money, lang, index = 0, decimal = '.') {
   switch (col.id) {
     case 'position': return String(index + 1);
     case 'description': {
@@ -76,7 +76,7 @@ function cell(line, col, money, lang, index = 0) {
     case 'quantity': return esc(String(line.quantity ?? ''));
     case 'unit': return esc(line.unit || '');
     case 'unitPrice': return esc(money(line.unitPrice));
-    case 'discount': return line.discountAmount ? '&minus;' + esc(money(line.discountAmount)) : '';
+    case 'discount': return esc(lineDiscountText(line, money, { decimal }));
     case 'amount': return esc(money(line.amount));
     case 'date': return esc(docDate(line.date, lang));
     case 'reference': return esc(line.reference || '');
@@ -146,7 +146,7 @@ ${fields.showTotals ? `<td style="${F};font-size:17px;font-weight:700;color:${ac
 </table>`;
 
   // ---- the lines --------------------------------------------------------------------------------
-  const lineRows = (draft.lines || []).map((line, index) => `<tr>${cols.map((c) => `<td align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:13px;color:${INK};padding:8px 6px;border-bottom:1px solid ${RULE}">${cell(line, c, money, lang, index)}</td>`).join('')}</tr>`).join('');
+  const lineRows = (draft.lines || []).map((line, index) => `<tr>${cols.map((c) => `<td align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:13px;color:${INK};padding:8px 6px;border-bottom:1px solid ${RULE}">${cell(line, c, money, lang, index, (draft.format || {}).decimalSeparator || '.')}</td>`).join('')}</tr>`).join('');
 
   const table = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding:20px 0 0;border-collapse:collapse">
 <tr>${cols.map((c) => `<th align="${c.numeric ? 'right' : 'left'}" style="${F};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${MUTED};padding:0 6px 6px;border-bottom:1px solid ${RULE}">${esc(c.label)}</th>`).join('')}</tr>

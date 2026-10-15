@@ -27,6 +27,7 @@ import { EXEMPTION_CHOICES, smallBusinessNote } from '../money/tax/exemptions.js
 import { looksLikeIban, formatIban } from '../doc/payment.js';
 import { PROFILES, EINVOICE_FORMATS } from '../einvoice/index.js';
 import { EMAIL_STYLES } from '../send/email-shell.js';
+import { FOOTER_PLACEHOLDERS } from '../doc/footer.js';
 
 const opt = (value, label) => ({ value, label });
 
@@ -353,6 +354,17 @@ export function renderSettingsPanel(ctx) {
     field('Closing line', textInput(doc.closingText, (v) => { doc.closingText = v; touched(); }, { placeholder: 'Thank you for your custom.' })),
   ], { grid: true });
 
+  // ---- the footer of the Ledger and DIN 5008 sheets ------------------------------------------------
+  // Three boxes, one per column. Blank keeps what the column says by itself; anything typed
+  // replaces it. The placeholders shown in each box are that column's automatic content, so the
+  // way to add the register court is to start from what is there and add a line.
+  if (!Array.isArray(doc.footer)) doc.footer = ['', '', ''];
+  const footerAuto = ['**{name}**\n{address}', 'Tax ID: {taxNumber}\n{legal}', '{email}\n{phone}\n{website}'];
+  const footerSection = section('Footer (Ledger and DIN 5008)', [
+    el('p', { class: 'set-lead', text: `The three columns at the foot of the Ledger and DIN 5008 sheets, on screen, in print and in the PDF. Leave a column blank to keep what it says by itself, shown in grey; type to replace it. Anything in {braces} is filled from Settings \u2192 Business: ${FOOTER_PLACEHOLDERS.map((p) => `{${p}}`).join(' ')}. A line whose placeholders are all empty is left out, and a line written **like this** prints bold. The register court, the managing director or the bank go here, a line each.` }),
+    ...[0, 1, 2].map((i) => field(`Column ${i + 1}`, textArea(doc.footer[i] || '', (v) => { doc.footer[i] = v; touched(); }, { rows: 4, placeholder: footerAuto[i] }))),
+  ], { grid: true });
+
   // ---- messages --------------------------------------------------------------------------------
   // One editor per event, the way WooCommerce lists its emails. The built-in text sits in the
   // fields, so editing starts from something that works rather than from a blank box; Reset takes
@@ -486,7 +498,7 @@ export function renderSettingsPanel(ctx) {
     // is an invitation to fill in something that will never be read.
     money: [moneySection, taxSection, m.taxMode === 'preset' ? ratesSection : null, payingSection],
     numbering: [numberingSection],
-    document: [documentSection],
+    document: [documentSection, footerSection],
     messages: [messagesSection],
     sending: [einvoiceSection, deliverySection],
   };

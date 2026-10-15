@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.27.0 — the second round
+
+The German business that asked for DIN 5008 looked at it, printed it, and came back with a list.
+
+- **The remark zone holds something.** A DIN sheet's composer has **Above the address**: up to
+  three lines (Einschreiben, Persönlich, Vertraulich) printed in the remark zone, against its
+  bottom edge, directly above the address. Kept in an `AddressNote` column (`Vermerk` is
+  recognised), added with one press from the composer; not pushed on documents that never use it.
+- **The foot is at the bottom of the paper.** In print, the Ledger and DIN foot sits at the bottom
+  of every page with room kept for it, rather than under the last line. It keeps its three columns
+  on every printer: the narrow-screen rules that stacked it, and the parties with it, on a sheet
+  under 700 CSS pixels wide now apply to screens only. Its column bars are hairlines like every
+  other rule. On screen the DIN sheet is drawn at A4's proportions with the foot at the bottom.
+- **The foot says what you need.** Settings → Document → Footer: each of the three columns can be
+  replaced with your own text, {placeholders} filled from the business details, a line whose
+  placeholders are empty left out, `**bold**` lines. The register court and the managing director,
+  or the bank, a line each, on screen, in print and in the PDF.
+- **The exported Ledger and DIN files** print in the same frame as the widget, and their masthead
+  is drawn as on screen: the brand on the right, the dates in a grid, no stray rule.
+- **References under "Also in this table".** A Reference column on the invoice table (a ledger, a
+  project) is a chooser over the rows it points at, so a numbering formula that reads it can work.
+  The client and catalogue forms offer References the same way.
+- **A discount per line.** Type `10%` or an amount in a line's Discount box. A percentage stays one
+  when the line is repriced; the line's amount is its net; tax follows; the document prints the
+  discount in its own column; an e-invoice declares it as a line allowance, and the EN 16931 and
+  XRechnung rules (UBL and CII) pass with it. Kept in the line table's `Discount` and
+  `DiscountPercent` columns, which new documents have and older ones are offered. Lines with
+  different discounts are never combined.
+- **The unit.** A catalogue item's unit comes onto the line with its price, and an empty unit box
+  no longer shows a grey "Unit" that read as filled in.
+- **Categories and prices over time.** A catalogue `Category` groups the picker; `ValidFrom` and
+  `ValidUntil` keep a product's prices as rows, and a document is offered the price in force on its
+  own date. Each column is one press away on the catalogue form, which suggests the categories in
+  use; the catalogue list shows category and start day.
+- **Pictures keep their PNG.** A picture that is not a JPEG is stored as a PNG, so transparency
+  survives.
+- A zero with no column to keep it in is no longer reported as a field that could not be saved.
+
 ## 1.26.10 — the hidden-column advice follows your tables
 
 The Data drawer can point the widget at tables of your own and pin their columns, and it also says

@@ -11,7 +11,10 @@
 
 import { renderDocument } from '../doc/render.js';
 import { languageOf } from '../doc/lang.js';
-import { isDin } from '../doc/layouts.js';
+import { isDin, isWindowed } from '../doc/layouts.js';
+import { footerColumns, footerHeightEstimate } from '../doc/footer.js';
+import { labelOr } from '../doc/lang.js';
+import { fieldsFor } from '../doc/fields.js';
 
 const FILE_CSS = `
   :root { color-scheme: light; }
@@ -81,7 +84,7 @@ const FILE_CSS = `
   .inv-legend { margin: 0; padding: 10px 14px; background: #eef1f5; border-radius: 3px; font-size: 13px; max-width: 62ch; }
   .inv-sign__rule { border-bottom: 1px solid #16212c; height: 36px; margin-bottom: 6px; }
   .inv-closing { margin: 0; text-align: center; font-size: 13px; color: #5f7285; border-top: 1px solid #dfe5ec; padding-top: 16px; }
-  @media (max-width: 700px) {
+  @media screen and (max-width: 700px) {
     body { padding: 0; }
     .sheet { border: 0; border-radius: 0; }
     .inv-doc { padding: 24px 20px 32px; --bleed-x: 20px; --bleed-y: 24px; }
@@ -104,7 +107,7 @@ const FILE_CSS = `
   .inv-head.is-centred { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 5px; padding-bottom: 20px; border-bottom: 1px solid #dfe5ec; }
   .inv-head.is-centred .inv-title__number { justify-content: center; }
   .inv-cent__rule { width: 56px; border-top: 2px solid var(--doc-accent, #14509b); margin: 10px 0 6px; }
-  .inv-head.is-ledger { display: flex; flex-direction: column; gap: 20px; }
+  .inv-head.is-ledger { display: flex; flex-direction: column; gap: 20px; align-items: stretch; border-bottom: 0; padding-bottom: 0; }
   .inv-ledger__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
   .inv-ledger__window { min-width: 0; padding-top: 4px; }
   .inv-ledger__window .inv-party__label { margin-bottom: 8px; }
@@ -124,9 +127,12 @@ const FILE_CSS = `
   .inv-ledger__close { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
   .inv-ledger__close .inv-totals { margin-left: auto; }
   .inv-colophon { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding-top: 14px; border-top: 1px solid #dfe5ec; font-size: 11px; line-height: 1.45; color: #5f7285; overflow-wrap: anywhere; }
-  .inv-colophon__col { border-left: 2px solid #16212c; padding-left: 10px; }
+  .inv-colophon__col { border-left: 1px solid #dfe5ec; padding-left: 10px; }
+  .inv-colophon__col.is-empty { border-left-color: transparent; }
+  .inv-doc.is-ledger > .inv-colophon, .inv-doc.is-din5008a > .inv-colophon, .inv-doc.is-din5008b > .inv-colophon { margin-top: auto; }
+  @media screen { .inv-doc.is-din5008a, .inv-doc.is-din5008b { aspect-ratio: 210 / 297; } }
   .inv-colophon__name { color: #16212c; font-weight: 600; }
-  @media (max-width: 700px) {
+  @media screen and (max-width: 700px) {
     .inv-ledger__top { flex-direction: column; }
     .inv-ledger__brand { flex-direction: row; text-align: left; max-width: none; }
     .inv-ledger__close { flex-direction: column; }
@@ -158,7 +164,7 @@ const FILE_CSS = `
   .inv-doc.is-din5008a { --din-top: 27; --din-fold-1: 87; --din-fold-2: 192; }
   .inv-doc.is-din5008a > *, .inv-doc.is-din5008b > * { margin-left: calc(25 * var(--mm)); margin-right: calc(20 * var(--mm)); }
   .inv-doc.is-din5008a > .inv-head, .inv-doc.is-din5008b > .inv-head { margin: 0; }
-  .inv-head.is-din { position: relative; display: flex; flex-direction: column; padding: 0 calc(20 * var(--mm)) calc(2.5 * var(--mm)) calc(25 * var(--mm)); border-bottom: 0; }
+  .inv-head.is-din { position: relative; display: flex; flex-direction: column; align-items: stretch; padding: 0 calc(20 * var(--mm)) calc(2.5 * var(--mm)) calc(25 * var(--mm)); border-bottom: 0; }
   .inv-din__top { height: calc(var(--din-top) * var(--mm) - var(--din-y0)); display: flex; align-items: center; justify-content: flex-end; overflow: hidden; }
   .inv-din__top .inv-brand { flex-direction: row-reverse; text-align: right; gap: calc(3 * var(--mm)); }
   .inv-din__top .inv-brand__name { font-size: calc(5 * var(--mm)); }
@@ -167,7 +173,8 @@ const FILE_CSS = `
   .inv-din__row { display: flex; justify-content: space-between; align-items: flex-start; margin-left: calc(-5 * var(--mm)); }
   .inv-din__window { width: calc(85 * var(--mm)); height: calc(45 * var(--mm)); flex: none; }
   .inv-din__return { height: calc(5 * var(--mm)); display: flex; align-items: center; font-family: system-ui, sans-serif; font-size: calc(2.2 * var(--mm)); line-height: 1; color: #5f7285; border-bottom: 1px solid #dfe5ec; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .inv-din__remarks { height: calc(12.7 * var(--mm)); }
+  .inv-din__remarks { height: calc(12.7 * var(--mm)); display: flex; flex-direction: column; justify-content: flex-end; font-family: system-ui, sans-serif; font-size: calc(2.8 * var(--mm)); line-height: calc(4.23 * var(--mm)); }
+  .inv-din__remark { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .inv-din__recipient .inv-party__name, .inv-din__recipient .inv-party__line { font-size: calc(3.5 * var(--mm)); line-height: calc(4.23 * var(--mm)); font-weight: 400; }
   .inv-din__recipient .inv-party__name { font-weight: 600; }
   .inv-din__info { width: calc(65 * var(--mm)); flex: none; padding-top: calc(5 * var(--mm)); font-size: calc(3.3 * var(--mm)); line-height: calc(4.23 * var(--mm)); }
@@ -179,8 +186,29 @@ const FILE_CSS = `
   .inv-din__marks { position: absolute; left: 0; top: 0; width: 0; height: 0; }
   .inv-din__mark { position: absolute; left: 0; width: calc(5 * var(--mm)); border-top: 1px solid #5f7285; opacity: .55; }
   .inv-din__mark--punch { width: calc(8 * var(--mm)); }
+  /* The Ledger and DIN files print in a frame: a one-cell table whose header and footer rows repeat
+     on every page as its margins, the footer row tall enough to keep the body clear of the foot,
+     which is pinned to the bottom of every page. On screen the frame is plain blocks. */
+  .pf, .pf > thead, .pf > tbody, .pf > tfoot, .pf tr, .pf td { display: block; }
+  .pf { width: 100%; border-collapse: collapse; }
+  .pf td { padding: 0; }
+  .pf-gap { display: none !important; }
   @media print {
-    .inv-doc.is-din5008a, .inv-doc.is-din5008b { container-type: normal; --mm: 1mm; --din-y0: 0mm; padding-bottom: 10mm; }
+    .pf { display: table; }
+    .pf > thead { display: table-header-group; }
+    .pf > tbody { display: table-row-group; }
+    .pf > tfoot { display: table-footer-group; }
+    .pf tr { display: table-row; }
+    .pf td { display: table-cell; vertical-align: top; }
+    .pf-gap { display: table-cell !important; height: 14mm; }
+    .pf-gap--foot { height: calc(14mm + var(--colophon-h, 24mm) + 3mm); }
+    .pf.is-din .pf-gap--foot { height: calc(10mm + var(--colophon-h, 24mm) + 3mm); }
+    .pf .inv-doc.is-ledger { padding: 0 14mm; }
+    .pf .inv-colophon { position: fixed; left: 14mm; right: 14mm; bottom: 14mm; margin: 0 !important; background: #fff; }
+    .pf .inv-doc.is-din5008a .inv-colophon, .pf .inv-doc.is-din5008b .inv-colophon { left: 25mm; right: 20mm; bottom: 10mm; }
+  }
+  @media print {
+    .inv-doc.is-din5008a, .inv-doc.is-din5008b { container-type: normal; --mm: 1mm; --din-y0: 14mm; padding-bottom: 10mm; }
   }
 `;
 
@@ -225,8 +253,18 @@ export function documentToHtml(draft, settings = {}, options = {}) {
   const node = renderDocument(draft, settings);
   const title = options.title || [draft.number, draft.client?.name].filter(Boolean).join(' — ') || 'Document';
   const density = options.density && options.density !== 'normal' ? ` data-density="${escapeAttr(options.density)}"` : '';
-  // A DIN sheet measures from the paper's edge, so the page gives it no margin of its own.
-  const page = isDin(draft.layout) ? { ...options, pageMargin: '0' } : options;
+  // A DIN sheet measures from the paper's edge, and a Ledger or DIN foot is pinned to the bottom
+  // of the paper, so those pages give the document no margin of their own: the frame below draws it.
+  const windowed = isWindowed(draft.layout);
+  const page = windowed ? { ...options, pageMargin: '0' } : options;
+  const fields = fieldsFor(draft, settings);
+  const footH = windowed
+    ? footerHeightEstimate(footerColumns(draft.sender || {}, settings, { taxIdLabel: labelOr(settings.taxNumberLabel, 'Tax ID', fields.L.taxId), lang: fields.lang }))
+    : 0;
+  const sheet = `<div class="sheet">${node.outerHTML}</div>`;
+  const body = windowed
+    ? `<table class="pf${isDin(draft.layout) ? ' is-din' : ''}" role="presentation" style="--colophon-h: ${footH}px"><thead><tr><td class="pf-gap" aria-hidden="true"></td></tr></thead><tbody><tr><td>${sheet}</td></tr></tbody><tfoot><tr><td class="pf-gap pf-gap--foot" aria-hidden="true"></td></tr></tfoot></table>`
+    : sheet;
   return `<!DOCTYPE html>
 <html lang="${languageOf(draft, settings)}"${density}>
 <head>
@@ -238,7 +276,7 @@ export function documentToHtml(draft, settings = {}, options = {}) {
 </style>
 </head>
 <body>
-<div class="sheet">${node.outerHTML}</div>
+${body}
 </body>
 </html>
 `;

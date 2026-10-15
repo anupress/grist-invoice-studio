@@ -11,7 +11,7 @@
 
 import { el } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
-import { field, textInput, numberInput, selectInput, suggestInput, button, section } from './ui.js';
+import { field, textInput, numberInput, selectInput, suggestInput, button, section, columnControl } from './ui.js';
 import { formFields, extraFields, recordName, LANGUAGE_OPTIONS } from '../model/records.js';
 import { imageSrc } from '../doc/render.js';
 import { addressLines } from '../doc/address.js';
@@ -89,6 +89,7 @@ export function renderRecordForm(ctx) {
     }
     if (f.type === 'number') return numberInput(values[f.role], set, { ariaLabel: f.label });
     if (f.type === 'date') return textInput(values[f.role], set, { type: 'date', ariaLabel: f.label });
+    if (f.type === 'ref') return columnControl({ ...f, choices: ctx.refChoices ? ctx.refChoices(f) : [] }, values[f.role], set);
     if (f.suggest && (suggestions[f.suggest] || []).length) {
       return suggestInput(values[f.role], (v) => set(f.code ? v.toUpperCase() : v), {
         options: suggestions[f.suggest], placeholder: f.placeholder || '', class: f.code ? 'cmp-input--code' : '', ariaLabel: f.label,
@@ -227,7 +228,13 @@ function imageControl(f, values, set, resolveImage, say) {
   return box;
 }
 
-/** A file as a scaled JPEG data URI: at most 480px on a side, flattened onto white. */
+/**
+ * A file as a scaled data URI, at most 480px on a side.
+ *
+ * A JPEG stays a JPEG. Anything else (PNG, WebP, GIF) becomes a PNG, so a cut-out product shot
+ * keeps its transparency instead of being flattened onto a white square; only a PNG so large it
+ * would weigh down the row falls back to JPEG.
+ */
 export function readImage(file, max = 480) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -241,6 +248,12 @@ export function readImage(file, max = 480) {
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         const cx = canvas.getContext('2d');
+        const keepPng = !!file.type && !/^image\/jpe?g$/i.test(file.type);
+        if (keepPng) {
+          cx.drawImage(img, 0, 0, w, h);
+          const png = canvas.toDataURL('image/png');
+          if (png.length <= 600000) { resolve(png); return; }
+        }
         cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, w, h);
         cx.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL('image/jpeg', 0.86));

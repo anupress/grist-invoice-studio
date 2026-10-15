@@ -19,6 +19,7 @@ import { field, textInput, numberInput, textArea, selectInput, suggestInput, but
 import { asOptions, CURRENCIES, PAYMENT_TERMS } from '../model/suggest.js';
 import { LANGUAGES, normaliseLanguage } from '../doc/lang.js';
 import { renderRecordForm } from './record-form.js';
+import { isDin } from '../doc/layouts.js';
 
 
 /**
@@ -174,6 +175,17 @@ export function renderComposer(ctx) {
       ? field('Refers to', textInput(draft.relatedTo, (v) => { draft.relatedTo = v; onEdit(); }, { placeholder: 'Invoice INV-2026-0007' }),
         draft.kind === 'credit_note' ? 'The invoice this credit note reverses. Named on the document, so both sides can match them.' : null)
       : null,
+    // The remark zone of a DIN 5008 letter, between the return line and the address. Only the DIN
+    // sheets have it, so the field is only offered there; a document with nowhere to keep it gets
+    // the one press that adds the column.
+    isDin(draft.layout) ? field('Above the address', el('div', { class: 'cmp-grid__desc' }, [
+      textArea(draft.addressNote, (v) => { draft.addressNote = v; onEdit(); }, { rows: 3, placeholder: 'Einschreiben\nPersönlich' }),
+      !ctx.schema?.invoice?.roles?.addressNote && actions.addColumn && canWrite
+        ? button('Add a column to keep it', () => actions.addColumn('AddressNote'), { variant: 'ghost' })
+        : null,
+    ]), ctx.schema?.invoice?.roles?.addressNote
+      ? 'The DIN 5008 remark zone: up to three lines, printed directly above the address in the envelope window.'
+      : 'The DIN 5008 remark zone: up to three lines above the address. This invoice table has no column for it yet, so it is not kept when you save.') : null,
   ], { grid: true });
 
   // ---- lines -----------------------------------------------------------------------------------
@@ -196,7 +208,7 @@ export function renderComposer(ctx) {
 
   const gridHost = el('div');
   const buildGrid = () => gridHost.replaceChildren(renderLinesGrid(draft, {
-    products, fields, onEdit: edited, onStructure: onRebuild,
+    products, fields, onEdit: edited, onStructure: onRebuild, lineDiscounts: true,
     onAddProduct: actions.addProduct || null,
   }));
   buildGrid();
@@ -292,7 +304,12 @@ function followLabel(draft, settings) {
 }
 
 function skippedNotice(skipped) {
-  const items = (skipped || []).filter((s) => s.where === 'invoice');
+  // The invoice's own fields, and a line discount: the one line field a person types that a
+  // document can have nowhere to keep. Said once, however many lines carry one.
+  const items = [
+    ...(skipped || []).filter((s) => s.where === 'invoice'),
+    ...(skipped || []).filter((s) => s.where === 'line' && s.role === 'lineDiscount').slice(0, 1).map((s) => ({ ...s, role: 'line discount' })),
+  ];
   if (!items.length) return null;
   return el('details', { class: 'cmp-skipped' }, [
     el('summary', { text: `${items.length} field${items.length === 1 ? '' : 's'} on this form cannot be saved into this document` }),

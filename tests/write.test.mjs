@@ -126,8 +126,9 @@ eq('nor tax', plan.skipped.some((s) => s.role === 'tax'), false);
 // Everything left IS something a person can type on the form. `due` is on the list because the
 // template computes it as issue date plus a month, so changing it in the composer would silently
 // do nothing — exactly the kind of thing that has to be said out loud.
+// Nothing paid and nowhere to keep it loses nothing, so the zero amount paid is not on the list.
 eq('so the list is only things a person typed', plan.skipped.filter((s) => s.where === 'invoice').map((s) => s.role).sort(),
-  ['amountPaid', 'currency', 'due', 'number', 'reference', 'status']);
+  ['currency', 'due', 'number', 'reference', 'status']);
 ok('and the due date says it is a formula', plan.skipped.some((s) => s.role === 'due' && /formula/.test(s.reason)));
 
 eq('a new invoice has no row id yet', plan.invoice.rowId, null);

@@ -29,11 +29,11 @@ import { KIND_WORDS } from '../doc/kinds.js';
 export const INVOICE_ROLES = [
   'number', 'client', 'issued', 'due', 'serviceDate', 'status', 'kind', 'paidDate', 'amountPaid',
   'currency', 'note', 'reference', 'terms', 'subtotal', 'tax', 'discount',
-  'shipping', 'total', 'attachment', 'sentAt', 'sentTo', 'language', 'relatedTo',
+  'shipping', 'total', 'attachment', 'sentAt', 'sentTo', 'language', 'relatedTo', 'addressNote',
 ];
 
 /** Roles on a line-item row. */
-export const LINE_ROLES = ['invoiceLink', 'description', 'quantity', 'unitPrice', 'lineTotal', 'product', 'taxClass', 'lineDiscount', 'hsn', 'unit'];
+export const LINE_ROLES = ['invoiceLink', 'description', 'quantity', 'unitPrice', 'lineTotal', 'product', 'taxClass', 'lineDiscount', 'lineDiscountPercent', 'hsn', 'unit'];
 
 /** Roles on a client row. */
 export const CLIENT_ROLES = ['name', 'email', 'phone', 'taxNumber', 'peppolId', 'street1', 'street2', 'city', 'state', 'postcode', 'country', 'language'];
@@ -131,10 +131,21 @@ export const UPGRADE_PLAN = {
       why: 'The address it went to — which is not always the address on the client record today.' },
     { id: 'RelatedTo', type: 'Text', role: 'relatedTo',
       why: 'Which document this one corrects or follows: the invoice a credit note reverses, the quote an invoice came from.' },
+    // Optional items are never offered by "Add these columns" on their own: they matter to some
+    // documents and would be noise on the rest. The form or composer field they serve offers each
+    // one, where somebody is actually looking at that field.
+    { id: 'AddressNote', type: 'Text', role: 'addressNote', optional: true,
+      why: 'The remark zone of a DIN 5008 letter, directly above the address: Einschreiben, Persönlich, Vertraulich.' },
   ],
   product: [
     { id: 'Image', type: 'Attachments', role: 'image',
       why: 'A picture on each product puts a thumbnail beside every invoice line that bills it \u2014 photograph the catalogue once and every document is illustrated.' },
+    { id: 'Category', type: 'Text', role: 'category', optional: true,
+      why: 'Groups the catalogue picker, so a long catalogue is read by section.' },
+    { id: 'ValidFrom', type: 'Date', role: 'validFrom', optional: true,
+      why: 'The first day a price applies. A product priced again gets a second row with the new price and a later date, and each document is offered the price of its own date.' },
+    { id: 'ValidUntil', type: 'Date', role: 'validTo', optional: true,
+      why: 'The last day a price applies.' },
   ],
   client: [
     { id: 'Email', type: 'Text', role: 'email',
@@ -150,6 +161,10 @@ export const UPGRADE_PLAN = {
   line: [
     { id: 'TaxClass', type: 'Text', role: 'taxClass',
       why: 'Standard, reduced or zero rate per line, instead of one tax figure typed by hand.' },
+    { id: 'Discount', type: 'Numeric', role: 'lineDiscount',
+      why: 'A discount on one line, as an amount. Without it a line discount is dropped when the document is saved.' },
+    { id: 'DiscountPercent', type: 'Numeric', role: 'lineDiscountPercent', optional: true,
+      why: 'Keeps a line discount typed as a percentage as a percentage; without it the amount is kept.' },
   ],
 };
 
@@ -184,6 +199,7 @@ const INVOICE_PATTERNS = {
   relatedTo:  [/^related(_?to)?$/i, /^against$/i, /^original(_?invoice)?$/i, /^corrects$/i, /^credits$/i, /^ref_?doc(ument)?$/i],
   kind:       [/^kind$/i, /^(doc(ument)?_?)?type$/i, /^doc(ument)?_?kind$/i, /^belegart$/i],
   serviceDate: [/^service_?date$/i, /^delivery_?date$/i, /^supply_?date$/i, /^performed(_?on)?$/i, /^leistungsdatum$/i, /^lieferdatum$/i, /^date_?of_?supply$/i],
+  addressNote: [/^address_?note$/i, /^(post_?)?vermerk$/i, /^zusatz_?vermerk$/i, /^postal_?note$/i, /^mail_?note$/i, /^remark$/i],
 };
 
 const LINE_PATTERNS = {
@@ -195,7 +211,8 @@ const LINE_PATTERNS = {
   lineTotal:    [/^total$/i, /^amount$/i, /^line_?total$/i, /^subtotal$/i],
   product:      [/^product$/i, /^sku$/i, /^item_?ref$/i, /^catalog/i],
   taxClass:     [/^tax_?class$/i, /^tax_?rate$/i, /^vat_?rate$/i, /^gst_?rate$/i],
-  lineDiscount: [/^discount$/i, /^line_?discount$/i],
+  lineDiscount: [/^discount$/i, /^line_?discount$/i, /^discount_?amount$/i, /^rabatt$/i, /^nachlass$/i],
+  lineDiscountPercent: [/^discount_?(percent|pct|rate)$/i, /^discount_?%$/i, /^rabatt_?(%|prozent|satz)$/i, /^nachlass_?(%|prozent)$/i],
   // An HSN/SAC code identifies WHAT is being sold, for Indian GST. It is not a tax class and must
   // not be matched as one — a column of commodity codes read as tax classes would silently stop
   // every line matching a rate row.
@@ -227,6 +244,9 @@ const PRODUCT_PATTERNS = {
   hsn:       [/^hsn$/i, /^sac$/i, /^hsn_?code$/i],
   unit:      [/^unit$/i, /^uom$/i],
   stock:     [/^stock$/i, /^quantity$/i, /^on_?hand$/i, /^qty$/i],
+  category:  [/^category$/i, /^kategorie$/i, /^group$/i, /^gruppe$/i, /^section$/i, /^warengruppe$/i],
+  validFrom: [/^valid_?from$/i, /^g(ue|ü)ltig_?ab$/i, /^price_?from$/i, /^effective(_?from)?$/i],
+  validTo:   [/^valid_?(to|until)$/i, /^g(ue|ü)ltig_?bis$/i, /^price_?(to|until)$/i],
 };
 
 const isMoney = (t) => /^(Numeric|Int|Currency)/i.test(String(t || ''));
@@ -237,10 +257,10 @@ const isRef = (t) => /^Ref(?::|$)/i.test(String(t || ''));
 // name matches — a name match always beats a type match, because a column called "Issued" is the
 // issue date even if somebody typed it as Text.
 const TYPE_HINT = {
-  issued: isDate, due: isDate, paidDate: isDate,
+  issued: isDate, due: isDate, paidDate: isDate, validFrom: isDate, validTo: isDate,
   subtotal: isMoney, tax: isMoney, discount: isMoney, shipping: isMoney,
   total: isMoney, amountPaid: isMoney,
-  quantity: isMoney, unitPrice: isMoney, lineTotal: isMoney, lineDiscount: isMoney,
+  quantity: isMoney, unitPrice: isMoney, lineTotal: isMoney, lineDiscount: isMoney, lineDiscountPercent: isMoney,
   client: isRef, invoiceLink: isRef, product: isRef,
 };
 
@@ -305,7 +325,7 @@ export const ROLES_BY_PART = {
   invoice: INVOICE_ROLES,
   line: LINE_ROLES,
   client: CLIENT_ROLES,
-  product: ['name', 'sku', 'unitPrice', 'unit', 'taxClass', 'hsn', 'stock', 'image'],
+  product: ['name', 'sku', 'unitPrice', 'unit', 'taxClass', 'hsn', 'stock', 'image', 'category', 'validFrom', 'validTo'],
 };
 
 /**
@@ -574,11 +594,27 @@ function detectProductsAuto(tables, schema, opts) {
   return best ? { table: best.table.id, roles: best.roles } : null;
 }
 
-/** The catalogue as options the composer's picker can show. */
-export function productOptions(products, provider) {
+/** A cell as "YYYY-MM-DD", whether it holds a day string or epoch seconds; '' when neither. */
+function dayKey(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number' && isFinite(v)) return new Date(Math.abs(v) > 1e11 ? v : v * 1000).toISOString().slice(0, 10);
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v).trim());
+  return m ? m[1] : '';
+}
+
+/**
+ * The catalogue as options the composer's picker can show.
+ *
+ * A catalogue can keep prices over time: the same product on several rows, each with the day its
+ * price starts (and, if it has one, the day it ends). Given the document's date, only the price in
+ * force that day is offered, and where more than one row would be, the one that started last wins.
+ * Without a date, or without validity columns, every row is offered as before.
+ */
+export function productOptions(products, provider, { date = '' } = {}) {
   if (!products) return [];
   const R = products.roles;
-  return (provider.records(products.table) || []).map((r) => {
+  const on = dayKey(date);
+  const all = (provider.records(products.table) || []).map((r) => {
     const name = String(r[R.name] ?? '').trim();
     const sku = R.sku ? String(r[R.sku] ?? '').trim() : '';
     const price = R.unitPrice ? Number(r[R.unitPrice]) : null;
@@ -587,13 +623,29 @@ export function productOptions(products, provider) {
       name,
       description: name,
       unitPrice: isFinite(price) ? price : null,
+      unit: R.unit ? String(r[R.unit] ?? '').trim() : '',
       taxClass: R.taxClass ? String(r[R.taxClass] ?? '').trim() : '',
       hsn: R.hsn ? String(r[R.hsn] ?? '').trim() : '',
+      category: R.category ? String(r[R.category] ?? '').trim() : '',
+      validFrom: R.validFrom ? dayKey(r[R.validFrom]) : '',
+      validTo: R.validTo ? dayKey(r[R.validTo]) : '',
       // Raw, not stringified: an Attachments cell is a list-tuple, and turning it into text here
       // would destroy the id the renderer needs to resolve it.
       image: R.image ? (r[R.image] ?? null) : null,
     };
   }).filter((p) => p.name);
+  if (!on || (!R.validFrom && !R.validTo)) return all;
+
+  const inForce = all.filter((p) => (!p.validFrom || p.validFrom <= on) && (!p.validTo || p.validTo >= on));
+  // One row per product: the version that started most recently. A name is the product, as it is
+  // everywhere else the catalogue is matched (the picker, the pictures, the star).
+  const best = new Map();
+  for (const p of inForce) {
+    const key = p.name.toLowerCase();
+    const held = best.get(key);
+    if (!held || (p.validFrom || '') > (held.validFrom || '')) best.set(key, p);
+  }
+  return inForce.filter((p) => best.get(p.name.toLowerCase()) === p);
 }
 
 /** The statuses every document understands before anyone adds their own. */
@@ -676,7 +728,7 @@ export function widgetColumns(schema, products = null) {
   return out;
 }
 
-export function upgradeChecklist(schema, products = null) {
+export function upgradeChecklist(schema, products = null, { includeOptional = false } = {}) {
   const out = { invoice: [], client: [], line: [], product: [] };
   if (!schema || !schema.invoice) return out;
 
@@ -689,6 +741,7 @@ export function upgradeChecklist(schema, products = null) {
     const mapped = source.roles || {};
     const derived = source.derived || {};
     for (const item of items) {
+      if (item.optional && !includeOptional) continue;
       if (item.replacesFormula && derived[item.role]) { out[part].push(item); continue; }
       if (mapped[item.role]) continue;
       out[part].push(item);

@@ -32,12 +32,14 @@ const roles = { name: 'Name', unitPrice: 'Price', image: 'Image' };
 
 {
   const extras = rec.extraFields('product', roles, cols);
-  eq('unmapped, writable, simple columns become fields', extras.map((f) => f.colId), ['Colour', 'Size', 'InStock', 'Launched', 'Reorder']);
-  eq('with the right control for each', extras.map((f) => f.type), ['text', 'choice', 'bool', 'date', 'number']);
+  eq('unmapped, writable, simple columns become fields', extras.map((f) => f.colId), ['Colour', 'Size', 'InStock', 'Launched', 'Reorder', 'Supplier']);
+  eq('with the right control for each', extras.map((f) => f.type), ['text', 'choice', 'bool', 'date', 'number', 'ref']);
   eq('a choice column offers its own list', extras.find((f) => f.colId === 'Size').choices, ['S', 'M', 'L']);
   eq('the label is the column label', extras.find((f) => f.colId === 'InStock').label, 'Available');
   ok('a formula column is not offered', !extras.some((f) => f.colId === 'Margin'));
-  ok('nor a reference', !extras.some((f) => f.colId === 'Supplier'));
+  // A Reference is a choice from another table's rows (a ledger, a supplier), so it is a field now,
+  // with the table it points at for the caller to fill the choices from.
+  ok('a reference is a field, naming its table', extras.some((f) => f.colId === 'Supplier' && f.type === 'ref' && f.refTable === 'Suppliers'));
   ok('nor a second attachments column', !extras.some((f) => f.colId === 'Photos'));
   ok('nor a choice list', !extras.some((f) => f.colId === 'Tags'));
   ok('nor Grist’s own bookkeeping', !extras.some((f) => f.colId === 'manualSort'));
@@ -114,6 +116,21 @@ eq('a plain list too', suggest.asOptions(['hour']), [{ value: 'hour', label: '' 
   eq('the document’s own classes come first, once each', classes.slice(0, 1), ['books']);
   ok('with the common ones after', classes.includes('reduced') && classes.includes('zero'));
   eq('no table, just the common ones', suggest.taxClassesFor({}), suggest.TAX_CLASSES);
+}
+
+// ---------------------------------------------------------------------------------------------
+// A Reference column on the composer and the forms: the rows of the table it points at, by name
+// ---------------------------------------------------------------------------------------------
+{
+  const { readFileSync } = await import('node:fs');
+  const main = readFileSync(_resolve(ROOT, 'src/main.js'), 'utf8');
+  const ui = readFileSync(_resolve(ROOT, 'src/compose/ui.js'), 'utf8');
+  const form = readFileSync(_resolve(ROOT, 'src/compose/record-form.js'), 'utf8');
+  ok('the invoice table’s Reference columns get their rows as choices', /f\.type === 'ref' \? \{ \.\.\.f, choices: refChoices\(f\) \}/.test(main));
+  ok('named by the column Grist shows for the reference', /f\.refVisibleCol \? r\[f\.refVisibleCol\]/.test(main));
+  ok('an empty reference reads as empty, not as row 0', /f\.type === 'ref' && !v/.test(main));
+  ok('the composer draws them as a chooser', /if \(f\.type === 'ref'\) \{[\s\S]{0,300}selectInput\(\[\{ value: '', label: '[^']*' \}, \.\.\.\(f\.choices \|\| \[\]\)\]/.test(ui));
+  ok('and so do the client and catalogue forms', /if \(f\.type === 'ref'\) return columnControl\(\{ \.\.\.f, choices: ctx\.refChoices/.test(form) && /refChoices,\n/.test(main));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

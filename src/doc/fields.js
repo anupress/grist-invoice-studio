@@ -148,6 +148,17 @@ export function lineColumns(fields) {
   return cols;
 }
 
+/**
+ * A line's discount as it prints: "-10%" when it was given as a percentage, "-5.00" in the
+ * document's money when as an amount, nothing when there is none. The minus sign is the
+ * caller's: the PDF's standard fonts have no U+2212, so it passes a hyphen.
+ */
+export function lineDiscountText(line, money, { minus = '\u2212', decimal = '.' } = {}) {
+  const pct = Number(line.discountPercent);
+  if (pct > 0) return minus + String(Math.round(pct * 100) / 100).replace('.', decimal) + '%';
+  return Number(line.discountAmount) > 0 ? minus + money(line.discountAmount) : '';
+}
+
 /** The label for a total's row: the stored one if it was changed, else the language's word. */
 export function totalLabels(fields, totals = {}) {
   const L = fields.L || labels('en');

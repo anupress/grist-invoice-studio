@@ -97,6 +97,9 @@ const ITEM_COLUMNS = [
   { id: 'TaxClass', label: 'Tax class', type: 'Text' },
   { id: 'HSN', label: 'HSN/SAC', type: 'Text' },
   { id: 'Unit', label: 'Unit', type: 'Text' },
+  // A discount on one line, as the amount taken off and, when it was typed as one, the percentage.
+  { id: 'Discount', label: 'Discount', type: 'Numeric' },
+  { id: 'DiscountPercent', label: 'Discount %', type: 'Numeric' },
 ];
 
 /** The lines of each trade's first sample document, for the preview drawn before setup. */

@@ -16,12 +16,13 @@
 
 import { el, fromHTML } from '../core/util.js';
 import { formatMoney } from '../money/currency.js';
-import { fieldsFor, lineColumns, totalLabels } from './fields.js';
+import { fieldsFor, lineColumns, totalLabels, lineDiscountText } from './fields.js';
 import { labelOr, localiseStatus, formatDate } from './lang.js';
 import { paymentCode, accountLines, qrSvg } from './payment.js';
 import { firstAttachmentId } from '../core/grist/bridge.js';
 import { renderMasthead, isWindowed } from './layouts.js';
 import { addressLines } from './address.js';
+import { footerColumns } from './footer.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -98,7 +99,7 @@ function totalRow(label, value, cls) {
 // before the town — shared with the PDF and the email so the three cannot disagree.
 
 /** One cell of the lines table, by column id. */
-function lineCell(line, col, M, lang, index = 0) {
+function lineCell(line, col, M, lang, index = 0, decimal = '.') {
   switch (col.id) {
     case 'position': return String(index + 1);
     case 'description': return text(line.description) || '—';
@@ -106,7 +107,7 @@ function lineCell(line, col, M, lang, index = 0) {
     case 'quantity': return String(line.quantity ?? '');
     case 'unit': return text(line.unit);
     case 'unitPrice': return M(line.unitPrice);
-    case 'discount': return line.discountAmount ? '−' + M(line.discountAmount) : '';
+    case 'discount': return lineDiscountText(line, M, { decimal });
     case 'amount': return M(line.amount);
     // Statement columns
     case 'date': return docDate(line.date, lang);
@@ -206,6 +207,7 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
     // not in a title, and a DIN information block starts with it for the same reason.
     client, clientLabel, clientLines: address(client), clientMeta,
     clientTax: fields.showClientTaxNumber ? { label: taxIdLabel, value: client.taxNumber } : null,
+    addressNote: draft.addressNote || '',
     metas: windowed ? [{ label: L.number || 'Number', value: draft.number || '—', extra: numberWarning }, ...metas] : metas,
   });
 
@@ -237,7 +239,7 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
       const src = showImages ? imageSrc(line.image, overrides.resolveImage) : null;
       return el('tr', {}, [
         showImages ? el('td', { class: 'is-img' }, src ? [el('img', { class: 'inv-lines__img', src, alt: '', loading: 'lazy' })] : []) : null,
-        ...cols.map((c) => el('td', { class: c.numeric ? 'is-num' : c.id === 'position' ? 'is-pos' : null, text: lineCell(line, c, M, lang, index) })),
+        ...cols.map((c) => el('td', { class: c.numeric ? 'is-num' : c.id === 'position' ? 'is-pos' : null, text: lineCell(line, c, M, lang, index, fmt.decimalSeparator || '.') })),
       ]);
     })),
   ]);
@@ -302,21 +304,11 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
   // The ledger's foot: the sender in three columns the way commercial stationery prints it —
   // who and where, the registrations, how to reach them. This is where its masthead's missing
   // From block went, so nothing a reader needs about the sender has left the document.
-  const colophon = windowed ? el('footer', { class: 'inv-colophon' }, [
-    el('div', { class: 'inv-colophon__col' }, [
-      el('div', { class: 'inv-colophon__name', text: sender.name || 'Your business' }),
-      ...address(sender).map((l) => el('div', { text: l })),
-    ]),
-    el('div', { class: 'inv-colophon__col' }, [
-      text(sender.taxNumber) ? el('div', { text: `${taxIdLabel}: ${sender.taxNumber}` }) : null,
-      ...text(sender.legalText).split(/\n+/).filter(Boolean).map((l) => el('div', { text: l })),
-    ]),
-    el('div', { class: 'inv-colophon__col' }, [
-      sender.email ? el('div', { text: sender.email }) : null,
-      sender.phone ? el('div', { text: sender.phone }) : null,
-      sender.website ? el('div', { text: sender.website }) : null,
-    ]),
-  ]) : null;
+  // What the three columns say is doc/footer.js's business: automatic, or the business's own text
+  // from Settings → Document → Footer. An empty column keeps its place, so the other two do not move.
+  const colophon = windowed ? el('footer', { class: 'inv-colophon' },
+    footerColumns(sender, settings, { taxIdLabel, lang }).map((col) => el('div', { class: 'inv-colophon__col' + (col.length ? '' : ' is-empty') },
+      col.map((l) => el('div', { class: l.strong ? 'inv-colophon__name' : null, text: l.text }))))) : null;
 
   // On the ledger the totals share a row with the delivery address, the way a shop's invoice
   // closes: where it went on the left, what it cost on the right.

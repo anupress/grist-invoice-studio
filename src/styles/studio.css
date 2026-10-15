@@ -415,6 +415,21 @@ html, body {
  * draw and the frame keeps only its top and bottom. main.js sets the attribute while one is shown. */
 @media print { [data-din] .studio-body { padding-left: 0; padding-right: 0; } }
 
+/* The foot of the Ledger and DIN sheets on paper: at the bottom of EVERY page, the way printed
+ * stationery carries its registrations, rather than under whatever line the document ended on.
+ * A fixed element prints on each page; the frame's footer row, which also repeats on each page,
+ * is made tall enough to keep the body clear of it. --colophon-h is measured by main.js. */
+@media print {
+  [data-colophon] { --foot-bottom: var(--print-inset, 14mm); }
+  [data-colophon="din"] { --foot-bottom: 10mm; }
+  [data-colophon] .inv-colophon {
+    position: fixed; left: var(--print-inset, 14mm); right: var(--print-inset, 14mm); bottom: var(--foot-bottom);
+    margin: 0 !important; background: #fff;
+  }
+  [data-colophon="din"] .inv-colophon { left: 25mm; right: 20mm; }
+  [data-colophon] .studio-printframe > tfoot .studio-printframe__gap { height: calc(var(--foot-bottom) + var(--colophon-h, 24mm) + 3mm); }
+}
+
 /* The order and the filters, under the search: three small choosers in one row. */
 .studio-side__filters { display: flex; gap: 6px; padding: 0 14px 10px; }
 .studio-side__pick {

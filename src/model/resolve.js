@@ -149,14 +149,23 @@ function resolveLines(row, schema, provider, opts) {
         const stored = R.lineTotal ? r[R.lineTotal] : null;
         // Trust a stored total when the column actually holds one — it may be a formula with a
         // rounding rule or a discount baked in that quantity × price would not reproduce.
-        const amount = stored != null && stored !== '' ? num(stored) : quantity * unitPrice;
+        let amount = stored != null && stored !== '' ? num(stored) : quantity * unitPrice;
+        // The line's own discount: an amount column, or a percentage column worked out against
+        // the line. A Total that is a formula of price × quantity knows nothing of the discount
+        // column beside it, so when the stored total IS that product, the discount comes off here.
+        const pctRaw = R.lineDiscountPercent ? r[R.lineDiscountPercent] : null;
+        const percent = pctRaw == null || pctRaw === '' ? null : num(pctRaw);
+        let discountAmount = R.lineDiscount ? num(r[R.lineDiscount]) : 0;
+        if (!(discountAmount > 0) && percent > 0) discountAmount = Math.round(quantity * unitPrice * percent) / 100;
+        if (discountAmount > 0 && Math.abs(amount - quantity * unitPrice) < 0.005) amount = Math.round((quantity * unitPrice - discountAmount) * 100) / 100;
         return {
           description: str(r[R.description]) || 'Item',
           quantity, unitPrice, amount, itemised: true,
           taxClass: R.taxClass ? str(r[R.taxClass]) : '',
           hsn: R.hsn ? str(r[R.hsn]) : '',
           unit: R.unit ? str(r[R.unit]) : '',
-          discountAmount: R.lineDiscount ? num(r[R.lineDiscount]) : 0,
+          discountAmount,
+          discountPercent: percent > 0 ? percent : null,
           image: R.image ? (r[R.image] ?? null) : null,
         };
       });
@@ -231,6 +240,7 @@ export function resolveInvoice(row, schema, provider, settings = {}) {
     note: str(byRole(row, roles, 'note')),
     language: str(byRole(row, roles, 'language')),
     relatedTo: str(byRole(row, roles, 'relatedTo')),
+    addressNote: str(byRole(row, roles, 'addressNote')),
     currency: str(byRole(row, roles, 'currency')) || settings.money?.currency || settings.currency || 'USD',
     client,
     sender: clone(settings.sender || {}),

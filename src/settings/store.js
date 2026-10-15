@@ -128,6 +128,9 @@ export function sanitise(settings) {
   doc.logoPlate = doc.logoPlate !== false;
   doc.logoOnly = !!doc.logoOnly;
   doc.logoSize = ['small', 'normal', 'large'].includes(doc.logoSize) ? doc.logoSize : 'normal';
+  // Three columns of text, each capped: it is written into a Grist cell with everything else.
+  const foot = Array.isArray(doc.footer) ? doc.footer : [];
+  doc.footer = [0, 1, 2].map((i) => (typeof foot[i] === 'string' ? foot[i].slice(0, 800) : ''));
   // Whether the artwork is light (drawn for a dark ground) — measured at upload, kept beside it.
   s.business.logoLight = !!s.business.logoLight;
 

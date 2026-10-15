@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.26.10-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.27.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -101,6 +101,19 @@ the same form inline and selects the new client on save; and every line carries 
 it to the catalogue, priced as it was typed. Most catalogues get built that way, one invoice at a
 time.
 
+A line can carry its own discount: type `10%` in its Discount box for a percentage, or a figure for
+an amount off. A percentage stays a percentage when the line is repriced. The amount is the line's
+net, tax is worked out on it, the document prints the discount in its own column, and an e-invoice
+declares it as a line allowance so quantity × price less the allowance closes. It is kept in the
+line table's `Discount` column (and `DiscountPercent`, when there is one); a document without a
+Discount column is offered it.
+
+A catalogue item's unit comes onto the line with its price. A catalogue can be sorted and dated: a
+`Category` column groups the picker into sections, and `ValidFrom` / `ValidUntil` keep prices over
+time, one row per price with the day it starts, so a document is offered the price in force on its
+own date. Each of those columns is one press away on the catalogue form. A picture that is not a
+JPEG is kept as a PNG, so a cut-out product shot keeps its transparency.
+
 ## Grist's Invoicing template
 
 [Grist's Invoicing template](https://www.getgrist.com/templates/invoicing-template/) is recognised by
@@ -161,7 +174,10 @@ appears the moment the row is saved.
 
 Columns of the invoice table that no role claims — a Konto, a cost centre, a project code — appear
 on the composer under "Also in this table", with a control for their type, and are written back
-with the row. Formula columns are never written, and a role's column is never reached this way.
+with the row. A Reference column is a chooser over the rows of the table it points at, named the
+way Grist names them, so a ledger picked per invoice can feed a numbering formula. Formula columns
+are never written, and a role's column is never reached this way. The client and catalogue forms
+offer their tables' own columns, References included, the same way.
 
 ## The list
 
@@ -364,7 +380,18 @@ mark at 148.5mm. Form B, with its 45mm letterhead, is the usual commercial sheet
 letterhead 27mm and moves everything else up by 18mm. The PDF draws the sheet in millimetres, the
 screen shows it at scale and prints it at size, and the HTML file does the same. The lines are
 numbered and the totals say netto and brutto, and the sender's registrations go to the foot, as on
-the ledger.
+the ledger. On a DIN sheet the composer offers **Above the address**: up to three lines for the
+remark zone between the return line and the address (Einschreiben, Persönlich, Vertraulich), kept
+in an `AddressNote` column (a column called `Vermerk` is recognised) that the composer adds with one
+press.
+
+The foot of the Ledger and DIN sheets is three columns: who and where, the registrations, how to
+reach them. Settings → Document → Footer replaces any of them with text of your own, with
+{placeholders} filled from the business details ({name} {address} {taxNumber} {legal} {iban}
+{bic} {bank} and more); a line whose placeholders are all empty is left out, and a line in
+`**double stars**` prints bold. That is where the register court and the managing director go.
+On paper the foot sits at the bottom of every page and the body stops above it; it keeps its three
+columns on any printer, because the narrow-screen rules apply to screens only.
 
 Addresses are written in their country's order on every layout, in the PDF and in the email:
 "10115 Berlin" for Germany, Austria, France and most of the world, "Bristol BS1 4QA" for Britain,

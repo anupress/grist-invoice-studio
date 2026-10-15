@@ -169,6 +169,10 @@ async function samples() {
     ],
     ...over,
   }), s);
+  const LINE_DISCOUNTS = [
+    { description: 'Dachstuhl aufrichten', quantity: 12, unitPrice: 85, unit: 'Std.', discountPercent: 10 },
+    { description: 'Kantholz 10×10', quantity: 40, unitPrice: 6.5, unit: 'm', discountAmount: 20 },
+  ];
   const XR = settings({ einvoice: { profile: 'xrechnung' } });
   const PEPPOL = settings({ einvoice: { profile: 'peppol' } });
   return {
@@ -186,6 +190,13 @@ async function samples() {
       { id: 'cii-en16931-credit-note', syntax: 'cii', rules: ['en16931-cii'], d: [draft({ kind: 'credit_note', number: 'GS-2026-0003', relatedTo: 'Rechnung RE-2026-0042' }), settings()] },
       { id: 'cii-en16931-reverse-charge', syntax: 'cii', rules: ['en16931-cii'], d: [draft({ client: BUYER_FR }), settings()] },
       { id: 'cii-xrechnung', syntax: 'cii', rules: ['en16931-cii', 'xrechnung-cii'], kosit: true, d: [draft({ client: BUYER_DE }), XR] },
+      // A discount on single lines: 10% off one, a fixed amount off the other, and an order discount
+      // on top, so the line allowances and the document allowance have to close together.
+      { id: 'ubl-en16931-line-discount', syntax: 'ubl', rules: ['en16931-ubl'], d: [draft({ lines: LINE_DISCOUNTS, discountAmount: 30 }), settings()] },
+      { id: 'cii-en16931-line-discount', syntax: 'cii', rules: ['en16931-cii'], d: [draft({ lines: LINE_DISCOUNTS, discountAmount: 30 }), settings()] },
+      { id: 'ubl-xrechnung-line-discount', syntax: 'ubl', rules: ['en16931-ubl', 'xrechnung-ubl'], kosit: true, d: [draft({ client: BUYER_DE, lines: LINE_DISCOUNTS }), XR] },
+      { id: 'cii-xrechnung-line-discount', syntax: 'cii', rules: ['en16931-cii', 'xrechnung-cii'], kosit: true, d: [draft({ client: BUYER_DE, lines: LINE_DISCOUNTS }), XR] },
+      { id: 'ubl-peppol-line-discount', syntax: 'ubl', rules: ['en16931-ubl'], peppol: true, d: [draft({ client: BUYER_DE, lines: LINE_DISCOUNTS }), PEPPOL] },
     ],
     pdf: [
       { id: 'facturx-en16931', d: [draft(), settings()] },

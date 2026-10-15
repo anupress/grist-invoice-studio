@@ -303,7 +303,10 @@ function din(ctx, form) {
     el('div', { class: 'inv-din__row' }, [
       el('div', { class: 'inv-din__window' }, [
         el('div', { class: 'inv-din__return', text: returnLine(sender, ctx.lang) }),
-        el('div', { class: 'inv-din__remarks' }),
+        // The remark zone: up to three lines (Einschreiben, Persönlich, Vertraulich) set against
+        // the bottom of the zone, directly above the address, which is where the standard puts them.
+        el('div', { class: 'inv-din__remarks' }, String(ctx.addressNote || '').split('\n').filter(Boolean).slice(0, 3)
+          .map((l) => el('div', { class: 'inv-din__remark', text: l }))),
         el('div', { class: 'inv-din__recipient inv-party' }, [
           el('div', { class: 'inv-party__name', text: client.name || '—' }),
           ...(ctx.clientLines || []).map((l) => el('div', { class: 'inv-party__line', text: l })),

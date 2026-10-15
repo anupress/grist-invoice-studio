@@ -133,6 +133,12 @@ export function button(label, onClick, opts = {}) {
  * when it is saved — a 0 written where somebody meant "nothing" is a wrong ledger entry.
  */
 export function columnControl(f, value, set) {
+  // A Reference: one row of another table, chosen by its name and stored as its row id. Empty is
+  // Grist's 0, so a cleared choice clears the cell.
+  if (f.type === 'ref') {
+    const current = value == null || value === 0 || value === '' ? '' : String(value);
+    return selectInput([{ value: '', label: '\u2014' }, ...(f.choices || [])], current, set, { ariaLabel: f.label });
+  }
   if (f.type === 'choice') {
     return selectInput([{ value: '', label: '—' }, ...(f.choices || []).map((c) => ({ value: c, label: c }))], value || '', set, { ariaLabel: f.label });
   }
