@@ -107,7 +107,7 @@ export function renderComposer(ctx) {
     ? selectInput(
         [
           { value: '', label: '— choose a client —' },
-          ...(clients || []).map((c) => ({ value: String(c.id), label: c.name })),
+          ...(clients || []).map((c) => ({ value: String(c.id), label: c.name, nt: true })),
           ...(canAddClient ? [{ value: '__new__', label: '+ New client…' }] : []),
         ],
         draft.clientRef != null ? String(draft.clientRef) : '',
@@ -254,7 +254,7 @@ export function renderComposer(ctx) {
   const extras = ctx.extras || [];
   if (!draft.extra) draft.extra = {};
   const extraSection = extras.length ? section(`Also in ${ctx.invoiceTable || 'this table'}`, [
-    ...extras.map((f) => field(f.label, columnControl(f, draft.extra[f.colId], (v) => { draft.extra[f.colId] = v; onEdit(); }))),
+    ...extras.map((f) => field(f.label, columnControl(f, draft.extra[f.colId], (v) => { draft.extra[f.colId] = v; onEdit(); }), null, { nt: true })),
   ], { grid: true }) : null;
 
   paintTotals();

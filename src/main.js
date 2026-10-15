@@ -48,6 +48,7 @@ import { RATES_UPDATED } from './money/tax/rates.js';
 import { moneySettings, settingsFrom } from './settings/runtime.js';
 import { formatMoney } from './money/currency.js';
 import { APP_VERSION } from './version.js';
+import { applyUiLanguage, resolveUiLanguage } from './i18n/ui.js';
 
 
 // The invoice list's order, remembered in this browser rather than in the document: it is how
@@ -205,6 +206,8 @@ async function runReveal() {
 
 async function boot() {
   console.info('[Invoice Studio] v' + APP_VERSION);
+  // The interface's own language, before anything is drawn, so even the access screen is in it.
+  applyUiLanguage(resolveUiLanguage());
   installPrintTitle(() => (app.painted ? printTitleFor(app.painted) : ''));
   const connected = await bridge.connect();
 
@@ -916,14 +919,14 @@ function renderSidebar() {
   const filters = which === 'invoices' ? (() => {
     const pick = (label, options, value, onChange) => {
       const sel = el('select', { class: 'studio-side__pick', 'aria-label': label, title: label },
-        options.map((o) => el('option', { value: o.value, selected: o.value === value ? true : null, text: o.label })));
+        options.map((o) => el('option', { value: o.value, selected: o.value === value ? true : null, text: o.label, dataset: o.nt ? { nt: '' } : null })));
       sel.addEventListener('change', () => onChange(sel.value));
       return sel;
     };
     const years = yearsOf(all);
     return el('div', { class: 'studio-side__filters' }, [
       pick('Order', SORTS.map((s) => ({ value: s.id, label: s.label })), app.sort, (v) => { app.sort = v; writeSort(v); paint(); }),
-      pick('Status', [{ value: '', label: 'Any status' }, ...statusOptions(app.schema, app.provider).map((s) => ({ value: s, label: s }))], app.listStatus, (v) => { app.listStatus = v; paint(); }),
+      pick('Status', [{ value: '', label: 'Any status' }, ...statusOptions(app.schema, app.provider).map((s) => ({ value: s, label: s, nt: true }))], app.listStatus, (v) => { app.listStatus = v; paint(); }),
       // A year chooser only when there is more than one year to choose between.
       years.length > 1 ? pick('Year', [{ value: '', label: 'Any year' }, ...years.map((y) => ({ value: y, label: y }))], app.listYear, (v) => { app.listYear = v; paint(); }) : null,
     ]);
@@ -1052,7 +1055,7 @@ function renderBar() {
   const picker = el('select', { class: 'studio-select studio-bar__picker', 'aria-label': 'Choose a document' },
     invoices.map((i) => el('option', {
       value: String(i.id), selected: i.id === app.currentRowId ? true : null,
-      text: [i.number, i.client].filter(Boolean).join(' · '),
+      text: [i.number, i.client].filter(Boolean).join(' · '), dataset: { nt: '' },
     })));
   picker.addEventListener('change', () => { app.currentRowId = Number(picker.value); app.mode = 'view'; app.transient = null; render(); });
 
@@ -1609,7 +1612,7 @@ function renderDataPanel() {
       const sel = el('select', { class: 'cmp-input cmp-input--select', 'aria-label': `${label}: ${role}` }, [
         el('option', { value: '', text: mapped.roles[role] && !choices[role] ? `automatic — ${mapped.roles[role]}` : 'automatic — nothing matched' }),
         el('option', { value: '-', selected: choices[role] === '-' ? true : null, text: 'none in this table' }),
-        ...cols.map((c) => el('option', { value: c.id, selected: choices[role] === c.id ? true : null, text: c.id + (c.isFormula ? ' (formula)' : '') })),
+        ...cols.map((c) => el('option', { value: c.id, selected: choices[role] === c.id ? true : null, text: c.id + (c.isFormula ? ' (formula)' : ''), dataset: { nt: '' } })),
       ]);
       sel.addEventListener('change', async () => {
         forced.columns = forced.columns || {};
@@ -1635,7 +1638,7 @@ function renderDataPanel() {
   const pick = (label, key, hint) => {
     const sel = el('select', { class: 'cmp-input', 'aria-label': label }, [
       el('option', { value: '', text: '— work it out automatically —' }),
-      ...tableIds.map((id) => el('option', { value: id, selected: forced[key] === id ? true : null, text: id })),
+      ...tableIds.map((id) => el('option', { value: id, selected: forced[key] === id ? true : null, text: id, dataset: { nt: '' } })),
     ]);
     sel.addEventListener('change', async () => {
       forced[key] = sel.value;

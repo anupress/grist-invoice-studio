@@ -81,7 +81,7 @@ eq('one press adds each column', [R.ADDABLE.product.category, R.ADDABLE.product.
 // The picker, the sidebar, the pictures
 // ---------------------------------------------------------------------------------------------
 const grid = readFileSync(_resolve(ROOT, 'src/compose/lines-grid.js'), 'utf8');
-ok('the picker groups by category in real optgroups', /el\('optgroup', \{ label: g \|\| 'Other' \}/.test(grid));
+ok('the picker groups by category in real optgroups', /el\('optgroup', \{ label: g \|\| 'Other'[,}]/.test(grid));
 const main = readFileSync(_resolve(ROOT, 'src/main.js'), 'utf8');
 ok('the composer is offered the prices of the document’s date', /productOptions\(app\.products, app\.provider, \{ date: app\.draft\.issued \}\)/.test(main));
 ok('the catalogue list shows the category and the start day', /R\.category \? r\[R\.category\]/.test(main) && /`from \$\{r\[R\.validFrom\]\}`/.test(main));

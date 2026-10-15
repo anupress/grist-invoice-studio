@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.27.0-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.28.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -197,6 +197,12 @@ Portuguese. The language comes from the document itself if one was chosen for it
 ("28. Aug. 2026", "28 août 2026"). What you type — notes, terms, payment details, the covering
 email — is never translated; Settings → Messages is where a German-speaking business writes its
 German.
+
+The widget around the document is in English or German. It follows the browser, and Settings →
+Document → Interface language chooses for this browser alone (Automatic, English, Deutsch), at
+once and without saving anything into the document. Names from your tables (clients, products,
+tables, columns, statuses) are shown as they are. The German lives in `src/i18n/de.js`, keyed by
+the English text, so another language is one more file of the same shape.
 
 ## Getting paid
 

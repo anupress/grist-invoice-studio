@@ -80,7 +80,7 @@ export function renderRecordForm(ctx) {
     if (f.type === 'image') return imageControl(f, values, set, resolveImage, say);
     if (f.type === 'language') return selectInput(LANGUAGE_OPTIONS, values[f.role] || '', set, { ariaLabel: f.label });
     if (f.type === 'choice') {
-      return selectInput([{ value: '', label: '—' }, ...(f.choices || []).map((c) => ({ value: c, label: c }))], values[f.role] || '', set, { ariaLabel: f.label });
+      return selectInput([{ value: '', label: '—' }, ...(f.choices || []).map((c) => ({ value: c, label: c }))], values[f.role] || '', set, { ariaLabel: f.label, nt: true });
     }
     if (f.type === 'bool') {
       const box = el('input', { type: 'checkbox', class: 'rec-check', checked: values[f.role] ? true : null, 'aria-label': f.label });
@@ -116,7 +116,7 @@ export function renderRecordForm(ctx) {
       ]);
       return field(f.label, wrap, why + (f.addable && onAddColumn ? ' One press adds it — nothing else in the table changes.' : ' Data → columns can point this at one.'));
     }
-    return field(f.label + (f.required ? ' *' : ''), controlFor(f), f.hint || null, { wide: f.wide });
+    return field(f.label + (f.required ? ' *' : ''), controlFor(f), f.hint || null, { wide: f.wide, nt: f.extra });
   };
 
   // ---- the buttons ----------------------------------------------------------------------------

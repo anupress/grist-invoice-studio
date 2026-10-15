@@ -274,7 +274,7 @@ function move(list, from, delta) {
 function productPicker(products, onPick) {
   // Grouped by category when the catalogue has categories: a real <optgroup> per section, in the
   // order the sections first appear, with anything uncategorised at the end.
-  const option = (p, i) => el('option', { value: String(i), text: p.label });
+  const option = (p, i) => el('option', { value: String(i), text: p.label, dataset: { nt: '' } });
   const groups = [];
   const byName = new Map();
   products.forEach((p, i) => {
@@ -284,7 +284,7 @@ function productPicker(products, onPick) {
   });
   const grouped = groups.length > 1 || (groups.length === 1 && groups[0] !== '');
   const body = grouped
-    ? [...groups.filter((g) => g), ...groups.filter((g) => !g)].map((g) => el('optgroup', { label: g || 'Other' }, byName.get(g)))
+    ? [...groups.filter((g) => g), ...groups.filter((g) => !g)].map((g) => el('optgroup', { label: g || 'Other', dataset: g ? { nt: '' } : null }, byName.get(g)))
     : products.map(option);
   const sel = el('select', { class: 'cmp-input cmp-input--picker', 'aria-label': 'Choose from your products' }, [
     el('option', { value: '', text: 'From catalogue…' }),

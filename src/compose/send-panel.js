@@ -335,7 +335,7 @@ export function renderSendPanel(ctx) {
           el('pre', { text: s.text }),
         ])),
         el('h4', { text: 'What arrives, exactly' }),
-        el('pre', { text: setup.samplePayload }),
+        el('pre', { text: setup.samplePayload, dataset: { nt: '' } }),
       ]),
     ]),
 

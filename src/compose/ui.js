@@ -8,7 +8,8 @@ import { el } from '../core/util.js';
 
 export function field(label, control, hint, opts = {}) {
   return el('label', { class: 'cmp-field' + (opts.wide ? ' cmp-field--wide' : '') }, [
-    el('span', { class: 'cmp-field__label', text: label }),
+    // `nt`: the label is a column's own name, which the interface language leaves alone.
+    el('span', { class: 'cmp-field__label', text: label, dataset: opts.nt ? { nt: '' } : null }),
     control,
     hint ? el('span', { class: 'cmp-field__hint', text: hint }) : null,
   ]);
@@ -42,7 +43,7 @@ export function suggestInput(value, onInput, opts = {}) {
   const input = textInput(value, onInput, { ...opts, list: id });
   return el('div', { class: 'cmp-suggest' }, [
     input,
-    el('datalist', { id }, (opts.options || []).map((o) => (typeof o === 'string'
+    el('datalist', { id, dataset: { nt: '' } }, (opts.options || []).map((o) => (typeof o === 'string'
       ? el('option', { value: o })
       : el('option', { value: o.value, label: o.label || null })))),
   ]);
@@ -82,15 +83,18 @@ export function textArea(value, onInput, opts = {}) {
 }
 
 export function selectInput(options, value, onChange, opts = {}) {
+  // `nt` on an option, or on the whole select, marks words from the person's own data (a client, a
+  // choice in their column), which the interface language never translates.
   const option = (o) => el('option', {
     value: String(o.value),
     selected: String(o.value) === String(value) ? true : null,
     text: o.label,
+    dataset: o.nt ? { nt: '' } : null,
   });
   // An entry with `options` of its own is a group — a real <optgroup>, which the browser draws
   // as a heading rather than as something that can be picked, instead of the "Sector · Label"
   // prefix that used to stand in for one.
-  const sel = el('select', { class: 'cmp-input cmp-input--select', 'aria-label': opts.ariaLabel || null },
+  const sel = el('select', { class: 'cmp-input cmp-input--select', 'aria-label': opts.ariaLabel || null, dataset: opts.nt ? { nt: '' } : null },
     options.map((o) => (Array.isArray(o.options) ? el('optgroup', { label: o.label }, o.options.map(option)) : option(o))));
   sel.addEventListener('change', () => onChange(sel.value));
   return sel;
@@ -137,10 +141,10 @@ export function columnControl(f, value, set) {
   // Grist's 0, so a cleared choice clears the cell.
   if (f.type === 'ref') {
     const current = value == null || value === 0 || value === '' ? '' : String(value);
-    return selectInput([{ value: '', label: '\u2014' }, ...(f.choices || [])], current, set, { ariaLabel: f.label });
+    return selectInput([{ value: '', label: '\u2014' }, ...(f.choices || [])], current, set, { ariaLabel: f.label, nt: true });
   }
   if (f.type === 'choice') {
-    return selectInput([{ value: '', label: '—' }, ...(f.choices || []).map((c) => ({ value: c, label: c }))], value || '', set, { ariaLabel: f.label });
+    return selectInput([{ value: '', label: '—' }, ...(f.choices || []).map((c) => ({ value: c, label: c }))], value || '', set, { ariaLabel: f.label, nt: true });
   }
   if (f.type === 'bool') {
     const box = el('input', { type: 'checkbox', class: 'rec-check', checked: value ? true : null, 'aria-label': f.label });

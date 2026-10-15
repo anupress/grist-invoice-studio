@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.28.0 — the interface in German
+
+The same business asked whether the rest of the widget could be translated, not only the documents.
+
+- **The interface speaks German.** Menus, buttons, labels, hints, tooltips, the setup screen, the
+  Data drawer, every Settings tab, the composer, the client and catalogue forms, the Send panel and
+  the Outbox guide, the e-invoice check, and the messages that come and go at the bottom of the
+  screen. It follows the browser: a German browser gets German, any other gets English.
+- **Settings → Document → Interface language** chooses for this browser alone: Automatic,
+  English or Deutsch, applied at once without Save settings. Two people on one document can read
+  it in different languages. It is not the document's language, which stays where it was, below it.
+- **What is never translated:** the documents themselves (they have their own words per language),
+  anything typed, the business's message templates, and what comes from the tables: client and
+  product names, table and column names, the choices in a column, statuses. A word without German
+  stays English rather than breaking anything.
+- A test lists every piece of interface text the code writes and fails when one has no German, so
+  new screens cannot quietly arrive in English.
+
 ## 1.27.0 — the second round
 
 The German business that asked for DIN 5008 looked at it, printed it, and came back with a list.

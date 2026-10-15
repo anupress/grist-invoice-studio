@@ -28,6 +28,7 @@ import { looksLikeIban, formatIban } from '../doc/payment.js';
 import { PROFILES, EINVOICE_FORMATS } from '../einvoice/index.js';
 import { EMAIL_STYLES } from '../send/email-shell.js';
 import { FOOTER_PLACEHOLDERS } from '../doc/footer.js';
+import { UI_LANGUAGES, storedUiLanguage, storeUiLanguage, resolveUiLanguage, applyUiLanguage } from '../i18n/ui.js';
 
 const opt = (value, label) => ({ value, label });
 
@@ -318,6 +319,12 @@ export function renderSettingsPanel(ctx) {
   // ---- the document -------------------------------------------------------------------------------
   const doc = s.document;
   const documentSection = section('The document', [
+    // Not a document setting: kept in this browser and applied at once, without Save settings.
+    field('Interface language', selectInput(UI_LANGUAGES.map((l) => opt(l.id, l.label)), storedUiLanguage(), (v) => {
+      storeUiLanguage(v);
+      applyUiLanguage(resolveUiLanguage(v));
+      if (ctx.onRebuild) ctx.onRebuild();
+    }), 'The language of these menus and buttons, in this browser only. The documents follow the Language below.'),
     field('Language', selectInput(LANGUAGES.map((l) => opt(l.id, l.label)), doc.language || 'en', (v) => { doc.language = v; touched(); }),
       'The words on the document — Invoice, Due, Subtotal — unless a client record names its own language. Your own text is never translated.'),
     field('Layout', selectInput(LAYOUTS.map((l) => opt(l.id, l.label)), doc.layout, (v) => { doc.layout = v; touched(); })),
