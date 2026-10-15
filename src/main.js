@@ -1475,8 +1475,12 @@ function renderRecordEditor() {
   const columns = recordColumns(kind);
   const row = rowId != null ? (app.provider.records(src.table) || []).find((r) => r.id === rowId) : null;
   if (rowId != null && !row) { app.mode = 'view'; app.record = null; return null; }
-  const values = readRecord(row || null, kind, src.roles, columns);
-  if (!row && kind === 'client') values.country = app.stored.money.defaultCustomerCountry || '';
+  // What is being typed survives the one redraw the form asks for itself: adding a column redraws
+  // the whole page, and a New form read again from nothing came back empty (1.28.1).
+  const kept = app.record.kept;
+  app.record.kept = null;
+  const values = kept || readRecord(row || null, kind, src.roles, columns);
+  if (!kept && !row && kind === 'client') values.country = app.stored.money.defaultCustomerCountry || '';
   const money = settingsNow().money;
 
   const form = renderRecordForm({
@@ -1484,7 +1488,7 @@ function renderRecordEditor() {
     roles: src.roles, columns,
     suggestions: recordSuggestions(),
     refChoices,
-    onAddColumn: (role) => addColumnForRole(kind, role),
+    onAddColumn: (role) => { app.record.kept = values; return addColumnForRole(kind, role); },
     money: { ...money.format, currency: money.currency },
     onSave: async (v) => {
       const res = await saveRecordValues(kind, rowId, v);

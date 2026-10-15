@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.28.1 — an added column is there at once
+
+- **A column added from a form is usable straight away.** In a Grist document, "Add category
+  column" (and the other "Add … column" buttons on the catalogue and client forms) added the
+  column, but the field stayed disabled until Refresh. "Add a column to keep it" beside the DIN
+  remark zone added AddressNote, but the composer still said there was no column for it, so a
+  Save straight afterwards dropped the note. After adding columns, the widget re-read the rows
+  but not the column list it keeps for the session. It now re-reads both. The same applied to
+  Data → "Add these columns".
+- **The form keeps what you typed.** Adding a column from a New catalogue item or New client
+  form no longer empties the name, price and unit already typed into it.
+
 ## 1.28.0 — the interface in German
 
 The same business asked whether the rest of the widget could be translated, not only the documents.

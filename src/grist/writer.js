@@ -781,8 +781,24 @@ export async function applyUpgrade(plan, provider, { live }) {
 
   bridge.invalidateMetaCache();
   await provider.refreshTables();
-  await refetch(provider, [...new Set(plan.columns.map((c) => c.table))]);
+  const touched = [...new Set(plan.columns.map((c) => c.table))];
+  forgetColumns(provider, touched);
+  await refetch(provider, touched);
   return { ok: true, added: actions.length, backfilled };
+}
+
+/**
+ * Drop what the provider remembers about these tables' columns, so the next read asks Grist.
+ *
+ * The core provider keeps each table's columns for the session, and prime() reads them from there.
+ * Rows were re-read after an upgrade but columns were not, so a column just added stayed invisible
+ * until Refresh: the catalogue form kept its new field disabled, and the composer still said the
+ * remark zone had no column and dropped it on Save (1.28.1). src/core is a byte-copy of Advanced
+ * Charts', so the cache is cleared from here rather than in the provider.
+ */
+export function forgetColumns(provider, tableIds) {
+  if (!provider || !(provider._cols instanceof Map)) return;
+  for (const id of tableIds || []) provider._cols.delete(id);
 }
 
 /**
