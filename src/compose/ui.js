@@ -11,7 +11,8 @@ export function field(label, control, hint, opts = {}) {
     // `nt`: the label is a column's own name, which the interface language leaves alone.
     el('span', { class: 'cmp-field__label', text: label, dataset: opts.nt ? { nt: '' } : null }),
     control,
-    hint ? el('span', { class: 'cmp-field__hint', text: hint }) : null,
+    // a hint is a sentence, or a node that repaints itself (the IBAN note under Getting paid): a node used to print as "[object HTMLSpanElement]"
+    hint ? (hint.nodeType ? hint : el('span', { class: 'cmp-field__hint', text: hint })) : null,
   ]);
 }
 

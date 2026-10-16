@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.28.2 — the IBAN hint reads as a sentence
+
+- **Settings → Money and tax → Getting paid:** the line under the IBAN box printed
+  `[object HTMLSpanElement]` instead of its sentence ("Euro invoices then carry a SEPA transfer
+  code…", then "Will print as DE89 3704 …" as you type). The hint is a node that repaints itself,
+  and the form helper that draws a hint only knew sentences. It now accepts either.
+
 ## 1.28.1 — an added column is there at once
 
 - **A column added from a form is usable straight away.** In a Grist document, "Add category
