@@ -29,6 +29,11 @@ eq('a month on', lc.addPeriod('2026-07-15', 'month'), '2026-08-15');
 eq('the 31st becomes the 30th in a short month', lc.addPeriod('2026-08-31', 'month'), '2026-09-30');
 eq('and February clamps to the 28th', lc.addPeriod('2026-01-31', 'month'), '2026-02-28');
 eq('a leap year gets the 29th', lc.addPeriod('2028-01-31', 'month'), '2028-02-29');
+// What the README used to say, and the video after it, was that the 31st comes back in March. It does
+// not: each repeat counts on from the document it is made from, which is the 28th by then.
+eq('the repeat of that February document is the 28th of March, not the 31st',
+  lc.addPeriod(lc.addPeriod('2026-01-31', 'month'), 'month'), '2026-03-28');
+eq('and it stays there', lc.addPeriod(lc.addPeriod(lc.addPeriod('2026-01-31', 'month'), 'month'), 'month'), '2026-04-28');
 eq('a quarter', lc.addPeriod('2026-11-30', 'quarter'), '2027-02-28');
 eq('a year', lc.addPeriod('2024-02-29', 'year'), '2025-02-28');
 eq('a week', lc.addPeriod('2026-12-28', 'week'), '2027-01-04');

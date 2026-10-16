@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.28.5 — two sentences in the README said more than the widget does
+
+Found while checking a video's narration against the code, which had taken both from the README.
+
+- **Repeating a document at a month's end.** The README and a code comment said that rent billed on
+  the 31st is billed on the 28th in February "and the 31st again in March". It is not: the day is
+  clamped to the month's last day, and each repeat counts on from the document it is made from, so
+  the one after February stays on the 28th. The texts now say so, and a test pins it. (No behaviour
+  changed. Nothing remembers which day was meant, and a rule that guessed would be wrong for
+  anyone billing on the 28th.)
+- **"Everything the widget writes is additive".** It said so, "never a rename or a removal", in the
+  advice to try it on a copy first. Setup and the upgrade do only add tables and columns, but
+  saving an invoice changes its own rows, and removing a line, a client or a catalogue item deletes
+  that row. The advice stands and now says what it covers.
+
 ## 1.28.4 — a formula number is not a lost field
 
 - **Editing an invoice whose number a Grist formula works out no longer warns about it.** Before the

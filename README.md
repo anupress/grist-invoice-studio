@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.28.4-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.28.5-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -31,9 +31,10 @@ clients and your product catalogue — and writes rows back to them. Below full 
 to list the document's tables at all, and an unreadable document is indistinguishable from an empty
 one, so the widget says so rather than reporting that you have no invoices.
 
-Try it on a copy of your document first. Everything the widget writes is additive — rows it
-creates, columns it adds, never a rename or a removal — but a copy costs nothing and a mistake in
-a billing table does.
+Try it on a copy of your document first. Setup and the upgrade only add: tables and columns are
+never renamed, retyped or removed. Beyond that the widget changes only what you save or remove in
+it — an invoice's own row and lines, a client or a catalogue item you press Remove on — but a copy
+costs nothing and a mistake in a billing table does.
 
 **Self-hosted Grist** can offer Invoice Studio and Advanced Charts in its Custom widget picker,
 with nothing to paste: start Grist with `GRIST_WIDGET_LIST_URL` set to
@@ -219,7 +220,9 @@ documents that ask for money, and only while something is owed.
 
 - **Repeat a document.** On any saved invoice, choose Next week, month, quarter or year and press
   Raise it: a new draft with every date moved on by the period, the lines copied, nothing paid.
-  Rent billed on the 31st is billed on the 28th in February and the 31st again in March.
+  A date the next month does not have moves to that month's last day, so rent billed on the 31st
+  is billed on the 28th in February. Each repeat counts on from the document it is made from, so
+  the one after that stays on the 28th: the widget does not remember that the 31st was meant.
 - **Interest on a late payment.** On an overdue invoice, Add interest puts a line on it for the
   days since the due date, at the yearly rate in Settings → Getting paid, on the balance still
   owed. The rate is yours to set, because the law sets it differently everywhere.

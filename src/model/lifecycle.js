@@ -23,8 +23,10 @@ export const PERIODS = [
 /**
  * A date moved on by one period, keeping the day of the month where the month has it.
  *
- * Rent billed on the 31st is billed on the 28th in February and on the 31st again in March —
- * the day is clamped, never carried over into the following month, which is what a lease means.
+ * Rent billed on the 31st is billed on the 28th in February: the day is clamped to the month's
+ * last day, never carried over into the following month. It counts on from the date it is GIVEN,
+ * so a repeat of that February document is the 28th of March, not the 31st; nothing remembers
+ * which day was meant, and the README used to claim otherwise (1.28.5).
  */
 export function addPeriod(isoDate, period = 'month') {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDate || ''));
