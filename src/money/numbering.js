@@ -2,11 +2,18 @@
 //
 //   ASSIGN ONCE. STORE IT. NEVER RECOMPUTE.
 //
-// An invoice number is not a display property, it is an identifier on a legal document, and in many
-// jurisdictions the sequence must have no gaps and must not change. Anything that derives it — from
-// a row id, from a position in a sorted list, from a count — produces numbers that move when an
-// earlier invoice is deleted. Grist's own Invoicing template does exactly this (`$id + 51371`), and
-// it is the single defect in that template most likely to cause a real problem for a real business.
+// An invoice number is not a display property, it is an identifier on a legal document. What a
+// country asks of the run differs, but a number that belongs to two documents is wrong anywhere, so
+// it is never derived. A count, or a position in a sorted list, produces numbers that move when an
+// earlier invoice is deleted. A row id does not move, but it leaves a gap when a middle row is
+// deleted, and Grist gives the id of a deleted NEWEST row to the next row added, so a number built
+// from it can be issued twice (tested in Grist on 16 October 2026). Grist's own Invoicing template
+// does exactly this (`$id + 51371`), and it is the defect in that template most likely to cause a
+// real problem for a real business.
+//
+// A stored number is not a full cure. The next one is the highest number still in the table plus
+// one (see nextNumber), so deleting the NEWEST invoice frees its number for the next. The advice
+// that goes with it: cancel an invoice instead of deleting it.
 //
 // WooCommerce keeps invoice numbers separate from order numbers for the same reason, assigns one at
 // the moment a document is generated, stores it, and reuses the stored value forever after. So does

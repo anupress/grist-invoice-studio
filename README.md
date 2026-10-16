@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.28.2-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.28.3-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -125,7 +125,7 @@ That template has limits worth knowing about before you rely on it:
 
 | Column | Behaviour |
 |---|---|
-| `Number` | A formula, `$id + 51371`. Deleting an invoice renumbers every later one. |
+| `Number` | A formula, `$id + 51371`. Deleting an invoice leaves a gap, and deleting the newest one lets Grist give its id, and so its number, to the next invoice. |
 | `Invoicer` | A hardcoded dict inside a formula. Changing your address means editing code. |
 | `Total` | Text, and empty on every row. The real total is in an auto-summary table. |
 | `Businesses` | No email column, so nothing can be sent. |
@@ -158,8 +158,10 @@ PDF. Only PNG and JPEG survive storage; anything else is dropped rather than ren
 
 ## Numbers
 
-A number is assigned once, when a document is first saved, and never recomputed — deleting an
-earlier invoice must not renumber the later ones. Settings → Numbering sets the prefix per kind of
+A number is assigned once, when a document is first saved, and never recomputed, so deleting an
+invoice does not change any other number. The next number is the highest one still in the table plus
+one, which means deleting the newest invoice frees its number: cancel an invoice instead of deleting
+it. Settings → Numbering sets the prefix per kind of
 document, the digits, where the count starts and when it restarts. Besides `{YYYY}` `{YY}` `{MM}`
 `{DD}`, a prefix or suffix can carry `{reference}` (the client's reference on the document),
 `{client.Konto}` (any column of the client's record, named by its column id) and `{Konto}` (a column

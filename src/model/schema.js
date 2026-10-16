@@ -73,10 +73,13 @@ export const OFFICIAL_TEMPLATE = {
       // Totals are computed from the line items instead. See `unreliable` below.
     },
     unreliable: { total: 'Total' },
-    // Mapped and usable, but computed by a formula we want to replace. `Number` is `$id + 51371`,
-    // so deleting one invoice renumbers every invoice after it — fine for a demo, not for a
-    // document somebody has to defend to an auditor. Recorded here so the upgrade can offer a
-    // stored number even though the role is already filled; see upgradeChecklist().
+    // Mapped and usable, but computed by a formula we want to replace. `Number` is `$id + 51371`.
+    // Nothing is renumbered when an invoice is deleted (ids do not move, so the later ones keep
+    // their numbers), but a deleted middle row leaves a gap, and Grist gives the id of a deleted
+    // NEWEST row to the next row added, so the next invoice is issued with the number of the one
+    // just deleted (tested in Grist on 16 October 2026). Fine for a demo, not for a document
+    // somebody has to defend to an auditor. Recorded here so the upgrade can offer a stored number
+    // even though the role is already filled; see upgradeChecklist().
     derived: { number: 'Number' },
   },
   line: {
@@ -122,7 +125,7 @@ export const UPGRADE_PLAN = {
     { id: 'Reference', type: 'Text', role: 'reference',
       why: 'The client’s own PO number. Accounts payable match on this, and an invoice without it can sit unpaid while nobody is doing anything wrong.' },
     { id: 'InvoiceNumber', type: 'Text', role: 'number', replacesFormula: true,
-      why: 'A number that is stored rather than derived from the row id, so deleting one invoice stops renumbering every invoice after it.' },
+      why: 'A number that is stored with the invoice, not calculated from its row id. If you delete the newest row, Grist can give its id to the next one, and a calculated number then appears twice. Cancel an invoice rather than deleting it, and its number stays taken.' },
     { id: 'Document', type: 'Attachments', role: 'attachment',
       why: 'Where the generated PDF is filed, so the sent document is kept with the record of sending it.' },
     { id: 'SentAt', type: 'Date', role: 'sentAt',

@@ -166,12 +166,12 @@ export function renderDocument(draft, settings = {}, overrides = {}) {
     : null;
 
   // Said on the document, because this is exactly where it matters: a number computed from the row
-  // id changes when an earlier invoice is deleted, and the person who needs to know that is the one
-  // about to send it.
+  // id can come round twice (Grist gives the id of a deleted newest row to the next row added), and
+  // the person who needs to know that is the one about to send it.
   const numberWarning = draft.numberIsDerived
     ? el('abbr', {
         class: 'inv-title__warn',
-        title: 'This number is calculated from the row id, so deleting an earlier document will change it. Upgrade the document to store it instead.',
+        title: 'This number is calculated from the row id. If the newest document is deleted, Grist can give its id, and so its number, to the next one. Upgrade the document to store the number instead.',
         text: '!',
       })
     : null;

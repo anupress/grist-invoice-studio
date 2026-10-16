@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.28.3 — the numbering notes now say what Grist really does
+
+- **A claim about Grist's Invoicing template was wrong, and is corrected.** The upgrade checklist
+  (and its German text), the hover text on a calculated number, the README and the code comments
+  said that deleting an invoice renumbers every later one. It does not. Tested in Grist on
+  16 October 2026 with the template's `$id + 51371`: deleting the first of three invoices left the
+  other two at 51373 and 51374. What does happen is a gap, and that deleting the **newest** invoice
+  lets Grist give its row id, and so its number, to the next invoice (51374 was issued twice).
+  The texts now say that.
+- **A stored number is not a full cure, and the texts say so.** The next number is the highest one
+  still in the table plus one, so deleting the newest invoice frees its number here too. The advice
+  is to cancel an invoice instead of deleting it. No behaviour changed: only words, plus a test
+  that pins this rule so it cannot be misdescribed again.
+
 ## 1.28.2 — the IBAN hint reads as a sentence
 
 - **Settings → Money and tax → Getting paid:** the line under the IBAN box printed

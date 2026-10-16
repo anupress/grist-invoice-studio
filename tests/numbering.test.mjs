@@ -53,6 +53,24 @@ eq('an empty year starts at the start', n.nextNumber(['INV-2025-0099'], FMT, y20
 eq('a custom start', n.nextNumber([], { ...FMT, start: 500 }, y2026).number, 'INV-2026-0500');
 eq('the new year restarts the sequence', n.nextNumber(existing, FMT, new Date(2027, 0, 2)).number, 'INV-2027-0001');
 
+// Deleting an invoice does not renumber the others, and it does not always leave the sequence alone:
+// the next number is the highest still in the table plus one, so a deleted MIDDLE invoice leaves a
+// gap and a deleted NEWEST invoice frees its number for the next. The README and the upgrade text say
+// so (cancel instead of deleting), so the rule is pinned here rather than left as a surprise.
+const three = ['INV-2026-0001', 'INV-2026-0002', 'INV-2026-0003'];
+eq('delete a middle invoice: the next one carries on after the highest', n.nextNumber(['INV-2026-0001', 'INV-2026-0003'], FMT, y2026).sequence, 4);
+eq('delete the newest: its number is offered again', n.nextNumber(three.slice(0, 2), FMT, y2026).sequence, 3);
+eq('cancel it instead (it stays in the table): the number stays taken', n.nextNumber(three, FMT, y2026).sequence, 4);
+
+// The words that ship must not claim a deletion renumbers the later invoices. It is false (tested in
+// Grist on 16 October 2026: later rows keep their ids and so their numbers), and it was in the
+// upgrade text, its German version, a hover text, the README and a comment before 1.28.3.
+import { readFileSync } from 'node:fs';
+for (const file of ['README.md', 'src/model/schema.js', 'src/money/numbering.js', 'src/doc/render.js', 'src/i18n/de.js']) {
+  const text = readFileSync(_resolve(ROOT, file), 'utf8');
+  eq(file + ' does not say a deletion renumbers later invoices', /renumber(s|ing)? (every|all|the later)|nicht alle späteren neu nummeriert|will change it/i.test(text), false);
+}
+
 // ---------------------------------------------------------------------------------------------
 // The rule that matters: assign once, and never again
 // ---------------------------------------------------------------------------------------------
