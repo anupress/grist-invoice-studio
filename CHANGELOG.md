@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.28.4 — a formula number is not a lost field
+
+- **Editing an invoice whose number a Grist formula works out no longer warns about it.** Before the
+  save the composer said "1 field on this form cannot be saved into this document", and after it
+  "Saved — but 1 field could not be kept: number", on every edit. Nothing was lost: the number is
+  the formula's, the composer shows it read-only, and it is read back after the save. Found by
+  trying a numbering formula that counts per ledger account in a real Grist document, with a
+  Reference column to the ledger chosen under Also in this table: a new invoice took the formula's
+  number (`RE-4710-001`), a second on the same ledger the next one, and moving a saved invoice to
+  another ledger made the formula recount, with the list and the document showing the new number.
+  A number typed for a new invoice into a formula column, which the composer does not allow, is
+  still reported, and so is every other formula column (a due date the document computes).
+- **Known, and not changed:** where the lines point at their invoice by its number as text, rather
+  than by a Reference, and the number depends on something editable (the ledger), changing that
+  thing changes the number and the lines keep the old one. A Reference link has no such problem.
+
 ## 1.28.3 — the numbering notes now say what Grist really does
 
 - **A claim about Grist's Invoicing template was wrong, and is corrected.** The upgrade checklist

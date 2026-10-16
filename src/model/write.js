@@ -167,7 +167,14 @@ const COMPUTED_ROLES = new Set(['subtotal', 'tax', 'discount', 'shipping', 'tota
  */
 const QUIET_ROLES = new Set(['kind', 'lineDiscountPercent']);
 
-function fieldsFor(values, roles, columnIndex, skipped, where) {
+/**
+ * `formulaOk` names roles whose column may be a formula without that being a loss. The invoice's
+ * number is one once the invoice exists: Grist's formula gave it, the composer shows it read-only,
+ * and it is read back after a save, so nobody typed it and nothing is dropped. Warning anyway put
+ * "1 field could not be kept: number" under every edit of a document numbered by formula, which is
+ * exactly the document a business with its own numbering scheme has (1.28.4).
+ */
+function fieldsFor(values, roles, columnIndex, skipped, where, { formulaOk = [] } = {}) {
   const fields = {};
   for (const [role, raw] of Object.entries(values)) {
     if (raw === undefined || raw === '') continue;
@@ -181,7 +188,7 @@ function fieldsFor(values, roles, columnIndex, skipped, where) {
     }
     const col = columnIndex.get(colId);
     if (isFormula(col)) {
-      skipped.push({ where, role, column: colId, reason: 'that column is a formula, so Grist will not accept a value' });
+      if (!formulaOk.includes(role)) skipped.push({ where, role, column: colId, reason: 'that column is a formula, so Grist will not accept a value' });
       continue;
     }
     const cell = toCell(raw, col);
@@ -212,7 +219,10 @@ export function buildWritePlan(draft, schema, context = {}) {
   }
 
   const invoiceIndex = indexColumns(context.invoiceColumns);
-  const invoiceFields = fieldsFor(invoiceValues(draft), schema.invoice.roles, invoiceIndex, skipped, 'invoice');
+  // A number typed for a NEW invoice into a formula column is still reported: the composer does not
+  // allow it, but a draft can come from elsewhere, and that value really would be dropped.
+  const invoiceFields = fieldsFor(invoiceValues(draft), schema.invoice.roles, invoiceIndex, skipped, 'invoice',
+    { formulaOk: draft.rowId != null ? ['number'] : [] });
 
   // The invoice table's own columns, typed in the composer's "Also in this table" section. Keyed
   // by column id rather than by role, because they are the business's columns and not ours — a
