@@ -598,11 +598,23 @@ function detectProductsAuto(tables, schema, opts) {
 }
 
 /** A cell as "YYYY-MM-DD", whether it holds a day string or epoch seconds; '' when neither. */
-function dayKey(v) {
+export function dayKey(v) {
   if (v == null || v === '') return '';
   if (typeof v === 'number' && isFinite(v)) return new Date(Math.abs(v) > 1e11 ? v : v * 1000).toISOString().slice(0, 10);
   const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v).trim());
   return m ? m[1] : '';
+}
+
+/**
+ * What makes two catalogue rows one product: the SKU when the row has one, else the name. The rows
+ * of a product priced over time share it, and the picker, the sidebar's list and the form all go
+ * by it (1.29.0). Two SKUs with one name — a size, a colour — stay two products.
+ */
+export function productKey(name, sku) {
+  const s = String(sku ?? '').trim().toLowerCase();
+  if (s) return 'sku:' + s;
+  const n = String(name ?? '').trim().toLowerCase();
+  return n ? 'name:' + n : '';
 }
 
 /**
@@ -624,6 +636,7 @@ export function productOptions(products, provider, { date = '' } = {}) {
     return {
       label: [sku, name].filter(Boolean).join(' · ') || `#${r.id}`,
       name,
+      sku,
       description: name,
       unitPrice: isFinite(price) ? price : null,
       unit: R.unit ? String(r[R.unit] ?? '').trim() : '',
@@ -640,15 +653,15 @@ export function productOptions(products, provider, { date = '' } = {}) {
   if (!on || (!R.validFrom && !R.validTo)) return all;
 
   const inForce = all.filter((p) => (!p.validFrom || p.validFrom <= on) && (!p.validTo || p.validTo >= on));
-  // One row per product: the version that started most recently. A name is the product, as it is
-  // everywhere else the catalogue is matched (the picker, the pictures, the star).
+  // One row per product: the version that started most recently. The product is its key — the
+  // SKU, else the name — as it is in the sidebar's list and on the form (model/catalogue.js).
   const best = new Map();
   for (const p of inForce) {
-    const key = p.name.toLowerCase();
+    const key = productKey(p.name, p.sku);
     const held = best.get(key);
     if (!held || (p.validFrom || '') > (held.validFrom || '')) best.set(key, p);
   }
-  return inForce.filter((p) => best.get(p.name.toLowerCase()) === p);
+  return inForce.filter((p) => best.get(productKey(p.name, p.sku)) === p);
 }
 
 /** The statuses every document understands before anyone adds their own. */

@@ -48,7 +48,8 @@ import { RATES_UPDATED } from './money/tax/rates.js';
 import { moneySettings, settingsFrom } from './settings/runtime.js';
 import { formatMoney } from './money/currency.js';
 import { APP_VERSION } from './version.js';
-import { applyUiLanguage, resolveUiLanguage } from './i18n/ui.js';
+import { applyUiLanguage, resolveUiLanguage, translateText } from './i18n/ui.js';
+import { catalogueItems, catalogueSubline, categoriesOf, groupByCategory, alpha, todayKey } from './model/catalogue.js';
 
 
 // The invoice list's order, remembered in this browser rather than in the document: it is how
@@ -71,6 +72,7 @@ const app = {
   sort: readSort(),
   listStatus: '',
   listYear: '',
+  listCategory: '',
   // What is persisted, in the shape settings/defaults.js describes. The runtime view every other
   // module wants is computed from it by settingsNow() — one stored shape, one runtime shape, and a
   // single place that converts between them.
@@ -842,6 +844,9 @@ function renderSidebar() {
   const listHost = el('nav', { class: 'studio-side__list', 'aria-label': LISTS.find((l) => l.id === which).label });
   const all = which === 'invoices' ? listInvoices(app.schema, app.provider) : listRecords(which === 'clients' ? 'client' : 'product');
   const kind = which === 'clients' ? 'client' : 'product';
+  // A category chosen earlier that the catalogue no longer has would narrow the list to nothing.
+  const categories = which === 'products' ? categoriesOf(all) : [];
+  if (app.listCategory && !categories.includes(app.listCategory)) app.listCategory = '';
   // How many are shown, and of how many: "12 of 1,243" says the list is narrowed; "1,243" says it is not.
   const count = el('span', { class: 'studio-side__count', text: String(all.length) });
 
@@ -881,29 +886,40 @@ function renderSidebar() {
       }
       return;
     }
-    const rows = q ? all.filter((r) => (r.name + ' ' + r.sub).toLowerCase().includes(q)) : all;
+    let rows = q ? all.filter((r) => (r.name + ' ' + r.sub).toLowerCase().includes(q)) : all;
+    if (which === 'products' && app.listCategory) rows = rows.filter((r) => r.category === app.listCategory);
+    const narrowed = q || (which === 'products' && app.listCategory);
+    count.textContent = narrowed ? `${rows.length} of ${all.length}` : String(all.length);
     if (!rows.length) {
-      listHost.appendChild(el('p', { class: 'studio-side__empty', text: q ? 'Nothing matches.' : (which === 'clients' ? 'No clients yet. New adds one.' : 'Nothing in the catalogue yet. New adds an item, or the star on an invoice line does.') }));
+      listHost.appendChild(el('p', { class: 'studio-side__empty', text: narrowed ? 'Nothing matches.' : (which === 'clients' ? 'No clients yet. New adds one.' : 'Nothing in the catalogue yet. New adds an item, or the star on an invoice line does.') }));
       return;
     }
-    for (const r of rows) {
-      const active = app.mode === 'record' && app.record?.kind === kind && app.record.rowId === r.id;
-      const src = which === 'products' ? imageSrcFor(r.image) : null;
-      const row = el('button', {
-        class: 'studio-side__row studio-side__row--record' + (active ? ' is-active' : ''), type: 'button',
-        'aria-current': active ? 'true' : null,
-      }, [
-        which === 'products' ? (src ? el('img', { class: 'studio-side__thumb', src, alt: '' }) : el('span', { class: 'studio-side__thumb is-empty', 'aria-hidden': 'true' })) : null,
-        el('span', { class: 'studio-side__text' }, [
-          el('span', { class: 'studio-side__line' }, [
-            el('span', { class: 'studio-side__name', text: r.name }),
-            r.price != null && r.price !== '' ? el('span', { class: 'studio-side__total', text: fmt(Number(r.price) || 0) }) : null,
+    // A catalogue with categories is read by section: a heading per category, A to Z, the
+    // uncategorised last. The products in each are already A to Z.
+    const sections = which === 'products' && categories.length ? groupByCategory(rows) : [{ category: null, items: rows }];
+    for (const sec of sections) {
+      if (sec.category != null) listHost.appendChild(el('div', { class: 'studio-side__group', text: sec.category || 'Other', dataset: sec.category ? { nt: '' } : null }));
+      for (const r of sec.items) {
+        // A product is active whichever of its price versions is open.
+        const active = app.mode === 'record' && app.record?.kind === kind
+          && (app.record.rowId === r.id || (r.versions || []).some((v) => v.id === app.record.rowId));
+        const src = which === 'products' ? imageSrcFor(r.image) : null;
+        const row = el('button', {
+          class: 'studio-side__row studio-side__row--record' + (active ? ' is-active' : ''), type: 'button',
+          'aria-current': active ? 'true' : null,
+        }, [
+          which === 'products' ? (src ? el('img', { class: 'studio-side__thumb', src, alt: '' }) : el('span', { class: 'studio-side__thumb is-empty', 'aria-hidden': 'true' })) : null,
+          el('span', { class: 'studio-side__text' }, [
+            el('span', { class: 'studio-side__line' }, [
+              el('span', { class: 'studio-side__name', text: r.name }),
+              r.price != null && r.price !== '' ? el('span', { class: 'studio-side__total', text: fmt(Number(r.price) || 0) }) : null,
+            ]),
+            r.sub ? el('span', { class: 'studio-side__client', text: r.sub }) : null,
           ]),
-          r.sub ? el('span', { class: 'studio-side__client', text: r.sub }) : null,
-        ]),
-      ]);
-      row.addEventListener('click', () => openRecord(kind, r.id));
-      listHost.appendChild(row);
+        ]);
+        row.addEventListener('click', () => openRecord(kind, r.id));
+        listHost.appendChild(row);
+      }
     }
   };
 
@@ -916,13 +932,13 @@ function renderSidebar() {
 
   // The order, the status and the year, under the search. Each repaints the list alone, like the
   // search does. The order is remembered in this browser; the two filters last the session.
+  const pick = (label, options, value, onChange) => {
+    const sel = el('select', { class: 'studio-side__pick', 'aria-label': label, title: label },
+      options.map((o) => el('option', { value: o.value, selected: o.value === value ? true : null, text: o.label, dataset: o.nt ? { nt: '' } : null })));
+    sel.addEventListener('change', () => onChange(sel.value));
+    return sel;
+  };
   const filters = which === 'invoices' ? (() => {
-    const pick = (label, options, value, onChange) => {
-      const sel = el('select', { class: 'studio-side__pick', 'aria-label': label, title: label },
-        options.map((o) => el('option', { value: o.value, selected: o.value === value ? true : null, text: o.label, dataset: o.nt ? { nt: '' } : null })));
-      sel.addEventListener('change', () => onChange(sel.value));
-      return sel;
-    };
     const years = yearsOf(all);
     return el('div', { class: 'studio-side__filters' }, [
       pick('Order', SORTS.map((s) => ({ value: s.id, label: s.label })), app.sort, (v) => { app.sort = v; writeSort(v); paint(); }),
@@ -930,7 +946,10 @@ function renderSidebar() {
       // A year chooser only when there is more than one year to choose between.
       years.length > 1 ? pick('Year', [{ value: '', label: 'Any year' }, ...years.map((y) => ({ value: y, label: y }))], app.listYear, (v) => { app.listYear = v; paint(); }) : null,
     ]);
-  })() : null;
+  })() : which === 'products' && categories.length ? el('div', { class: 'studio-side__filters' }, [
+    // The catalogue's categories, to narrow a long list to one section. Only where there are any.
+    pick('Category', [{ value: '', label: 'Any category' }, ...categories.map((c) => ({ value: c, label: c, nt: true }))], app.listCategory, (v) => { app.listCategory = v; paint(); }),
+  ]) : null;
 
   // Edit and New live here, with the list they act on. On narrow screens the sidebar is hidden
   // and the bar's copies take over — one set or the other, never both.
@@ -951,12 +970,11 @@ function renderSidebar() {
   paint();
   return el('aside', { class: 'studio-side' }, [
     switcher,
+    // The count takes what room is left; the three buttons are one group that moves as one — see
+    // the head's rules in studio.css.
     el('div', { class: 'studio-side__head' }, [
-      count,
-      el('span', { class: 'studio-side__spacer' }),
-      refreshBtn,
-      editBtn,
-      newBtn,
+      el('span', { class: 'studio-side__countbox' }, [count]),
+      el('span', { class: 'studio-side__actions' }, [refreshBtn, editBtn, newBtn]),
     ]),
     which === 'invoices' ? agingStrip(fmt) : null,
     el('div', { class: 'studio-side__tools' }, [search]),
@@ -1358,17 +1376,28 @@ function listRecords(kind) {
   const src = recordSource(kind);
   if (!src) return [];
   const R = src.roles;
+  // The catalogue is listed as products, A to Z: one entry each, with its prices over time behind
+  // it — see model/catalogue.js. The words beside it are translated here, because the list's
+  // sub-line is left alone by the interface language (it carries the person's own category and SKU).
+  if (kind === 'product') {
+    return catalogueItems(src, app.provider).map((i) => ({
+      id: i.id,
+      name: recordName({ name: i.name }, kind),
+      sub: catalogueSubline(i, (s) => translateText(s)),
+      category: i.category,
+      price: i.price,
+      image: i.image,
+      versions: i.versions,
+    }));
+  }
+  // Clients, A to Z, each with where they are.
   return (app.provider.records(src.table) || []).map((r) => ({
     id: r.id,
     name: recordName({ name: R.name ? r[R.name] : '' }, kind),
-    // Clients show where they are; catalogue items what they cost.
-    sub: kind === 'client'
-      ? [R.city ? r[R.city] : '', R.email ? r[R.email] : ''].map((v) => String(v || '').trim()).filter(Boolean).join(' · ')
-      : [R.category ? r[R.category] : '', R.sku ? r[R.sku] : '', R.unit ? r[R.unit] : '', R.validFrom && r[R.validFrom] ? `from ${r[R.validFrom]}` : '']
-        .map((v) => String(v || '').trim()).filter(Boolean).join(' · '),
-    price: kind === 'product' && R.unitPrice ? r[R.unitPrice] : null,
-    image: kind === 'product' && R.image ? r[R.image] : null,
-  }));
+    sub: [R.city ? r[R.city] : '', R.email ? r[R.email] : ''].map((v) => String(v || '').trim()).filter(Boolean).join(' · '),
+    price: null,
+    image: null,
+  })).sort((a, b) => alpha(a.name, b.name));
 }
 
 /**
@@ -1468,6 +1497,15 @@ function openRecord(kind, rowId) {
   render();
 }
 
+/** A New form already filled in: a product's next price, or a copy of an item. */
+function openRecordWith(kind, values) {
+  if (!recordSource(kind)) return;
+  app.record = { kind, rowId: null, kept: values };
+  app.mode = 'record';
+  app.draft = null;
+  render();
+}
+
 function renderRecordEditor() {
   const { kind, rowId } = app.record;
   const src = recordSource(kind);
@@ -1483,6 +1521,13 @@ function renderRecordEditor() {
   if (!kept && !row && kind === 'client') values.country = app.stored.money.defaultCustomerCountry || '';
   const money = settingsNow().money;
 
+  // A catalogue item's prices over time, beside its form, where the catalogue keeps start days.
+  // The next price is this row again, starting today, in a New form; a duplicate is this row
+  // again with no dates, for an item that is like this one.
+  const history = kind === 'product' && rowId != null && src.roles.validFrom
+    ? catalogueItems(src, app.provider).find((i) => i.versions.some((v) => v.id === rowId))
+    : null;
+
   const form = renderRecordForm({
     kind, rowId, values, resolveImage, canWrite: canWrite(),
     roles: src.roles, columns,
@@ -1490,6 +1535,13 @@ function renderRecordEditor() {
     refChoices,
     onAddColumn: (role) => { app.record.kept = values; return addColumnForRole(kind, role); },
     money: { ...money.format, currency: money.currency },
+    priceHistory: history ? {
+      versions: history.versions,
+      rowId,
+      onOpen: (id) => openRecord(kind, id),
+      onNewPrice: () => openRecordWith(kind, { ...values, validFrom: todayKey(), validTo: '' }),
+    } : null,
+    onDuplicate: kind === 'product' && rowId != null ? () => openRecordWith(kind, { ...values, validFrom: '', validTo: '' }) : null,
     onSave: async (v) => {
       const res = await saveRecordValues(kind, rowId, v);
       if (res.ok) {

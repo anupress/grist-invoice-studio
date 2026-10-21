@@ -183,6 +183,26 @@
 .rec-drop.is-over { border-color: var(--accent); background: var(--accent-soft); }
 .rec-drop__hint { font-size: 12.5px; color: var(--muted); }
 .rec-thumb { width: 44px; height: 44px; border-radius: 5px; object-fit: cover; border: 1px solid var(--rule); }
+/* A product's prices over time, beside its form: a row per version, the one being edited marked,
+ * the one in force today tagged. */
+.rec-prices { display: flex; flex-direction: column; gap: 4px; }
+.rec-prices .cmp-section__title { margin: 6px 0 2px; }
+.rec-prices__row {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 6px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface);
+  font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer;
+}
+.rec-prices__row:hover { border-color: var(--accent); }
+.rec-prices__row.is-editing { border-color: var(--accent); background: var(--accent-soft); cursor: default; }
+.rec-prices__row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rec-prices__when { flex: 1 1 auto; min-width: 0; color: var(--muted); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-prices__row.is-editing .rec-prices__when { color: var(--ink); }
+.rec-prices__price { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rec-prices__tag { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); white-space: nowrap; }
+.rec-more { display: flex; flex-wrap: wrap; gap: 6px; }
+/* A button in a form cell — Add … column, Add interest — wraps its words rather than running past
+ * the cell: the cell is the same width in every language, and German is a third longer. */
+.rec-missing .cmp-btn, .cmp-field > .cmp-btn { white-space: normal; max-width: 100%; height: auto; text-align: left; }
 .rec--compact { margin: 0 14px 14px; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
 .cmp-inline:empty { display: none; }
 @media (max-width: 900px) {

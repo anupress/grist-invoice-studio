@@ -235,7 +235,14 @@ html, body {
   background: var(--surface);
   border-right: 1px solid var(--rule);
 }
-.studio-side__head { display: flex; align-items: center; gap: 6px; padding: 12px 14px 8px; }
+/* The head: the count, then Refresh, Edit and New as one group. The group never breaks up; when it
+ * cannot fit beside the count it takes the next line whole, so a long word can at worst cost a
+ * line and never run past the column's edge (German did, 1.29.0). The count's share is whatever is
+ * left (a flex basis of 0), so a narrowed "12 of 1,234" clips as it always did rather than moving
+ * the buttons, which are what a person aims at. */
+.studio-side__head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 12px 14px 8px; }
+.studio-side__countbox { flex: 1 1 0; min-width: 0; overflow: hidden; }
+.studio-side__actions { flex: none; display: flex; align-items: center; gap: 6px; margin-left: auto; }
 /* One row, in every list and in every state. Refresh, Edit and New are the same three buttons
  * whether the list is invoices, clients or the catalogue, so they must sit in the same places —
  * a header that reflows when Edit becomes Close reads as three different headers. */
@@ -243,7 +250,7 @@ html, body {
 /* Edit and Close are the same button wearing two words. Reserving the wider one's room is what
  * stops New moving when a record is opened. */
 .studio-side__head .studio-btn--edit { min-width: 62px; }
-.studio-side__count { flex: 0 1 auto; overflow: hidden; }
+.studio-side__count { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 .studio-side__title {
   font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
   color: var(--muted);
@@ -253,7 +260,6 @@ html, body {
   background: var(--sunk); color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.studio-side__spacer { flex: 1 1 auto; }
 .studio-side__head .studio-btn--sm { margin-top: 0; }
 .studio-side__tools { padding: 0 14px 10px; }
 .studio-side__search {
@@ -289,6 +295,12 @@ html, body {
 .studio-side__total { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
 .studio-side__client { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .studio-side__empty { margin: 6px 8px; font-size: 12.5px; color: var(--muted); }
+/* The catalogue's sections: a category over its products, A to Z, the uncategorised last. */
+.studio-side__group {
+  padding: 12px 14px 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.studio-side__group:first-child { padding-top: 4px; }
 
 /* The three lists: invoices, clients, catalogue. A segmented switch at the top of the column. */
 .studio-side__switch {
@@ -407,9 +419,10 @@ html, body {
 /* The bar's Edit/New exist only where the sidebar (which owns them) does not. */
 @media (min-width: 880px) { .studio-bar__narrow { display: none; } }
 
-/* The head does not wrap: the buttons are trimmed to fit instead, above. A long count clips
- * before anything moves — the buttons are what a person aims at. */
-.studio-side__head { flex-wrap: nowrap; }
+/* German words are a third longer — Aktualisieren, Bearbeiten, Schließen — so the column gives them
+ * the room and the head stays one line; Edit's reservation covers both of its words there too. */
+html[data-ui-lang="de"] .studio-side { width: 300px; }
+html[data-ui-lang="de"] .studio-side__head .studio-btn--edit { min-width: 88px; }
 
 /* The DIN 5008 sheets measure from the paper's edge, so on paper the side margins are theirs to
  * draw and the frame keeps only its top and bottom. main.js sets the attribute while one is shown. */

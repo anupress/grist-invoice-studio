@@ -1,7 +1,7 @@
 # Invoice Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563EB.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.28.5-0F1B2D.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.29.0-0F1B2D.svg)](CHANGELOG.md)
 
 A Grist custom widget for creating, rendering and sending invoices from tables you already keep.
 It runs entirely in the viewer's browser. There is no server and no third-party service.
@@ -110,10 +110,15 @@ line table's `Discount` column (and `DiscountPercent`, when there is one); a doc
 Discount column is offered it.
 
 A catalogue item's unit comes onto the line with its price. A catalogue can be sorted and dated: a
-`Category` column groups the picker into sections, and `ValidFrom` / `ValidUntil` keep prices over
-time, one row per price with the day it starts, so a document is offered the price in force on its
-own date. Each of those columns is one press away on the catalogue form. A picture that is not a
-JPEG is kept as a PNG, so a cut-out product shot keeps its transparency.
+`Category` column groups the picker and the list into sections, A to Z with the uncategorised
+last, and a chooser above the list narrows it to one category; `ValidFrom` / `ValidUntil` keep
+prices over time, one row per price with the day it starts, so a document is offered the price in
+force on its own date. The list shows each product once — the SKU is the product, else the name —
+with the price in force today and "3 prices" beside it, and the product's form lists every version,
+the one in force tagged, each a press away: **New price from a date** opens the next version, this
+item again starting today, in a New form, and **Duplicate** opens a copy with no dates. Each of
+those columns is one press away on the catalogue form. A picture that is not a JPEG is kept as a
+PNG, so a cut-out product shot keeps its transparency.
 
 ## Grist's Invoicing template
 

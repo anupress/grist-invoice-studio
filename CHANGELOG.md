@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.29.0 — the catalogue as products
+
+The same German business, a third round: the list, the categories, the prices over time, and the
+German words that did not fit.
+
+- **The catalogue lists products, not rows.** A product priced over time was listed once per price.
+  It is one entry now — the SKU is the product, else the name — with the price in force today and
+  "3 prices" beside it, A to Z. Clients are A to Z too.
+- **Sections and a chooser.** With categories, the list is read by section: a heading per category,
+  A to Z, the uncategorised last under Other, and a chooser above the list narrows it to one
+  category. The composer's picker sorts the same way, so the two read alike.
+- **A product's prices on its form.** Where the catalogue keeps start days, the form lists every
+  version — from, until, always — the one being edited marked and the one in force today tagged,
+  each a press away. **New price from a date** opens the next version, this item again starting
+  today, in a New form; **Duplicate** opens a copy with no dates. The rows stay rows: nothing changes
+  in how prices are kept, and nothing is written to the older versions.
+- **German words fit.** Aktualisieren, Bearbeiten and Neu ran past the sidebar's edge. The column is
+  wider in German, Edit's reservation covers both its German words, and in any language the head's
+  three buttons move as one group to a second line rather than past the edge. In the composer the
+  interest button (now "Verzugszinsen hinzufügen") and the form's "Add … column" buttons wrap inside
+  their cells instead of overflowing, which they did in German only.
+
 ## 1.28.5 — two sentences in the README said more than the widget does
 
 Found while checking a video's narration against the code, which had taken both from the README.

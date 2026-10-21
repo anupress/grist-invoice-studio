@@ -15,6 +15,7 @@ import { field, textInput, numberInput, selectInput, suggestInput, button, secti
 import { formFields, extraFields, recordName, LANGUAGE_OPTIONS } from '../model/records.js';
 import { imageSrc } from '../doc/render.js';
 import { addressLines } from '../doc/address.js';
+import { versionSpan } from '../model/catalogue.js';
 
 /**
  * Build the form.
@@ -37,6 +38,8 @@ export function renderRecordForm(ctx) {
     kind, roles = {}, columns = [], values, rowId = null,
     onSave, onRemove, onCancel, onAddColumn, resolveImage, money, suggestions = {},
     compact = false, canWrite = true,
+    // A product's prices over time ({ versions, rowId, onOpen, onNewPrice }), and a copy of it.
+    priceHistory = null, onDuplicate = null,
   } = ctx;
   const known = formFields(kind, roles, columns);
   const extras = compact ? [] : extraFields(kind, roles, columns);
@@ -183,10 +186,39 @@ export function renderRecordForm(ctx) {
       el('div', { class: 'rec-side' }, [
         el('h3', { class: 'cmp-section__title', text: kind === 'client' ? 'On the document' : 'In the catalogue' }),
         preview,
+        priceHistory ? priceList(priceHistory, money) : null,
+        !compact && (priceHistory || onDuplicate) ? el('div', { class: 'rec-more' }, [
+          priceHistory ? button('New price from a date', priceHistory.onNewPrice, { variant: 'ghost', icon: '+', disabled: !canWrite }) : null,
+          onDuplicate ? button('Duplicate', onDuplicate, { variant: 'ghost', disabled: !canWrite }) : null,
+        ]) : null,
         compact ? el('div', { class: 'rec-actions' }, [button('Cancel', onCancel), saveBtn]) : null,
       ]),
     ]),
     status,
+  ]);
+}
+
+/**
+ * A product's prices over time: every version, earliest start first, each a press away, the one
+ * being edited marked and the one in force today tagged. The archive a German user asked for,
+ * kept as the rows it always was.
+ */
+function priceList({ versions, rowId, onOpen }, money) {
+  return el('div', { class: 'rec-prices' }, [
+    el('h3', { class: 'cmp-section__title', text: 'Prices' }),
+    ...versions.map((v) => {
+      const editing = v.id === rowId;
+      const b = el('button', {
+        class: 'rec-prices__row' + (editing ? ' is-editing' : '') + (v.current ? ' is-current' : ''), type: 'button',
+        'aria-current': editing ? 'true' : null,
+      }, [
+        el('span', { class: 'rec-prices__when', text: versionSpan(v) }),
+        el('span', { class: 'rec-prices__price', text: v.price == null ? '—' : formatMoney(v.price, money || {}) }),
+        v.current ? el('span', { class: 'rec-prices__tag', text: 'current' }) : null,
+      ]);
+      b.addEventListener('click', () => { if (!editing) onOpen(v.id); });
+      return b;
+    }),
   ]);
 }
 

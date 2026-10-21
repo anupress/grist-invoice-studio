@@ -14,6 +14,7 @@ import { formatMoney } from '../money/currency.js';
 import { textInput, numberInput, suggestInput, button } from './ui.js';
 import { asOptions, UNITS } from '../model/suggest.js';
 import { lineNet, parseLineDiscount } from '../model/draft.js';
+import { alpha } from '../model/catalogue.js';
 
 /**
  * Build the grid.
@@ -272,20 +273,22 @@ function move(list, from, delta) {
  * resets to its placeholder after each choice so it reads as an action rather than a state.
  */
 function productPicker(products, onPick) {
-  // Grouped by category when the catalogue has categories: a real <optgroup> per section, in the
-  // order the sections first appear, with anything uncategorised at the end.
+  // Grouped by category when the catalogue has categories: a real <optgroup> per section, the
+  // sections A to Z with anything uncategorised at the end, and the products A to Z within each —
+  // the order the sidebar's list has, so the two read the same (1.29.0).
   const option = (p, i) => el('option', { value: String(i), text: p.label, dataset: { nt: '' } });
+  const sorted = products.map((p, i) => [p, i]).sort(([a], [b]) => alpha(a.name, b.name) || alpha(a.sku, b.sku));
   const groups = [];
   const byName = new Map();
-  products.forEach((p, i) => {
+  for (const [p, i] of sorted) {
     const name = p.category || '';
     if (!byName.has(name)) { byName.set(name, []); groups.push(name); }
     byName.get(name).push(option(p, i));
-  });
+  }
   const grouped = groups.length > 1 || (groups.length === 1 && groups[0] !== '');
   const body = grouped
-    ? [...groups.filter((g) => g), ...groups.filter((g) => !g)].map((g) => el('optgroup', { label: g || 'Other', dataset: g ? { nt: '' } : null }, byName.get(g)))
-    : products.map(option);
+    ? [...groups.filter((g) => g).sort(alpha), ...groups.filter((g) => !g)].map((g) => el('optgroup', { label: g || 'Other', dataset: g ? { nt: '' } : null }, byName.get(g)))
+    : sorted.map(([p, i]) => option(p, i));
   const sel = el('select', { class: 'cmp-input cmp-input--picker', 'aria-label': 'Choose from your products' }, [
     el('option', { value: '', text: 'From catalogue…' }),
     ...body,

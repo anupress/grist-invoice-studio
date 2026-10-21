@@ -270,7 +270,7 @@ export const DE = {
   'Already paid': 'Bereits bezahlt',
   'Amount already paid': 'Bereits bezahlter Betrag',
   'Late payment': 'Zahlungsverzug',
-  'Add interest for the days overdue': 'Verzugszinsen für die überfälligen Tage hinzufügen',
+  'Add interest for the days overdue': 'Verzugszinsen hinzufügen',
   'On the balance, at the rate in Settings → Getting paid, for the days since the due date. It becomes a line you can edit or remove.': 'Auf den offenen Betrag, zum Satz unter Einstellungen → Zahlung, für die Tage seit Fälligkeit. Es wird eine Position, die Sie bearbeiten oder entfernen können.',
   'Currency': 'Währung',
   'Empty follows your business currency. Type one only when this document is billed in another.': 'Leer folgt der Währung Ihres Unternehmens. Nur eintragen, wenn dieses Dokument in einer anderen abgerechnet wird.',
@@ -580,6 +580,11 @@ export const DE = {
   'Thank you for your custom.': 'Vielen Dank für Ihren Auftrag.',
   'hour, day, m², pack': 'Stunde, Tag, m², Packung',
   'Site survey and measurement': 'Aufmaß vor Ort',
+  'Any category': 'Jede Kategorie',
+  'Prices': 'Preise',
+  'New price from a date': 'Neuer Preis ab einem Datum',
+  'current': 'aktuell',
+  'always': 'immer',
   'Interface language': 'Sprache der Oberfläche',
   'The language of these menus and buttons, in this browser only. The documents follow the Language below.': 'Die Sprache dieser Menüs und Schaltflächen, nur in diesem Browser. Die Dokumente folgen der Sprache darunter.',
   'Classic': 'Klassisch',
@@ -770,6 +775,10 @@ export const DE = {
  */
 export const DE_PATTERNS = [
   [/^(\d+) of (\d+)$/, (a, b) => `${a} von ${b}`],
+  // The catalogue's prices over time: beside a product in the list, and in its price history.
+  [/^(\d+) prices$/, (n) => `${n} Preise`],
+  [/^from (\d{4}-\d{2}-\d{2})$/, (d) => `ab ${d}`],
+  [/^until (\d{4}-\d{2}-\d{2})$/, (d) => `bis ${d}`],
   // A form field with nowhere to go: why, then what can be done (record-form.js).
   [/^(This column is a formula, so it cannot be written\.|No column in this table holds it\.) (One press adds it — nothing else in the table changes\.|Data → columns can point this at one\.)$/, (why, fix) => `${DE[why]} ${DE[fix]}`],
   // The save, described before it happens (write.js, describePlan).
